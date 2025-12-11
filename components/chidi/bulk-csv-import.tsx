@@ -7,18 +7,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Upload, CheckCircle, AlertCircle } from "lucide-react"
-import { parseCSV } from "@/lib/chidi-core"
+import { productsAPI } from "@/lib/api"
 
 interface BulkCSVImportProps {
   isOpen: boolean
   onClose: () => void
-  onImport: (products: any[]) => void
+  onImport: (result: { imported: number; failed: number; products: any[] }) => void
+  onError?: (error: string) => void
 }
 
-export function BulkCSVImport({ isOpen, onClose, onImport }: BulkCSVImportProps) {
+export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImportProps) {
   const [csvContent, setCsvContent] = useState("")
   const [preview, setPreview] = useState<any[]>([])
   const [error, setError] = useState("")
+  const [isImporting, setIsImporting] = useState(false)
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -31,8 +33,18 @@ export function BulkCSVImport({ isOpen, onClose, onImport }: BulkCSVImportProps)
       setError("")
 
       try {
-        const parsed = parseCSV(content)
-        setPreview(parsed.slice(0, 5))
+        // Simple CSV parsing for preview (real parsing happens on server)
+        const lines = content.trim().split('\n')
+        const headers = lines[0].split(',')
+        const rows = lines.slice(1, 6).map(line => {
+          const values = line.split(',')
+          const obj: any = {}
+          headers.forEach((header, index) => {
+            obj[header.trim()] = values[index]?.trim() || ''
+          })
+          return obj
+        })
+        setPreview(rows)
       } catch (err) {
         setError("Failed to parse CSV. Make sure headers are: name, price, stock, category, description")
       }
@@ -40,27 +52,37 @@ export function BulkCSVImport({ isOpen, onClose, onImport }: BulkCSVImportProps)
     reader.readAsText(file)
   }
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!csvContent) {
       setError("Please upload a CSV file")
       return
     }
 
-    try {
-      const products = parseCSV(csvContent).map((p: any) => ({
-        id: Date.now() + Math.random(),
-        ...p,
-        status: (p.stock || 0) > 10 ? "good" : (p.stock || 0) > 0 ? "low" : "out",
-        price: `₦${p.price || 0}`,
-      }))
+    setIsImporting(true)
+    setError("")
 
-      onImport(products)
+    try {
+      // Use API to handle bulk import
+      const result = await productsAPI.bulkImport(csvContent)
+      
+      onImport({
+        imported: result.imported,
+        failed: result.failed,
+        products: [] // Products will be reloaded from main app after import
+      })
+      
       setCsvContent("")
       setPreview([])
       setError("")
       onClose()
     } catch (err) {
-      setError("Failed to import products. Please check your CSV format.")
+      const errorMessage = err instanceof Error ? err.message : "Failed to import products. Please check your CSV format."
+      setError(errorMessage)
+      if (onError) {
+        onError(errorMessage)
+      }
+    } finally {
+      setIsImporting(false)
     }
   }
 
@@ -129,15 +151,8 @@ export function BulkCSVImport({ isOpen, onClose, onImport }: BulkCSVImportProps)
             <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
               Cancel
             </Button>
-            <Button onClick={handleImport} disabled={!csvContent} className="flex-1">
-              {preview.length > 0 ? (
-                <>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Import {preview.length} Products
-                </>
-              ) : (
-                "Upload CSV"
-              )}
+            <Button onClick={handleImport} disabled={!csvContent || isImporting} className="flex-1">
+              {isImporting ? 'Importing...' : `Import ${preview.length > 0 ? `${preview.length}+` : ''} Products`}
             </Button>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Search, Plus, Menu } from "lucide-react"
-import type { User } from "@/lib/auth"
+import type { User } from "@/lib/api/auth"
 
 interface DesktopHeaderProps {
   user: User | null
@@ -34,22 +34,12 @@ export function DesktopHeader({
         return "AI Assistant"
       case "catalog":
         return "Product Catalog"
-      case "orders":
-        return "Orders"
-      case "customers":
-        return "Customers"
       case "conversations":
         return "Conversations"
-      case "analytics":
-        return "Analytics"
       case "team":
         return "Team Management"
       case "settings":
         return "Settings"
-      case "sales":
-        return "Sales Overview"
-      case "revenue":
-        return "Revenue Dashboard"
       default:
         return "CHIDI"
     }
@@ -59,8 +49,6 @@ export function DesktopHeader({
     switch (activeTab) {
       case "catalog":
         return "Add Product"
-      case "orders":
-        return "Create Order"
       default:
         return null
     }

@@ -1,171 +1,190 @@
 "use client"
 
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import { Home, Package, ShoppingBag, Settings, Zap, Bell, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
-import type { User } from "@/lib/auth"
+import { Badge } from "@/components/ui/badge"
+import { 
+  MessageSquare, 
+  Package, 
+  TrendingUp, 
+  Plus,
+  Settings,
+  MoreHorizontal,
+  Zap
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import type { User } from "@/lib/api"
 
-interface DesktopSidebarProps {
-  activeTab: string
-  onTabChange: (tab: string) => void
+interface ChatSidebarProps {
+  activeSection: 'chat' | 'inventory'
+  onSectionChange: (section: 'chat' | 'inventory') => void
+  onNewChat: () => void
+  onSettingsClick: () => void
   user: User | null
-  onProfileClick: () => void
-  onNotificationClick: () => void
-  onSignOut: () => void
-  notificationCount: number
-  collapsed?: boolean
-  onToggleCollapse?: () => void
+  chatHistory: Array<{
+    id: string
+    title: string
+    lastMessage: string
+    timestamp: string
+  }>
+  onChatSelect: (chatId: string) => void
+  activeChatId?: string
 }
 
-export function DesktopSidebar({
-  activeTab,
-  onTabChange,
+export function DesktopSidebar({ 
+  activeSection = 'chat', 
+  onSectionChange = () => {},
+  onNewChat = () => {},
+  onSettingsClick = () => {},
   user,
-  onProfileClick,
-  onNotificationClick,
-  onSignOut,
-  notificationCount,
-  collapsed = false,
-  onToggleCollapse,
-}: DesktopSidebarProps) {
-  const navItems = [
-    { id: "home", label: "Chat", icon: Home, description: "AI Assistant" },
-    { id: "catalog", label: "Catalog", icon: Package, description: "Products" },
-    { id: "orders", label: "Orders", icon: ShoppingBag, description: "View all" },
-    { id: "settings", label: "Settings", icon: Settings, description: "Configure" },
+  chatHistory = [],
+  onChatSelect = () => {},
+  activeChatId
+}: ChatSidebarProps) {
+  const [hoveredChat, setHoveredChat] = useState<string | null>(null)
+
+  // Mock chat history if none provided
+  const mockChats = chatHistory.length > 0 ? chatHistory : [
+    {
+      id: "chat_1",
+      title: "Check Stock Status",
+      lastMessage: "How many units of wireless headphones do we have?",
+      timestamp: "2 hours ago"
+    },
+    {
+      id: "chat_2", 
+      title: "Healthy Weight for 5B Man...",
+      lastMessage: "What's the recommended weight for a 5'8\" male customer?",
+      timestamp: "Yesterday"
+    },
+    {
+      id: "chat_3",
+      title: "Memory and Dreams: Unra...",
+      lastMessage: "Tell me about sleep and memory consolidation",
+      timestamp: "2 days ago"
+    }
   ]
 
   return (
-    <aside
-      className={`flex flex-col border-r border-border bg-card h-full transition-all duration-300 ${
-        collapsed ? "w-20" : "w-64"
-      } fixed lg:relative z-40 lg:z-0`}
-    >
-      <div
-        className={`p-4 sm:p-6 flex items-center gap-3 border-b border-border ${collapsed ? "justify-center p-3" : ""}`}
-      >
-        {!collapsed && (
-          <>
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shrink-0">
-              <Zap className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold tracking-tight truncate">CHIDI</h1>
-              <p className="text-xs text-muted-foreground truncate">AI Business Assistant</p>
-            </div>
-          </>
-        )}
-        {collapsed && (
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <Zap className="w-6 h-6 text-primary-foreground" />
+    <div className="flex h-full w-64 flex-col bg-gray-900 text-white">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center space-x-2">
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+            <Zap className="w-5 h-5 text-white" />
           </div>
-        )}
-      </div>
-
-      {/* Toggle Button */}
-      {onToggleCollapse && (
-        <div className="px-2 py-2 border-b border-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-center h-8"
-            onClick={onToggleCollapse}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </Button>
+          <span className="font-semibold">CHIDI</span>
         </div>
-      )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-gray-400 hover:text-white hover:bg-gray-700"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </Button>
+      </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const Icon = item.icon
-          const isActive = activeTab === item.id
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-3 space-y-1">
+          {/* New Chat Button */}
+          <Button
+            onClick={onNewChat}
+            className="w-full justify-start bg-transparent hover:bg-gray-700 text-white border border-gray-600"
+          >
+            <Plus className="w-4 h-4 mr-3" />
+            New Chat
+          </Button>
 
-          return (
+          {/* Main Navigation */}
+          <div className="space-y-1 mt-4">
             <Button
-              key={item.id}
-              variant={isActive ? "secondary" : "ghost"}
-              className={`w-full h-12 ${
-                collapsed ? "justify-center px-0" : "justify-start gap-3 px-3"
-              } ${isActive ? "bg-primary/10 text-primary font-medium" : ""}`}
-              onClick={() => onTabChange(item.id)}
-              title={collapsed ? item.label : undefined}
-            >
-              <Icon className="w-5 h-5 shrink-0" />
-              {!collapsed && (
-                <div className="flex-1 text-left min-w-0">
-                  <div className="text-sm font-medium truncate">{item.label}</div>
-                  <div className="text-xs text-muted-foreground truncate">{item.description}</div>
-                </div>
+              variant="ghost"
+              className={cn(
+                "w-full justify-start text-gray-300 hover:bg-gray-700 hover:text-white",
+                activeSection === 'inventory' && "bg-gray-700 text-white"
               )}
-            </Button>
-          )
-        })}
-      </nav>
-
-      <Separator />
-
-      {/* Footer - User Profile */}
-      <div className="p-2 space-y-1 border-t border-border">
-        <Button
-          variant="ghost"
-          className={`w-full h-12 relative ${collapsed ? "justify-center px-0" : "justify-start gap-3 px-3"}`}
-          onClick={onNotificationClick}
-          title={collapsed ? "Notifications" : undefined}
-        >
-          <Bell className="w-5 h-5 shrink-0" />
-          {!collapsed && <span className="flex-1 text-left text-sm">Notifications</span>}
-          {notificationCount > 0 && (
-            <div
-              className={`${
-                collapsed ? "absolute -top-1 -right-1" : ""
-              } w-5 h-5 bg-red-500 rounded-full flex items-center justify-center`}
+              onClick={() => onSectionChange('inventory')}
             >
-              <span className="text-xs text-white font-semibold">
-                {notificationCount > 9 ? "9+" : notificationCount}
-              </span>
-            </div>
-          )}
-        </Button>
+              <Package className="w-4 h-4 mr-3" />
+              Inventory
+            </Button>
+            
+          </div>
+        </div>
 
+        {/* Separator */}
+        <div className="mx-3 my-4 border-t border-gray-700" />
+
+        {/* Chat History */}
+        <div className="px-3">
+          <div className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
+            Chats
+          </div>
+          
+          <div className="space-y-1">
+            {mockChats.map((chat) => (
+              <button
+                key={chat.id}
+                onClick={() => onChatSelect(chat.id)}
+                onMouseEnter={() => setHoveredChat(chat.id)}
+                onMouseLeave={() => setHoveredChat(null)}
+                className={cn(
+                  "w-full text-left p-2 rounded-lg text-sm transition-colors",
+                  "hover:bg-gray-700",
+                  activeChatId === chat.id ? "bg-gray-700" : "text-gray-300"
+                )}
+              >
+                <div className="flex items-start space-x-2">
+                  <MessageSquare className="w-4 h-4 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">
+                      {chat.title}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate mt-1">
+                      {chat.lastMessage}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {chat.timestamp}
+                    </div>
+                  </div>
+                  {hoveredChat === chat.id && (
+                    <MoreHorizontal className="w-4 h-4 text-gray-500" />
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom User Section */}
+      <div className="border-t border-gray-700 p-3">
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
+            <span className="text-sm font-medium text-white">
+              {user?.name?.charAt(0) || 'U'}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium truncate">
+              {user?.name || 'User'}
+            </div>
+            <div className="text-xs text-gray-400">
+              Free Plan
+            </div>
+          </div>
+        </div>
+        
         <Button
           variant="ghost"
-          className={`w-full h-12 ${collapsed ? "justify-center px-0" : "justify-start gap-3 px-2"}`}
-          onClick={onProfileClick}
-          title={collapsed ? user?.name || "Profile" : undefined}
+          onClick={onSettingsClick}
+          className="w-full justify-start text-gray-300 hover:bg-gray-700 hover:text-white"
         >
-          <Avatar className="w-8 h-8 shrink-0">
-            <AvatarFallback className="text-sm bg-primary/10">
-              {user?.name
-                ?.split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase() || "U"}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 text-left overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.name || "User"}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.businessName || "Business"}</p>
-            </div>
-          )}
-        </Button>
-
-        <Button
-          variant="ghost"
-          className={`w-full h-12 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ${
-            collapsed ? "justify-center px-0" : "justify-start gap-3 px-3"
-          }`}
-          onClick={onSignOut}
-          title={collapsed ? "Sign Out" : undefined}
-        >
-          <LogOut className="w-5 h-5 shrink-0" />
-          {!collapsed && <span className="text-sm">Sign Out</span>}
+          <Settings className="w-4 h-4 mr-3" />
+          Settings
         </Button>
       </div>
-    </aside>
+    </div>
   )
 }

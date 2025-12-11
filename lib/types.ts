@@ -19,43 +19,6 @@ export interface ProductVariant {
   stock: { [key: string]: number }
 }
 
-export interface Order {
-  id: string
-  customerId: string
-  items: OrderItem[]
-  totalAmount: number
-  status: "pending" | "confirmed" | "shipped" | "delivered" | "cancelled"
-  paymentStatus: "unpaid" | "paid" | "failed"
-  paymentLink?: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-export interface OrderItem {
-  productId: number
-  productName: string
-  quantity: number
-  price: number
-  variantSelections?: { [key: string]: string }
-}
-
-export interface Customer {
-  id: string
-  name: string
-  phone: string
-  email?: string
-  avatar?: string
-  preferences?: string[]
-  metadata?: {
-    preferredSize?: string
-    preferredColor?: string
-    firstMessageDate?: Date
-    messageCount?: number
-    totalSpent?: number
-    lastOrderDate?: Date
-  }
-  tags?: string[]
-}
 
 export interface BusinessConfig {
   id: string

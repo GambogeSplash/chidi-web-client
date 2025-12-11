@@ -6,20 +6,18 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Zap, Mail, Lock, User, Loader2 } from "lucide-react"
-import { signIn, signUp, signInWithMagicLink, type User as UserType } from "@/lib/auth"
+import { Zap, Mail, Lock, User, Loader2, Eye, EyeOff } from "lucide-react"
+import { authAPI, type User as UserType } from "@/lib/api"
 
 interface AuthScreenProps {
-  onAuthSuccess: (user: UserType) => void
+  onAuthSuccess: (user: UserType, isNewUser?: boolean) => void
 }
 
 export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
-  // const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin")
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signup")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [magicLinkSent, setMagicLinkSent] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   // Sign In state
   const [signInEmail, setSignInEmail] = useState("")
@@ -30,25 +28,22 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [signUpEmail, setSignUpEmail] = useState("")
   const [signUpPassword, setSignUpPassword] = useState("")
 
-  // Magic Link state
-  const [magicLinkEmail, setMagicLinkEmail] = useState("")
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setIsLoading(true)
 
-    const { user, error } = await signIn(signInEmail, signInPassword)
-
-    setIsLoading(false)
-
-    if (error) {
-      setError(error)
-      return
-    }
-
-    if (user) {
-      onAuthSuccess(user)
+    try {
+      const response = await authAPI.login({
+        email: signInEmail,
+        password: signInPassword
+      })
+      
+      setIsLoading(false)
+      onAuthSuccess(response.user, false) // Login - existing user
+    } catch (error: any) {
+      setIsLoading(false)
+      setError(error.message || 'Login failed')
     }
   }
 
@@ -57,246 +52,211 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError("")
     setIsLoading(true)
 
-    const { user, error } = await signUp(signUpEmail, signUpPassword, signUpName)
-
-    setIsLoading(false)
-
-    if (error) {
-      setError(error)
-      return
-    }
-
-    if (user) {
-      onAuthSuccess(user)
-    }
-  }
-
-  const handleMagicLink = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
-
-    const { success, error } = await signInWithMagicLink(magicLinkEmail)
-
-    setIsLoading(false)
-
-    if (error) {
-      setError(error)
-      return
-    }
-
-    if (success) {
-      setMagicLinkSent(true)
+    try {
+      const response = await authAPI.signup({
+        email: signUpEmail,
+        password: signUpPassword,
+        name: signUpName
+      })
+      
+      setIsLoading(false)
+      onAuthSuccess(response.user, true) // Signup - new user
+    } catch (error: any) {
+      setIsLoading(false)
+      setError(error.message || 'Signup failed')
     }
   }
+
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-4">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto">
-            <Zap className="w-8 h-8 text-primary-foreground" />
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo and Header */}
+        <div className="text-center mb-8 animate-in fade-in duration-500">
+          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Zap className="w-8 h-8 text-white" />
           </div>
-          <div>
-            <CardTitle className="text-2xl">Welcome to CHIDI</CardTitle>
-            <CardDescription>Your AI business assistant for WhatsApp & Instagram</CardDescription>
-          </div>
-        </CardHeader>
+          <h1 className="text-2xl font-semibold text-white mb-2">Welcome to CHIDI</h1>
+          <p className="text-gray-400 text-sm">Your AI business assistant for WhatsApp & Instagram</p>
+        </div>
 
-        <CardContent>
-          <Tabs defaultValue="signup" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
+        {/* Tab Switcher */}
+        <div className="flex bg-gray-800 rounded-lg p-1 mb-8 animate-in slide-in-from-bottom-4 duration-500 delay-100">
+          <button
+            onClick={() => setActiveTab('signin')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+              activeTab === 'signin'
+                ? 'bg-gray-700 text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            onClick={() => setActiveTab('signup')}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+              activeTab === 'signup'
+                ? 'bg-gray-700 text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Sign Up
+          </button>
+        </div>
 
-            <TabsContent value="signin" className="space-y-4">
-              {magicLinkSent ? (
-                <div className="text-center space-y-4 py-8">
-                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
-                    <Mail className="w-8 h-8 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg mb-2">Check your email</h3>
-                    <p className="text-sm text-muted-foreground">
-                      We've sent a magic link to <strong>{magicLinkEmail}</strong>
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">Click the link to sign in instantly</p>
-                  </div>
-                  <Button variant="outline" onClick={() => setMagicLinkSent(false)} className="w-full">
-                    Back to Sign In
-                  </Button>
+        {/* Auth Form */}
+        <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
+          {activeTab === 'signup' ? (
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signup-name" className="text-gray-300 text-sm font-medium">
+                  Full Name
+                </Label>
+                <Input
+                  id="signup-name"
+                  type="text"
+                  placeholder="Jane Adebayo"
+                  value={signUpName}
+                  onChange={(e) => setSignUpName(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-email" className="text-gray-300 text-sm font-medium">
+                  Email
+                </Label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={signUpEmail}
+                  onChange={(e) => setSignUpEmail(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-password" className="text-gray-300 text-sm font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="signup-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={signUpPassword}
+                    onChange={(e) => setSignUpPassword(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <form onSubmit={handleSignIn} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={signInEmail}
-                          onChange={(e) => setSignInEmail(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
+                <p className="text-xs text-gray-500">Must be at least 6 characters</p>
+              </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-password">Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="signin-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={signInPassword}
-                          onChange={(e) => setSignInPassword(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    {error && (
-                      <div className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{error}</div>
-                    )}
-
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Signing in...
-                        </>
-                      ) : (
-                        "Sign In"
-                      )}
-                    </Button>
-                  </form>
-
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">Or</span>
-                    </div>
-                  </div>
-
-                  <form onSubmit={handleMagicLink} className="space-y-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="magic-link-email">Email for Magic Link</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                        <Input
-                          id="magic-link-email"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={magicLinkEmail}
-                          onChange={(e) => setMagicLinkEmail(e.target.value)}
-                          className="pl-10"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <Button type="submit" variant="outline" className="w-full bg-transparent" disabled={isLoading}>
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Sign in with Magic Link
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </>
+              {error && (
+                <div className="text-sm text-red-400 bg-red-900/20 px-3 py-2 rounded-md border border-red-800">
+                  {error}
+                </div>
               )}
-            </TabsContent>
 
-            <TabsContent value="signup" className="space-y-4">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="signup-name"
-                      type="text"
-                      placeholder="Jane Adebayo"
-                      value={signUpName}
-                      onChange={(e) => setSignUpName(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={signUpEmail}
-                      onChange={(e) => setSignUpEmail(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={signUpPassword}
-                      onChange={(e) => setSignUpPassword(e.target.value)}
-                      className="pl-10"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
-                </div>
-
-                {error && (
-                  <div className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">{error}</div>
+              <Button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
                 )}
+              </Button>
 
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Creating account...
-                    </>
-                  ) : (
-                    "Create Account"
-                  )}
-                </Button>
-              </form>
-
-              <p className="text-xs text-center text-muted-foreground">
-                By signing up, you agree to our Terms of Service and Privacy Policy
+              <p className="text-xs text-center text-gray-500 mt-4">
+                By signing up, you agree to our{' '}
+                <span className="text-indigo-400 hover:underline cursor-pointer">Terms of Service</span>
+                {' '}and{' '}
+                <span className="text-indigo-400 hover:underline cursor-pointer">Privacy Policy</span>
               </p>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+            </form>
+          ) : (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email" className="text-gray-300 text-sm font-medium">
+                  Email
+                </Label>
+                <Input
+                  id="signin-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signin-password" className="text-gray-300 text-sm font-medium">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="signin-password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={signInPassword}
+                    onChange={(e) => setSignInPassword(e.target.value)}
+                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="text-sm text-red-400 bg-red-900/20 px-3 py-2 rounded-md border border-red-800">
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
+              </Button>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

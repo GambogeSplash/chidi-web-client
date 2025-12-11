@@ -1,11 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Heart, Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 interface CatalogTabProps {
   products: any[]
@@ -42,28 +42,42 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
   }
 
   return (
-    <div className="flex flex-col bg-card rounded-lg border border-border overflow-hidden">
-      <div className="p-4 sm:p-6 border-b border-border bg-card/50">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+    <div className="flex flex-col h-full bg-gray-950">
+      {/* Clean Header */}
+      <div className="flex items-center justify-between p-6 border-b border-gray-800">
+        <div>
+          <h1 className="text-2xl font-semibold text-white mb-1">Inventory</h1>
+          <p className="text-sm text-gray-400">Get intelligent, personalized answers by connecting your knowledge</p>
+        </div>
+        <Button 
+          onClick={onAddProduct}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Product
+        </Button>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="p-6 border-b border-gray-800">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowFilters(!showFilters)} className="flex-1 sm:flex-none">
-              <Filter className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Filter</span>
-            </Button>
-            <Button onClick={onAddProduct} className="flex-1 sm:flex-none">
-              <Plus className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Add Product</span>
-            </Button>
-          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)}
+            className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filter
+          </Button>
         </div>
 
         {showFilters && (
@@ -74,26 +88,22 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
                 variant={selectedCategory === category ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSelectedCategory(category)}
-                className="capitalize"
+                className={`capitalize ${
+                  selectedCategory === category 
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
+                    : "border-gray-700 text-gray-300 hover:bg-gray-800"
+                }`}
               >
                 {category}
               </Button>
             ))}
           </div>
         )}
-
-        {selectedProducts.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mt-4 p-3 bg-primary/10 rounded-lg border border-primary/20">
-            <span className="text-sm font-medium">{selectedProducts.length} selected</span>
-            <Button size="sm" variant="outline" onClick={onBulkExport} className="w-full sm:w-auto bg-transparent">
-              Export Selected
-            </Button>
-          </div>
-        )}
       </div>
 
-      <div className="flex-1 overflow-auto p-4 sm:p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+      {/* Product Grid */}
+      <div className="flex-1 overflow-auto p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product) => {
             const stockStatus = getStockStatus(product.stock)
             const StockIcon = stockStatus.icon
@@ -101,62 +111,108 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
             return (
               <div
                 key={product.id}
-                className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-all duration-200 group"
               >
-                <div className="relative">
-                  <div className="absolute top-2 left-2 z-10">
-                    <Checkbox
-                      checked={selectedProducts.includes(product.id)}
-                      onCheckedChange={() => toggleProductSelection(product.id)}
-                      className="bg-white/80 backdrop-blur-sm"
-                    />
-                  </div>
-                  <div className="absolute top-2 right-2 z-10">
+                {/* Product Image */}
+                <div className="relative aspect-square bg-gray-800">
+                  {/* Top Actions */}
+                  <div className="absolute top-3 left-3 z-10">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onEditProduct(product)}
-                      className="bg-white/80 backdrop-blur-sm h-8 w-8 p-0"
+                      className="h-8 w-8 p-0 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white rounded-full"
                     >
-                      <MoreVertical className="w-4 h-4" />
+                      <Heart className="w-4 h-4" />
                     </Button>
                   </div>
+                  <div className="absolute top-3 right-3 z-10">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white rounded-full"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
+                        <DropdownMenuItem 
+                          onClick={() => onViewProduct(product)}
+                          className="text-gray-300 hover:bg-gray-700 hover:text-white"
+                        >
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => onEditProduct(product)}
+                          className="text-gray-300 hover:bg-gray-700 hover:text-white"
+                        >
+                          Edit Product
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
 
+                  {/* Stock Status Badge */}
+                  {product.stock <= 5 && (
+                    <div className="absolute bottom-3 left-3 z-10">
+                      <Badge 
+                        className={`text-xs px-2 py-1 ${
+                          product.stock === 0 
+                            ? 'bg-red-600 text-white' 
+                            : 'bg-orange-600 text-white'
+                        }`}
+                      >
+                        {product.stock === 0 ? 'Out of Stock' : 'Low Stock'}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Product Image */}
                   <div
-                    className="aspect-square bg-muted flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+                    className="w-full h-full cursor-pointer overflow-hidden"
                     onClick={() => onViewProduct(product)}
                   >
                     {product.image ? (
                       <img
                         src={product.image || "/placeholder.svg"}
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
-                      <Package className="w-12 h-12 text-muted-foreground" />
+                      <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                        <Package className="w-16 h-16 text-gray-600" />
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="p-3 sm:p-4">
+                {/* Product Info */}
+                <div className="p-4">
                   <h3
-                    className="font-medium text-sm mb-2 line-clamp-2 cursor-pointer hover:text-primary transition-colors"
+                    className="font-medium text-white mb-2 line-clamp-2 cursor-pointer hover:text-emerald-400 transition-colors"
                     onClick={() => onViewProduct(product)}
                   >
                     {product.name}
                   </h3>
-                  <p className="text-xl font-bold text-primary mb-3">{product.price}</p>
-
-                  {product.variants && product.variants.length > 0 ? (
-                    <div className="text-sm text-muted-foreground mb-2">{product.variants.length} variant(s) available</div>
-                  ) : null}
-
+                  
                   <div className="flex items-center justify-between">
-                    <Badge variant={stockStatus.color as any} className="text-xs">
-                      <StockIcon className="w-3 h-3 mr-1" />
-                      {product.stock}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground capitalize">{product.category}</span>
+                    <p className="text-lg font-semibold text-emerald-400">{product.price}</p>
+                    <div className="flex items-center gap-1 text-yellow-400">
+                      <Star className="w-4 h-4 fill-current" />
+                      <span className="text-sm text-gray-400">4.5</span>
+                    </div>
+                  </div>
+
+                  {product.variants && product.variants.length > 0 && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {product.variants.length} variant(s) available
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-800">
+                    <span className="text-xs text-gray-400 capitalize">{product.category}</span>
+                    <span className="text-xs text-gray-400">{product.stock} units</span>
                   </div>
                 </div>
               </div>
@@ -166,12 +222,16 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
 
         {filteredProducts.length === 0 && (
           <div className="text-center py-16">
-            <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No products found</h3>
-            <p className="text-sm text-muted-foreground mb-6">
+            <Package className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2 text-white">No products found</h3>
+            <p className="text-sm text-gray-400 mb-6">
               {searchQuery ? "Try adjusting your search" : "Start by adding your first product"}
             </p>
-            <Button onClick={onAddProduct} size="lg">
+            <Button 
+              onClick={onAddProduct} 
+              size="lg"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Product
             </Button>

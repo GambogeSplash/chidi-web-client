@@ -10,14 +10,17 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Camera, X } from "lucide-react"
+import { productsAPI } from "@/lib/api"
 
 interface AddProductModalProps {
   isOpen: boolean
   onClose: () => void
   onAddProduct: (product: any) => void
+  isLoading?: boolean
+  onError?: (error: string) => void
 }
 
-export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductModalProps) {
+export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onError }: AddProductModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -31,6 +34,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductMod
   const [variantsError, setVariantsError] = useState<string | null>(null)
   const [variants, setVariants] = useState<Array<{ name: string; options: string[] }>>([])
   const [showJsonPreview, setShowJsonPreview] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -46,43 +50,61 @@ export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductMod
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true)
 
-    const stockNum = Number.parseInt(formData.stock)
-    const priceFormatted = formData.price.startsWith("₦") ? formData.price : `₦${formData.price}`
+    try {
+      const stockNum = Number.parseInt(formData.stock)
+      const priceFormatted = formData.price.startsWith("₦") ? formData.price : `₦${formData.price}`
 
-    // Use structured variants if present, otherwise parse JSON text
-    let parsedVariants: any[] = []
-    if (variants.length > 0) {
-      parsedVariants = variants
-    } else if (variantsText.trim()) {
-      try {
-        const parsed = JSON.parse(variantsText)
-        if (!Array.isArray(parsed)) throw new Error("Variants must be a JSON array")
-        parsedVariants = parsed
-        setVariantsError(null)
-      } catch (err: any) {
-        setVariantsError(err?.message || "Invalid variants JSON")
-        return
+      // Use structured variants if present, otherwise parse JSON text
+      let parsedVariants: any[] = []
+      if (variants.length > 0) {
+        parsedVariants = variants
+      } else if (variantsText.trim()) {
+        try {
+          const parsed = JSON.parse(variantsText)
+          if (!Array.isArray(parsed)) throw new Error("Variants must be a JSON array")
+          parsedVariants = parsed
+          setVariantsError(null)
+        } catch (err: any) {
+          setVariantsError(err?.message || "Invalid variants JSON")
+          setIsSubmitting(false)
+          return
+        }
       }
+
+      const productData = {
+        name: formData.name,
+        price: priceFormatted,
+        stock: stockNum,
+        category: formData.category,
+        description: formData.description,
+        variants: parsedVariants.length > 0 ? parsedVariants : undefined,
+        // Image upload would be handled separately in a real API
+        imageUrl: imagePreview // Placeholder for now
+      }
+
+      // Call the API to create the product
+      const createdProduct = await productsAPI.createProduct(productData)
+      onAddProduct(createdProduct)
+
+      // Reset form
+      resetForm()
+      onClose()
+    } catch (error) {
+      console.error('Failed to create product:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create product'
+      if (onError) {
+        onError(errorMessage)
+      }
+    } finally {
+      setIsSubmitting(false)
     }
+  }
 
-    const newProduct = {
-      id: Date.now(), // Simple ID generation
-      name: formData.name,
-      price: priceFormatted,
-      stock: stockNum,
-      status: stockNum > 10 ? "good" : stockNum > 0 ? "low" : "out",
-      category: formData.category,
-      description: formData.description,
-      image: imagePreview,
-      variants,
-    }
-
-    onAddProduct(newProduct)
-
-    // Reset form
+  const resetForm = () => {
     setFormData({
       name: "",
       price: "",
@@ -96,10 +118,10 @@ export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductMod
     setVariantsError(null)
     setVariants([])
     setShowJsonPreview(false)
-    onClose()
   }
 
   const isFormValid = formData.name && formData.price && formData.stock && formData.category
+  const isDisabled = !isFormValid || isSubmitting || isLoading
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -279,8 +301,8 @@ export function AddProductModal({ isOpen, onClose, onAddProduct }: AddProductMod
             <Button type="button" variant="outline" onClick={onClose} className="flex-1 bg-transparent">
               Cancel
             </Button>
-            <Button type="submit" disabled={!isFormValid} className="flex-1">
-              Add Product
+            <Button type="submit" disabled={isDisabled} className="flex-1">
+              {isSubmitting ? 'Creating...' : 'Add Product'}
             </Button>
           </div>
         </form>
