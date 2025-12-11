@@ -109,25 +109,27 @@ export const authAPI = {
     return apiClient.get('/auth/me', undefined, MOCK_USER)
   },
 
-  async refreshToken(): Promise<{ token: string; refreshToken: string }> {
+  async refreshToken(): Promise<TokenResponse> {
     const refreshToken = this.getRefreshToken()
     if (!refreshToken) {
       throw new Error('No refresh token available')
     }
     
     const mockTokenResponse = {
-      token: 'new-mock-jwt-token-' + Date.now(),
-      refreshToken: 'new-mock-refresh-token-' + Date.now()
+      access_token: 'new-mock-jwt-token-' + Date.now(),
+      refresh_token: 'new-mock-refresh-token-' + Date.now(),
+      token_type: 'bearer',
+      expires_in: 86400
     }
     
-    const response = await apiClient.post<{ token: string; refreshToken: string }>('/auth/refresh', {
-      refreshToken
+    const response = await apiClient.post<TokenResponse>('/auth/refresh', {
+      refresh_token: refreshToken
     }, undefined, mockTokenResponse)
     
     // Update stored tokens
     if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', response.token)
-      localStorage.setItem('chidi_refresh_token', response.refreshToken)
+      localStorage.setItem('chidi_auth_token', response.access_token)
+      localStorage.setItem('chidi_refresh_token', response.refresh_token)
     }
     
     return response

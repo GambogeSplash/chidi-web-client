@@ -21,6 +21,8 @@ class APIClient {
   private baseURL: string
   private defaultHeaders: HeadersInit
   public isDevelopmentMode: boolean
+  private isRefreshing: boolean = false
+  private refreshPromise: Promise<string> | null = null
 
   constructor() {
     this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
@@ -33,6 +35,65 @@ class APIClient {
   private getAuthToken(): string | null {
     if (typeof window === 'undefined') return null
     return localStorage.getItem('chidi_auth_token')
+  }
+
+  private getRefreshToken(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem('chidi_refresh_token')
+  }
+
+  private async refreshAccessToken(): Promise<string> {
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise
+    }
+
+    this.isRefreshing = true
+    this.refreshPromise = this.performTokenRefresh()
+
+    try {
+      const newToken = await this.refreshPromise
+      return newToken
+    } finally {
+      this.isRefreshing = false
+      this.refreshPromise = null
+    }
+  }
+
+  private async performTokenRefresh(): Promise<string> {
+    const refreshToken = this.getRefreshToken()
+    
+    if (!refreshToken) {
+      throw new Error('No refresh token available')
+    }
+
+    try {
+      const response = await fetch(`${this.baseURL}/auth/refresh`, {
+        method: 'POST',
+        headers: this.defaultHeaders,
+        body: JSON.stringify({ refresh_token: refreshToken })
+      })
+
+      if (!response.ok) {
+        throw new Error('Token refresh failed')
+      }
+
+      const data = await response.json()
+      
+      // Store new tokens
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('chidi_auth_token', data.access_token)
+        localStorage.setItem('chidi_refresh_token', data.refresh_token)
+      }
+
+      return data.access_token
+    } catch (error) {
+      // Clear tokens on refresh failure
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('chidi_auth_token')
+        localStorage.removeItem('chidi_refresh_token')
+      }
+      throw error
+    }
   }
 
   private async handleResponse(response: Response) {
@@ -53,56 +114,76 @@ class APIClient {
   }
 
   async request<T>(endpoint: string, options: RequestConfig = {}): Promise<T> {
+    const { method = 'GET', headers = {}, body, token } = options
+    
     // In development mode, log the API call
     if (this.isDevelopmentMode) {
-      console.log(`🔧 [DEV] API Call: ${options.method || 'GET'} ${endpoint}`, options.body || '')
+      console.log(`🔧 [DEV] API Call: ${method} ${endpoint}`, body || '')
     }
 
     const url = `${this.baseURL}${endpoint}`
-    const config: RequestInit = {
-      method: options.method || 'GET',
-      headers: {
-        ...this.defaultHeaders,
-        ...options.headers,
-      },
+    let authToken = token || this.getAuthToken()
+    
+    const requestHeaders = {
+      ...this.defaultHeaders,
+      ...headers,
+    } as Record<string, string>
+    
+    if (authToken) {
+      requestHeaders['Authorization'] = `Bearer ${authToken}`
     }
 
-    // Add auth header if token exists
-    const token = this.getAuthToken()
-    if (token) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${token}`,
-      }
+    const requestConfig: RequestInit = {
+      method,
+      headers: requestHeaders,
     }
 
-    // Add body for POST/PUT/PATCH requests
-    if (options.body && ['POST', 'PUT', 'PATCH'].includes(options.method || 'GET')) {
-      config.body = JSON.stringify(options.body)
+    if (body && method !== 'GET') {
+      requestConfig.body = JSON.stringify(body)
     }
 
     try {
-      const response = await fetch(url, config)
+      const response = await fetch(url, requestConfig)
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: response.statusText }))
-        throw new APIError(errorData.message || 'Request failed', response.status, errorData)
-      }
-
-      return await response.json()
-    } catch (error) {
-      if (error instanceof APIError) {
-        // Handle auth errors by clearing token
-        if (error.status === 401) {
+      // Handle token expiration
+      if (response.status === 401 && authToken && !this.isRefreshing) {
+        try {
+          // Attempt to refresh token
+          const newToken = await this.refreshAccessToken()
+          
+          // Retry request with new token
+          const newHeaders = {
+            ...requestHeaders,
+            'Authorization': `Bearer ${newToken}`
+          }
+          
+          const retryResponse = await fetch(url, {
+            ...requestConfig,
+            headers: newHeaders
+          })
+          
+          return this.handleResponse(retryResponse)
+        } catch (refreshError) {
+          // If refresh fails, redirect to login
           if (typeof window !== 'undefined') {
             localStorage.removeItem('chidi_auth_token')
-            window.location.href = '/login'
+            localStorage.removeItem('chidi_refresh_token')
+            window.location.href = '/auth'
           }
+          throw refreshError
         }
-        throw error
       }
-      // Network or other errors
-      throw new APIError('Network error occurred', 0, { originalError: error })
+      
+      return this.handleResponse(response)
+    } catch (error) {
+      // Handle auth errors by clearing token
+      if (error instanceof APIError && error.status === 401) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('chidi_auth_token')
+          localStorage.removeItem('chidi_refresh_token')
+        }
+      }
+      throw error
     }
   }
 
