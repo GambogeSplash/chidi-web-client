@@ -23,7 +23,7 @@ class APIClient {
   public isDevelopmentMode: boolean
 
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api'
+    this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
     this.isDevelopmentMode = process.env.NODE_ENV === 'development' || !process.env.NEXT_PUBLIC_API_BASE_URL
     this.defaultHeaders = {
       'Content-Type': 'application/json',

@@ -14,10 +14,16 @@ const MOCK_USER = {
 }
 
 const MOCK_LOGIN_RESPONSE = {
-  token: 'mock-jwt-token-for-testing-123456',
-  refreshToken: 'mock-refresh-token-654321',
   user: MOCK_USER,
-  expiresIn: 86400 // 24 hours
+  business_id: 'mock-business-id',
+  workspace_id: 'mock-workspace-id',
+  inventory_id: 'mock-inventory-id',
+  tokens: {
+    access_token: 'mock-jwt-token-for-testing-123456',
+    refresh_token: 'mock-refresh-token-654321',
+    token_type: 'bearer',
+    expires_in: 86400
+  }
 }
 
 export interface User {
@@ -39,13 +45,21 @@ export interface SignupRequest {
   email: string
   password: string
   name: string
-  businessName?: string
 }
 
 export interface AuthResponse {
   user: User
-  token: string
-  refreshToken?: string
+  business_id: string
+  workspace_id: string
+  inventory_id: string
+  tokens: TokenResponse
+}
+
+export interface TokenResponse {
+  access_token: string
+  refresh_token: string
+  token_type: string
+  expires_in: number
 }
 
 export interface MagicLinkRequest {
@@ -54,14 +68,12 @@ export interface MagicLinkRequest {
 
 export const authAPI = {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/login', credentials, undefined, MOCK_LOGIN_RESPONSE)
+    const response = await apiClient.post<AuthResponse>('/auth/signin', credentials, undefined, MOCK_LOGIN_RESPONSE)
     
     // Store tokens
     if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', response.token)
-      if (response.refreshToken) {
-        localStorage.setItem('chidi_refresh_token', response.refreshToken)
-      }
+      localStorage.setItem('chidi_auth_token', response.tokens.access_token)
+      localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
     }
     
     return response
@@ -73,8 +85,7 @@ export const authAPI = {
       user: {
         ...MOCK_USER,
         email: userData.email,
-        name: userData.name,
-        businessName: userData.businessName || 'New Business'
+        name: userData.name
       }
     }
     
@@ -82,10 +93,8 @@ export const authAPI = {
     
     // Store tokens
     if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', response.token)
-      if (response.refreshToken) {
-        localStorage.setItem('chidi_refresh_token', response.refreshToken)
-      }
+      localStorage.setItem('chidi_auth_token', response.tokens.access_token)
+      localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
     }
     
     return response
@@ -158,6 +167,39 @@ export const authAPI = {
   getRefreshToken(): string | null {
     if (typeof window === 'undefined') return null
     return localStorage.getItem('chidi_refresh_token')
+  },
+
+  // Complete onboarding by creating business profile
+  async completeOnboarding(onboardingData: {
+    business_name: string
+    business_industry?: string
+    phone?: string
+    categories?: string[]
+    whatsapp_number?: string
+    instagram_handle?: string
+  }): Promise<AuthResponse> {
+    const mockOnboardingResponse = {
+      user: MOCK_USER,
+      business_id: 'mock-business-id',
+      workspace_id: 'mock-workspace-id',
+      inventory_id: 'mock-inventory-id',
+      tokens: {
+        access_token: 'mock-jwt-token-onboarding-' + Date.now(),
+        refresh_token: 'mock-refresh-token-onboarding-' + Date.now(),
+        token_type: 'bearer',
+        expires_in: 86400
+      }
+    }
+    
+    const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, undefined, mockOnboardingResponse)
+    
+    // Update stored tokens
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('chidi_auth_token', response.tokens.access_token)
+      localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
+    }
+    
+    return response
   },
 
   // Helper to clear all stored auth data

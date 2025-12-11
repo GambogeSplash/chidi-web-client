@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Zap, Store, MessageCircle, BarChart3, ArrowRight, Check, Smartphone, Clock } from "lucide-react"
 import type { User } from "@/lib/api"
+import { authAPI } from "@/lib/api"
 
 interface OnboardingProps {
   user: User
@@ -15,6 +16,7 @@ interface OnboardingProps {
 export function Onboarding({ user, onComplete }: OnboardingProps) {
   const [step, setStep] = useState(1)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(false)
   const [userData, setUserData] = useState({
     businessName: "",
     phone: "",
@@ -25,16 +27,43 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
 
   const totalSteps = 5
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step < totalSteps) {
       setStep(step + 1)
     } else {
-      onComplete({
-        ...user,
-        ...userData,
-        categories: selectedCategories,
-        ownerName: user.name,
-      })
+      // Complete onboarding by calling the API
+      setIsLoading(true)
+      try {
+        const response = await authAPI.completeOnboarding({
+          business_name: userData.businessName,
+          business_industry: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
+          phone: userData.phone,
+          categories: selectedCategories,
+          whatsapp_number: userData.whatsappNumber,
+          instagram_handle: userData.instagramHandle
+        })
+        
+        // Call the parent completion handler with the API response
+        onComplete({
+          ...response.user,
+          businessName: userData.businessName,
+          ownerName: user.name,
+          business_id: response.business_id,
+          workspace_id: response.workspace_id,
+          inventory_id: response.inventory_id
+        })
+      } catch (error) {
+        console.error('Onboarding completion failed:', error)
+        // Fallback to local completion if API fails
+        onComplete({
+          ...user,
+          ...userData,
+          categories: selectedCategories,
+          ownerName: user.name,
+        })
+      } finally {
+        setIsLoading(false)
+      }
     }
   }
 
