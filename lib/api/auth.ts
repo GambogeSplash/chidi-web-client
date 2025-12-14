@@ -68,36 +68,82 @@ export interface MagicLinkRequest {
 
 export const authAPI = {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/signin', credentials, undefined, MOCK_LOGIN_RESPONSE)
+    console.log(' [AUTH] Attempting login for:', credentials.email)
+    const mockResponse = MOCK_LOGIN_RESPONSE
     
-    // Store tokens
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', response.tokens.access_token)
-      localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
+    try {
+      const response = await apiClient.post<AuthResponse>('/auth/signin', credentials, undefined, undefined)
+      
+      console.log(' [AUTH] Login successful for user:', response.user.email)
+      console.log(' [AUTH] Received tokens:', {
+        access_token: response.tokens.access_token.substring(0, 20) + '...',
+        refresh_token: response.tokens.refresh_token.substring(0, 20) + '...',
+        expires_in: response.tokens.expires_in
+      })
+      
+      // Store tokens
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('chidi_auth_token', response.tokens.access_token)
+        localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
+        console.log(' [AUTH] Tokens stored in localStorage')
+      }
+      
+      return response
+    } catch (error) {
+      console.error(' [AUTH] Login failed:', error)
+      throw error
     }
-    
-    return response
   },
 
-  async signup(userData: SignupRequest): Promise<AuthResponse> {
+  async signup(userData: SignupRequest): Promise<User> {
+    console.log(' [AUTH] Attempting signup for:', userData.email)
     const mockSignupResponse = {
-      ...MOCK_LOGIN_RESPONSE,
-      user: {
-        ...MOCK_USER,
-        email: userData.email,
-        name: userData.name
+      user: { ...MOCK_USER, name: userData.name, email: userData.email },
+      business_id: 'mock-business-id',
+      workspace_id: 'mock-workspace-id',
+      inventory_id: 'mock-inventory-id',
+      tokens: {
+        access_token: 'mock-jwt-token-signup-' + Date.now(),
+        refresh_token: 'mock-refresh-token-signup-' + Date.now(),
+        token_type: 'bearer',
+        expires_in: 86400
       }
     }
     
-    const response = await apiClient.post<AuthResponse>('/auth/signup', userData, undefined, mockSignupResponse)
-    
-    // Store tokens
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', response.tokens.access_token)
-      localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
+    try {
+      const response = await apiClient.post<User>('/auth/signup', userData, undefined, undefined)
+      
+      console.log(' [AUTH] Signup API response:', response)
+      console.log(' [AUTH] Response type:', typeof response)
+      console.log(' [AUTH] Response keys:', Object.keys(response || {}))
+      
+      if (response && response.email) {
+        console.log(' [AUTH] Signup successful for user:', response.email)
+        console.log(' [AUTH] User created without business context - onboarding needed')
+      } else {
+        console.warn(' [AUTH] Warning: Response missing email property')
+        console.log(' [AUTH] Full response:', JSON.stringify(response, null, 2))
+      }
+      
+      // Auto-signin after successful signup to get tokens
+      console.log(' [AUTH] Signup successful, auto-signing in to get tokens...')
+      
+      try {
+        const signinResponse = await this.login({
+          email: userData.email,
+          password: userData.password
+        })
+        console.log(' [AUTH] Auto-signin successful, tokens stored')
+        return response // Return the original user object, not the signin response
+      } catch (signinError) {
+        console.error(' [AUTH] Auto-signin failed after signup:', signinError)
+        console.log(' [AUTH] User created but not signed in - manual signin required')
+        return response
+      }
+    } catch (error) {
+      console.error(' [AUTH] Signup failed:', error)
+      throw error
     }
-    
-    return response
   },
 
   async sendMagicLink(email: string): Promise<{ success: boolean }> {
@@ -106,7 +152,21 @@ export const authAPI = {
   },
 
   async getMe(): Promise<User> {
-    return apiClient.get('/auth/me', undefined, MOCK_USER)
+    console.log('👤 [AUTH] Fetching current user data...')
+    try {
+      const user = await apiClient.get<User>('/auth/me', undefined, undefined)
+      console.log('✅ [AUTH] User data retrieved:', {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        businessName: user.businessName || 'Not set',
+        hasCompletedOnboarding: !!user.businessName
+      })
+      return user
+    } catch (error) {
+      console.error('❌ [AUTH] Failed to get user data:', error)
+      throw error
+    }
   },
 
   async refreshToken(): Promise<TokenResponse> {

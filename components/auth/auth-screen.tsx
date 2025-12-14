@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Zap, Mail, Lock, User, Loader2, Eye, EyeOff } from "lucide-react"
+import { Zap, Loader2, Eye, EyeOff } from "lucide-react"
 import { authAPI, type User as UserType } from "@/lib/api"
 
 interface AuthScreenProps {
@@ -53,15 +53,33 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setIsLoading(true)
 
     try {
+      console.log('🔍 [DEBUG] Starting signup process...')
       const response = await authAPI.signup({
         email: signUpEmail,
         password: signUpPassword,
         name: signUpName
       })
       
+      console.log('🔍 [DEBUG] Raw API response:', response)
+      console.log('🔍 [DEBUG] Response type:', typeof response)
+      console.log('🔍 [DEBUG] Response keys:', Object.keys(response || {}))
+      console.log('🔍 [DEBUG] Response.email:', response?.email)
+      // Note: response should be User directly, not nested in response.user
+      
       setIsLoading(false)
-      onAuthSuccess(response.user, true) // Signup - new user
+      
+      console.log('🔍 [DEBUG] About to call onAuthSuccess with:', response)
+      try {
+        onAuthSuccess(response, true) // Signup - new user (response is User directly)
+        console.log('🔍 [DEBUG] onAuthSuccess completed successfully')
+      } catch (callbackError: any) {
+        console.error('🚨 [DEBUG] Error in onAuthSuccess callback:', callbackError)
+        console.error('🚨 [DEBUG] Callback error stack:', callbackError.stack)
+        setError(`Callback error: ${callbackError.message}`)
+      }
     } catch (error: any) {
+      console.error('🚨 [DEBUG] Signup API error:', error)
+      console.error('🚨 [DEBUG] Error stack:', error.stack)
       setIsLoading(false)
       setError(error.message || 'Signup failed')
     }
