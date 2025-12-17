@@ -255,7 +255,14 @@ export const authAPI = {
       }
     }
     
-    const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, undefined, mockOnboardingResponse)
+    // Include refresh token in header so backend can return it in the response
+    const refreshToken = this.getRefreshToken()
+    const customHeaders: Record<string, string> = {}
+    if (refreshToken) {
+      customHeaders['X-Refresh-Token'] = refreshToken
+    }
+    
+    const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, customHeaders, mockOnboardingResponse)
     
     // Update stored tokens
     if (typeof window !== 'undefined') {
