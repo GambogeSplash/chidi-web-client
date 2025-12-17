@@ -37,7 +37,7 @@ export default function OnboardingPage() {
 
   const handleOnboardingComplete = async (onboardingData: any) => {
     try {
-      await authAPI.completeOnboarding({
+      const response = await authAPI.completeOnboarding({
         business_name: onboardingData.businessName,
         business_industry: onboardingData.categories?.[0],
         phone: onboardingData.phone,
@@ -46,8 +46,15 @@ export default function OnboardingPage() {
         instagram_handle: onboardingData.instagramHandle
       })
 
-      // Redirect to dashboard after successful onboarding
-      router.push('/')
+      // Redirect to slug-based dashboard after successful onboarding
+      const businessSlug = response.businessSlug
+      if (businessSlug) {
+        console.log('🏢 [ONBOARDING] Redirecting to dashboard with slug:', businessSlug)
+        router.push(`/dashboard/${businessSlug}`)
+      } else {
+        console.log('⚠️ [ONBOARDING] No business slug found, redirecting to default dashboard')
+        router.push('/dashboard')
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to complete onboarding')
     }

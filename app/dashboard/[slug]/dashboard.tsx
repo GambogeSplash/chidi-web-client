@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { DesktopSidebar } from '@/components/chidi/desktop-sidebar'
 import { DesktopHeader } from '@/components/chidi/desktop-header'
 import ChatInterface from '@/components/chidi/home-tab'
@@ -30,8 +30,11 @@ interface Notification {
   priority?: 'low' | 'medium' | 'high';
 }
 
-export default function DashboardPage() {
+export default function SlugDashboardPage() {
   const router = useRouter()
+  const params = useParams()
+  const businessSlug = params.slug as string
+  
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("home")
@@ -77,6 +80,13 @@ export default function DashboardPage() {
           return
         }
 
+        // Validate that the slug matches the user's business slug
+        if (userData.businessSlug && userData.businessSlug !== businessSlug) {
+          console.log('🔄 [DASHBOARD] Slug mismatch, redirecting to correct slug:', userData.businessSlug)
+          router.push(`/dashboard/${userData.businessSlug}`)
+          return
+        }
+
         // Load dashboard data
         await loadAppData()
       } catch (error) {
@@ -88,7 +98,7 @@ export default function DashboardPage() {
     }
 
     checkAuth()
-  }, [router])
+  }, [router, businessSlug])
 
   // Load all app data from APIs
   const loadAppData = async () => {

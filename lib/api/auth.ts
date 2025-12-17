@@ -31,6 +31,7 @@ export interface User {
   email: string
   name: string
   businessName?: string
+  businessSlug?: string  // Business slug for URL routing
   phone?: string
   category?: string
   createdAt: string
@@ -52,6 +53,7 @@ export interface AuthResponse {
   business_id: string
   workspace_id: string
   inventory_id: string
+  businessSlug?: string  // Business slug for URL routing
   tokens: TokenResponse
 }
 

@@ -29,9 +29,14 @@ export default function HomePage() {
         if (!user.businessName) {
           console.log('📝 [HOME] User needs onboarding, redirecting to /onboarding')
           router.push('/onboarding')
+        } else if (user.businessSlug) {
+          // Redirect to slug-based dashboard
+          console.log('📊 [HOME] User setup complete, redirecting to dashboard:', user.businessSlug)
+          router.push(`/dashboard/${user.businessSlug}`)
         } else {
-          console.log('📊 [HOME] User setup complete, redirecting to /dashboard')
-          router.push('/dashboard')
+          // No slug available - this shouldn't happen but redirect to onboarding to fix
+          console.log('⚠️ [HOME] No business slug found, redirecting to onboarding')
+          router.push('/onboarding')
         }
       } catch (error) {
         console.error('❌ [HOME] Auth check failed:', error)
