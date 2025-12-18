@@ -6,6 +6,7 @@ import { DesktopSidebar } from '@/components/chidi/desktop-sidebar'
 import ChatInterface from '@/components/chidi/home-tab'
 import { CatalogTab } from '@/components/chidi/catalog-tab'
 import { AddProductModal } from '@/components/chidi/add-product-modal'
+import { EditProductModal } from '@/components/chidi/edit-product-modal'
 import { QuickEditModal } from '@/components/chidi/quick-edit-modal'
 import { ProductDetailModal } from '@/components/chidi/product-detail-modal'
 import { BulkCSVImport } from '@/components/chidi/bulk-csv-import'
@@ -51,6 +52,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [showIntegrations, setShowIntegrations] = useState(false)
   const [showDataExport, setShowDataExport] = useState(false)
   const [showProductDetailModal, setShowProductDetailModal] = useState(false)
+  const [showEditProductModal, setShowEditProductModal] = useState(false)
   const [showVoiceInput, setShowVoiceInput] = useState(false)
   const [teamMembers, setTeamMembers] = useState([])
   const [showBulkImport, setShowBulkImport] = useState(false)
@@ -195,7 +197,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
   const handleViewProduct = (product: DisplayProduct) => {
     setSelectedProduct(product)
-    setCurrentView("product-detail")
+    setShowProductDetailModal(true)
   }
 
   const handleEditProfile = () => {
@@ -332,9 +334,38 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
       {showProductDetailModal && selectedProduct && (
         <ProductDetailModal
+          isOpen={showProductDetailModal}
           product={selectedProduct}
           onClose={() => {
             setShowProductDetailModal(false)
+            setSelectedProduct(null)
+          }}
+          onEditProduct={(product) => {
+            setShowProductDetailModal(false)
+            setSelectedProduct(product)
+            setShowEditProductModal(true)
+          }}
+          onDeleteProduct={(productId) => {
+            setProducts((prev) => prev.filter((p) => p.id !== productId))
+            setShowProductDetailModal(false)
+            setSelectedProduct(null)
+          }}
+        />
+      )}
+
+      {showEditProductModal && selectedProduct && (
+        <EditProductModal
+          isOpen={showEditProductModal}
+          product={selectedProduct}
+          onClose={() => {
+            setShowEditProductModal(false)
+            setSelectedProduct(null)
+          }}
+          onSave={(updatedProduct) => {
+            setProducts((prev) => 
+              prev.map((p) => p.id === updatedProduct.id ? updatedProduct : p)
+            )
+            setShowEditProductModal(false)
             setSelectedProduct(null)
           }}
         />
