@@ -1,21 +1,21 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Camera, X } from "lucide-react"
+import { X, Package, Loader2 } from "lucide-react"
 import { productsAPI } from "@/lib/api"
+import type { DisplayProduct, CreateProductRequest } from "@/lib/types/product"
+import { parseCurrency } from "@/lib/utils/product-transformer"
 
 interface AddProductModalProps {
   isOpen: boolean
   onClose: () => void
-  onAddProduct: (product: any) => void
+  onAddProduct: (product: DisplayProduct) => void
   isLoading?: boolean
   onError?: (error: string) => void
 }
@@ -23,79 +23,56 @@ interface AddProductModalProps {
 export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onError }: AddProductModalProps) {
   const [formData, setFormData] = useState({
     name: "",
-    price: "",
+    sellingPrice: "",
+    costPrice: "",
     stock: "",
     category: "",
     description: "",
-    image: null as File | null,
+    brand: "",
+    imageUrl: "",
   })
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [variantsText, setVariantsText] = useState("")
-  const [variantsError, setVariantsError] = useState<string | null>(null)
-  const [variants, setVariants] = useState<Array<{ name: string; options: string[] }>>([])
-  const [showJsonPreview, setShowJsonPreview] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
-  }
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setFormData((prev) => ({ ...prev, image: file }))
-      const reader = new FileReader()
-      reader.onload = (e) => setImagePreview(e.target?.result as string)
-      reader.readAsDataURL(file)
-    }
+    setError(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
     try {
-      const stockNum = Number.parseInt(formData.stock)
-      const priceFormatted = formData.price.startsWith("₦") ? formData.price : `₦${formData.price}`
+      const stockNum = Number.parseInt(formData.stock) || 0
+      const sellingPrice = parseCurrency(formData.sellingPrice)
+      const costPrice = formData.costPrice ? parseCurrency(formData.costPrice) : sellingPrice * 0.7
 
-      // Use structured variants if present, otherwise parse JSON text
-      let parsedVariants: any[] = []
-      if (variants.length > 0) {
-        parsedVariants = variants
-      } else if (variantsText.trim()) {
-        try {
-          const parsed = JSON.parse(variantsText)
-          if (!Array.isArray(parsed)) throw new Error("Variants must be a JSON array")
-          parsedVariants = parsed
-          setVariantsError(null)
-        } catch (err: any) {
-          setVariantsError(err?.message || "Invalid variants JSON")
-          setIsSubmitting(false)
-          return
-        }
+      const imageUrls: string[] = []
+      if (formData.imageUrl) {
+        imageUrls.push(formData.imageUrl)
       }
 
-      const productData = {
+      const productData: CreateProductRequest = {
         name: formData.name,
-        price: priceFormatted,
-        stock: stockNum,
         category: formData.category,
-        description: formData.description,
-        variants: parsedVariants.length > 0 ? parsedVariants : undefined,
-        // Image upload would be handled separately in a real API
-        imageUrl: imagePreview // Placeholder for now
+        cost_price: costPrice,
+        selling_price: sellingPrice,
+        stock_quantity: stockNum,
+        description: formData.description || undefined,
+        brand: formData.brand || undefined,
+        image_urls: imageUrls.length > 0 ? imageUrls : undefined,
       }
 
-      // Call the API to create the product
       const createdProduct = await productsAPI.createProduct(productData)
       onAddProduct(createdProduct)
-
-      // Reset form
       resetForm()
       onClose()
-    } catch (error) {
-      console.error('Failed to create product:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create product'
+    } catch (err) {
+      console.error('Failed to create product:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create product'
+      setError(errorMessage)
       if (onError) {
         onError(errorMessage)
       }
@@ -107,206 +84,216 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
   const resetForm = () => {
     setFormData({
       name: "",
-      price: "",
+      sellingPrice: "",
+      costPrice: "",
       stock: "",
       category: "",
       description: "",
-      image: null,
+      brand: "",
+      imageUrl: "",
     })
-    setImagePreview(null)
-    setVariantsText("")
-    setVariantsError(null)
-    setVariants([])
-    setShowJsonPreview(false)
+    setError(null)
   }
 
-  const isFormValid = formData.name && formData.price && formData.stock && formData.category
+  const handleClose = () => {
+    resetForm()
+    onClose()
+  }
+
+  const isFormValid = formData.name && formData.sellingPrice && formData.stock && formData.category
   const isDisabled = !isFormValid || isSubmitting || isLoading
 
+  if (!isOpen) return null
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md mx-auto">
-        <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Product Image */}
-          <div className="space-y-2">
-            <Label>Product Image</Label>
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4">
-              {imagePreview ? (
-                <div className="relative">
-                  <img
-                    src={imagePreview || "/placeholder.svg"}
-                    alt="Preview"
-                    className="w-full h-32 object-cover rounded"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-1 right-1 h-6 w-6 p-0"
-                    onClick={() => {
-                      setImagePreview(null)
-                      setFormData((prev) => ({ ...prev, image: null }))
-                    }}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center cursor-pointer">
-                  <Camera className="w-8 h-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">Add product photo</span>
-                  <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                </label>
-              )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={handleClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-gray-900 border border-gray-800 rounded-xl shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-600/20 rounded-lg">
+              <Package className="w-5 h-5 text-emerald-500" />
             </div>
+            <h2 className="text-lg font-semibold text-white">Add New Product</h2>
           </div>
+          <button
+            onClick={handleClose}
+            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-          {/* Product Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Product Name *</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Blue Ankara Dress"
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              required
-            />
-          </div>
-
-          {/* Price and Stock */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="price">Price *</Label>
-              <Input
-                id="price"
-                placeholder="15,000"
-                value={formData.price}
-                onChange={(e) => handleInputChange("price", e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="stock">Stock Quantity *</Label>
-              <Input
-                id="stock"
-                type="number"
-                placeholder="10"
-                value={formData.stock}
-                onChange={(e) => handleInputChange("stock", e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Category */}
-          <div className="space-y-2">
-            <Label>Category *</Label>
-            <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fashion">Fashion & Clothing</SelectItem>
-                <SelectItem value="electronics">Electronics</SelectItem>
-                <SelectItem value="beauty">Beauty & Cosmetics</SelectItem>
-                <SelectItem value="food">Food & Beverages</SelectItem>
-                <SelectItem value="home">Home & Living</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Describe your product..."
-              value={formData.description}
-              onChange={(e) => handleInputChange("description", e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          {/* Variants Editor */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Variants</Label>
-              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" onClick={() => setShowJsonPreview((s) => !s)}>
-                  {showJsonPreview ? "Hide JSON" : "Show JSON"}
-                </Button>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <form id="add-product-form" onSubmit={handleSubmit} className="space-y-5">
+            {/* Error Message */}
+            {error && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                <p className="text-sm text-red-400">{error}</p>
               </div>
-            </div>
-
-            {variants.map((v, idx) => (
-              <div key={idx} className="p-2 border rounded-lg">
-                <div className="flex gap-2 items-center">
-                  <Input
-                    placeholder="Variant name (e.g., Size)"
-                    value={v.name}
-                    onChange={(e) => setVariants((prev) => prev.map((p, i) => (i === idx ? { ...p, name: e.target.value } : p)))}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setVariants((prev) => prev.filter((_, i) => i !== idx))}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <div className="mt-2">
-                  <Label className="text-xs">Options (comma separated)</Label>
-                  <Input
-                    placeholder="e.g., S,M,L"
-                    value={v.options.join(",")}
-                    onChange={(e) => setVariants((prev) => prev.map((p, i) => (i === idx ? { ...p, options: e.target.value.split(",").map(s => s.trim()).filter(Boolean) } : p)))}
-                  />
-                </div>
-              </div>
-            ))}
-
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => setVariants((prev) => [...prev, { name: "", options: [] }])}
-              >
-                Add Variant Group
-              </Button>
-              <Button size="sm" variant="outline" onClick={() => { setVariantsText(JSON.stringify(variants, null, 2)); setShowJsonPreview(true) }}>
-                Sync to JSON
-              </Button>
-            </div>
-
-            {showJsonPreview && (
-              <Textarea
-                id="variants"
-                placeholder='Example: [{"name":"Size","options":["S","M","L"]}]'
-                value={variantsText || JSON.stringify(variants, null, 2)}
-                onChange={(e) => setVariantsText(e.target.value)}
-                rows={4}
-              />
             )}
 
-            {variantsError ? <p className="text-sm text-red-500">{variantsError}</p> : null}
-            <p className="text-sm text-muted-foreground">Use the structured editor, or paste a JSON array. You can sync between them.</p>
-          </div>
+            {/* Product Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm font-medium text-gray-300">
+                Product Name <span className="text-red-400">*</span>
+              </Label>
+              <Input
+                id="name"
+                placeholder="e.g., Blue Ankara Dress"
+                value={formData.name}
+                onChange={(e) => handleInputChange("name", e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                required
+              />
+            </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1 bg-transparent">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isDisabled} className="flex-1">
-              {isSubmitting ? 'Creating...' : 'Add Product'}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+            {/* Selling Price and Cost Price */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="sellingPrice" className="text-sm font-medium text-gray-300">
+                  Selling Price <span className="text-red-400">*</span>
+                </Label>
+                <Input
+                  id="sellingPrice"
+                  placeholder="₦15,000"
+                  value={formData.sellingPrice}
+                  onChange={(e) => handleInputChange("sellingPrice", e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="costPrice" className="text-sm font-medium text-gray-300">
+                  Cost Price
+                </Label>
+                <Input
+                  id="costPrice"
+                  placeholder="₦10,000"
+                  value={formData.costPrice}
+                  onChange={(e) => handleInputChange("costPrice", e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Stock and Brand */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="stock" className="text-sm font-medium text-gray-300">
+                  Stock Quantity <span className="text-red-400">*</span>
+                </Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  placeholder="10"
+                  value={formData.stock}
+                  onChange={(e) => handleInputChange("stock", e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="brand" className="text-sm font-medium text-gray-300">
+                  Brand
+                </Label>
+                <Input
+                  id="brand"
+                  placeholder="e.g., Nike"
+                  value={formData.brand}
+                  onChange={(e) => handleInputChange("brand", e.target.value)}
+                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-300">
+                Category <span className="text-red-400">*</span>
+              </Label>
+              <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
+                <SelectTrigger className="bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-700">
+                  <SelectItem value="fashion" className="text-white hover:bg-gray-700">Fashion & Clothing</SelectItem>
+                  <SelectItem value="electronics" className="text-white hover:bg-gray-700">Electronics</SelectItem>
+                  <SelectItem value="beauty" className="text-white hover:bg-gray-700">Beauty & Cosmetics</SelectItem>
+                  <SelectItem value="food" className="text-white hover:bg-gray-700">Food & Beverages</SelectItem>
+                  <SelectItem value="home" className="text-white hover:bg-gray-700">Home & Living</SelectItem>
+                  <SelectItem value="other" className="text-white hover:bg-gray-700">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-sm font-medium text-gray-300">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                placeholder="Describe your product..."
+                value={formData.description}
+                onChange={(e) => handleInputChange("description", e.target.value)}
+                rows={3}
+                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+              />
+            </div>
+
+            {/* Image URL */}
+            <div className="space-y-2">
+              <Label htmlFor="imageUrl" className="text-sm font-medium text-gray-300">
+                Image URL
+              </Label>
+              <Input
+                id="imageUrl"
+                placeholder="https://example.com/image.jpg"
+                value={formData.imageUrl}
+                onChange={(e) => handleInputChange("imageUrl", e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <p className="text-xs text-gray-500">Optional: Enter a URL for the product image</p>
+            </div>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-800 bg-gray-900/50">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={handleClose} 
+            className="flex-1 bg-transparent border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="submit"
+            form="add-product-form"
+            disabled={isDisabled} 
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Add Product'
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }

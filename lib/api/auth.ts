@@ -1,5 +1,6 @@
 // Authentication API service
 import { apiClient } from './client'
+import { setStoredInventoryId, clearStoredInventoryId } from './products'
 
 // Mock data for testing - New user without completed onboarding
 const MOCK_USER = {
@@ -83,10 +84,14 @@ export const authAPI = {
         expires_in: response.tokens.expires_in
       })
       
-      // Store tokens
+      // Store tokens and inventory_id
       if (typeof window !== 'undefined') {
         localStorage.setItem('chidi_auth_token', response.tokens.access_token)
         localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
+        if (response.inventory_id) {
+          setStoredInventoryId(response.inventory_id)
+          console.log(' [AUTH] Inventory ID stored:', response.inventory_id)
+        }
         console.log(' [AUTH] Tokens stored in localStorage')
       }
       
@@ -264,10 +269,14 @@ export const authAPI = {
     
     const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, customHeaders, mockOnboardingResponse)
     
-    // Update stored tokens
+    // Update stored tokens and inventory_id
     if (typeof window !== 'undefined') {
       localStorage.setItem('chidi_auth_token', response.tokens.access_token)
       localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
+      if (response.inventory_id) {
+        setStoredInventoryId(response.inventory_id)
+        console.log(' [AUTH] Inventory ID stored after onboarding:', response.inventory_id)
+      }
     }
     
     return response
@@ -278,6 +287,7 @@ export const authAPI = {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('chidi_auth_token')
       localStorage.removeItem('chidi_refresh_token')
+      clearStoredInventoryId()
       // Clear any other cached data that might bypass onboarding
       localStorage.removeItem('chidi_user_data')
       localStorage.removeItem('chidi_onboarding_complete')

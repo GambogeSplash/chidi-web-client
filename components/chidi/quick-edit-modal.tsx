@@ -8,29 +8,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { TrendingUp, AlertTriangle, Package } from "lucide-react"
-
-interface Product {
-  id: number
-  name: string
-  stock: number
-  price: string
-  status: string
-}
+import type { DisplayProduct } from "@/lib/types/product"
+import { getStockStatus } from "@/lib/utils/product-transformer"
 
 interface QuickEditModalProps {
-  isOpen: boolean
+  product: DisplayProduct
   onClose: () => void
-  product: Product | null
-  onUpdateProduct: (product: Product) => void
+  onSave: (product: DisplayProduct) => void
 }
 
-export function QuickEditModal({ isOpen, onClose, product, onUpdateProduct }: QuickEditModalProps) {
-  const [stockValue, setStockValue] = useState("")
+export function QuickEditModal({ product, onClose, onSave }: QuickEditModalProps) {
+  const [stockValue, setStockValue] = useState(product.stock.toString())
   const [restockCost, setRestockCost] = useState("")
 
-  const getRestockSuggestions = (product: Product | null) => {
-    if (!product) return []
-
+  const getRestockSuggestions = () => {
     // Mock data - in real app this would come from sales analytics
     const suggestions = [
       { amount: 10, reason: "Weekly average", priority: "low" },
@@ -41,18 +32,18 @@ export function QuickEditModal({ isOpen, onClose, product, onUpdateProduct }: Qu
     return suggestions
   }
 
-  const suggestions = getRestockSuggestions(product)
+  const suggestions = getRestockSuggestions()
 
   const handleSave = () => {
-    if (product && stockValue) {
+    if (stockValue) {
       const stockNum = Number.parseInt(stockValue)
-      const updatedProduct = {
+      const updatedProduct: DisplayProduct = {
         ...product,
         stock: stockNum,
-        status: stockNum > 10 ? "good" : stockNum > 0 ? "low" : "out",
+        stockStatus: getStockStatus(stockNum, product.reorderLevel),
       }
 
-      onUpdateProduct(updatedProduct)
+      onSave(updatedProduct)
       onClose()
       setStockValue("")
       setRestockCost("")
@@ -83,7 +74,7 @@ export function QuickEditModal({ isOpen, onClose, product, onUpdateProduct }: Qu
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={true} onOpenChange={handleClose}>
       <DialogContent className="max-w-sm mx-auto">
         <DialogHeader>
           <DialogTitle className="text-base flex items-center gap-2">
@@ -97,10 +88,10 @@ export function QuickEditModal({ isOpen, onClose, product, onUpdateProduct }: Qu
           <div className="bg-muted/50 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-sm">{product?.name || "No product selected"}</p>
-                <p className="text-xs text-muted-foreground">Current stock: {product?.stock || 0} units</p>
+                <p className="font-medium text-sm">{product.name}</p>
+                <p className="text-xs text-muted-foreground">Current stock: {product.stock} units</p>
               </div>
-              {product?.status === "out" && (
+              {product.stockStatus === "out" && (
                 <Badge className="bg-red-100 text-red-800 border-red-200">
                   <AlertTriangle className="w-3 h-3 mr-1" />
                   Out of Stock
@@ -183,7 +174,7 @@ export function QuickEditModal({ isOpen, onClose, product, onUpdateProduct }: Qu
             <Button variant="outline" onClick={handleClose} className="flex-1 bg-transparent">
               Cancel
             </Button>
-            <Button onClick={handleSave} className="flex-1" disabled={!product || !stockValue}>
+            <Button onClick={handleSave} className="flex-1" disabled={!stockValue}>
               Update Stock
             </Button>
           </div>

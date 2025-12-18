@@ -10,7 +10,7 @@ import { QuickEditModal } from '@/components/chidi/quick-edit-modal'
 import { ProductDetailModal } from '@/components/chidi/product-detail-modal'
 import { BulkCSVImport } from '@/components/chidi/bulk-csv-import'
 import { authAPI, productsAPI, conversationsAPI, type User } from '@/lib/api'
-import type { Product } from '@/lib/types'
+import type { DisplayProduct } from '@/lib/types/product'
 import { Loader2 } from 'lucide-react'
 
 interface Notification {
@@ -32,14 +32,14 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("home")
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<DisplayProduct[]>([])
   const [conversations, setConversations] = useState<any[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [apiError, setApiError] = useState<string | null>(null)
   const [dataLoading, setDataLoading] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [currentView, setCurrentView] = useState("main")
-  const [selectedProduct, setSelectedProduct] = useState<any>(null)
+  const [selectedProduct, setSelectedProduct] = useState<DisplayProduct | null>(null)
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showQuickEditModal, setShowQuickEditModal] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -156,12 +156,12 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     )
   }
 
-  const handleEditProduct = (product: any) => {
+  const handleEditProduct = (product: DisplayProduct) => {
     setSelectedProduct(product)
     setShowQuickEditModal(true)
   }
 
-  const handleUpdateProduct = async (updatedProduct: any) => {
+  const handleUpdateProduct = async (updatedProduct: DisplayProduct) => {
     try {
       const originalProduct = products.find((p) => p.id === updatedProduct.id)
       const updated = await productsAPI.updateProduct(updatedProduct.id, updatedProduct)
@@ -193,7 +193,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     // Implement bulk export functionality here
   }
 
-  const handleViewProduct = (product: any) => {
+  const handleViewProduct = (product: DisplayProduct) => {
     setSelectedProduct(product)
     setCurrentView("product-detail")
   }
@@ -245,7 +245,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     }
   }
 
-  const handleOpenProductModal = (product: any) => {
+  const handleOpenProductModal = (product: DisplayProduct) => {
     setSelectedProduct(product)
     setShowProductDetailModal(true)
   }
@@ -310,8 +310,9 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
       {/* Modals */}
       {showAddProductModal && (
         <AddProductModal
+          isOpen={showAddProductModal}
           onClose={() => setShowAddProductModal(false)}
-          onSave={(product) => {
+          onAddProduct={(product) => {
             setProducts((prev) => [...prev, product])
             setShowAddProductModal(false)
           }}

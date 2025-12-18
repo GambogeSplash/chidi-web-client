@@ -8,21 +8,15 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Search, Filter, Plus, Download, Trash2 } from "lucide-react"
-
-interface Product {
-  id: number
-  name: string
-  stock: number
-  price: string
-  status: "good" | "low" | "out"
-}
+import type { DisplayProduct, StockStatus } from "@/lib/types/product"
+import { getStockStatusLabel, getStockStatusColor } from "@/lib/utils/product-transformer"
 
 interface ProductsTabProps {
-  products: Product[]
-  onEditProduct: (product: Product) => void
+  products: DisplayProduct[]
+  onEditProduct: (product: DisplayProduct) => void
   onAddProduct: () => void
-  onViewProduct: (product: Product) => void
-  onDeleteProducts?: (productIds: number[]) => void
+  onViewProduct: (product: DisplayProduct) => void
+  onDeleteProducts?: (productIds: string[]) => void
 }
 
 export function ProductsTab({
@@ -34,17 +28,17 @@ export function ProductsTab({
 }: ProductsTabProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
-  const [selectedProducts, setSelectedProducts] = useState<number[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
   const [priceRange, setPriceRange] = useState({ min: "", max: "" })
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = filterStatus === "all" || product.status === filterStatus
+    const matchesFilter = filterStatus === "all" || product.stockStatus === filterStatus
 
     let matchesPrice = true
     if (priceRange.min || priceRange.max) {
-      const price = Number.parseInt(product.price.replace(/[₦,]/g, ""))
+      const price = product.sellingPrice
       const minPrice = priceRange.min ? Number.parseInt(priceRange.min) : 0
       const maxPrice = priceRange.max ? Number.parseInt(priceRange.max) : Number.POSITIVE_INFINITY
       matchesPrice = price >= minPrice && price <= maxPrice
@@ -53,45 +47,12 @@ export function ProductsTab({
     return matchesSearch && matchesFilter && matchesPrice
   })
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "good":
-        return "bg-green-100 text-green-800"
-      case "low":
-        return "bg-amber-100 text-amber-800"
-      case "out":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const getProductImage = (product: DisplayProduct) => {
+    if (product.image) return product.image
+    return `/placeholder.svg?height=120&width=120&query=${encodeURIComponent(product.name)}`
   }
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "good":
-        return "In Stock"
-      case "low":
-        return "Low Stock"
-      case "out":
-        return "Out of Stock"
-      default:
-        return "Unknown"
-    }
-  }
-
-  const getProductImage = (productName: string) => {
-    const imageQueries = {
-      "Blue Ankara Dress": "blue ankara african dress fashion",
-      "Casual Sneakers": "white casual sneakers shoes",
-      "Leather Handbag": "brown leather handbag purse",
-      "Wireless Earbuds": "white wireless earbuds headphones",
-    }
-
-    const query = imageQueries[productName as keyof typeof imageQueries] || "product item"
-    return `/placeholder.svg?height=120&width=120&query=${encodeURIComponent(query)}`
-  }
-
-  const handleSelectProduct = (productId: number, checked: boolean) => {
+  const handleSelectProduct = (productId: string, checked: boolean) => {
     if (checked) {
       setSelectedProducts((prev) => [...prev, productId])
     } else {
@@ -109,8 +70,8 @@ export function ProductsTab({
 
   const handleExportProducts = () => {
     const csvContent = [
-      "Name,Stock,Price,Status",
-      ...filteredProducts.map((p) => `${p.name},${p.stock},${p.price},${p.status}`),
+      "Name,Stock,Price,Status,SKU,Category",
+      ...filteredProducts.map((p) => `${p.name},${p.stock},${p.displayPrice},${p.stockStatus},${p.sku},${p.category}`),
     ].join("\n")
 
     const blob = new Blob([csvContent], { type: "text/csv" })
@@ -222,7 +183,7 @@ export function ProductsTab({
             onClick={() => setFilterStatus(status)}
             className="capitalize"
           >
-            {status === "all" ? "All" : getStatusText(status)}
+            {status === "all" ? "All" : getStockStatusLabel(status as StockStatus)}
           </Button>
         ))}
       </div>
@@ -243,7 +204,7 @@ export function ProductsTab({
                 {/* Product Image */}
                 <div className="relative">
                   <img
-                    src={getProductImage(product.name) || "/placeholder.svg"}
+                    src={getProductImage(product)}
                     alt={product.name}
                     className="w-full h-24 object-cover rounded-md bg-gray-100"
                   />
@@ -256,8 +217,8 @@ export function ProductsTab({
                     />
                   </div>
                   <div className="absolute top-2 right-2">
-                    <Badge className={`text-xs ${getStatusColor(product.status)}`}>
-                      {getStatusText(product.status)}
+                    <Badge className={`text-xs ${getStockStatusColor(product.stockStatus)}`}>
+                      {getStockStatusLabel(product.stockStatus)}
                     </Badge>
                   </div>
                 </div>
@@ -266,7 +227,7 @@ export function ProductsTab({
                 <div className="space-y-2" onClick={() => onViewProduct(product)}>
                   <h3 className="font-medium text-sm leading-tight">{product.name}</h3>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-primary">{product.price}</span>
+                    <span className="text-sm font-semibold text-primary">{product.displayPrice}</span>
                     <span className="text-xs text-muted-foreground">{product.stock} units</span>
                   </div>
                 </div>

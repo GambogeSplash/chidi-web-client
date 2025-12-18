@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import type { DisplayProduct } from "@/lib/types/product"
 
 interface CatalogTabProps {
-  products: any[]
+  products: DisplayProduct[]
   onAddProduct: () => void
-  onEditProduct: (product: any) => void
-  onViewProduct: (product: any) => void
+  onEditProduct: (product: DisplayProduct) => void
+  onViewProduct: (product: DisplayProduct) => void
   onBulkExport: () => void
 }
 
@@ -197,7 +198,7 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
                   </h3>
                   
                   <div className="flex items-center justify-between">
-                    <p className="text-lg font-semibold text-emerald-400">{product.price}</p>
+                    <p className="text-lg font-semibold text-emerald-400">{product.displayPrice}</p>
                     <div className="flex items-center gap-1 text-yellow-400">
                       <Star className="w-4 h-4 fill-current" />
                       <span className="text-sm text-gray-400">4.5</span>
