@@ -43,27 +43,8 @@ export function DesktopSidebar({
 }: ChatSidebarProps) {
   const [hoveredChat, setHoveredChat] = useState<string | null>(null)
 
-  // Mock chat history if none provided
-  const mockChats = chatHistory.length > 0 ? chatHistory : [
-    {
-      id: "chat_1",
-      title: "Check Stock Status",
-      lastMessage: "How many units of wireless headphones do we have?",
-      timestamp: "2 hours ago"
-    },
-    {
-      id: "chat_2", 
-      title: "Healthy Weight for 5B Man...",
-      lastMessage: "What's the recommended weight for a 5'8\" male customer?",
-      timestamp: "Yesterday"
-    },
-    {
-      id: "chat_3",
-      title: "Memory and Dreams: Unra...",
-      lastMessage: "Tell me about sleep and memory consolidation",
-      timestamp: "2 days ago"
-    }
-  ]
+  // Use provided chat history (no mock data)
+  const displayChats = chatHistory
 
   return (
     <div className="flex h-full w-64 flex-col bg-gray-900 text-white">
@@ -123,7 +104,7 @@ export function DesktopSidebar({
           </div>
           
           <div className="space-y-1">
-            {mockChats.map((chat) => (
+            {displayChats.map((chat) => (
               <button
                 key={chat.id}
                 onClick={() => onChatSelect(chat.id)}

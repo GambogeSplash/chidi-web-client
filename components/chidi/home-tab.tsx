@@ -1,24 +1,17 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react'
-import { Zap, Plus, Search, ArrowRight, Send, Sparkles, Copy, MoreVertical, ChevronDown } from 'lucide-react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { Zap, Plus, Search, ArrowRight, Send, Sparkles, Copy, MoreVertical, ChevronDown, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { conversationsAPI } from '@/lib/api'
+import { useConversation } from '@/hooks/use-conversation'
+import type { ChatMessage, ConversationResponse } from '@/lib/types/conversation'
 
 interface ChatInterfaceProps {
-  // Basic props for the new chat interface
-}
-
-interface Message {
-  id: string
-  content: string
-  sender: 'user' | 'chidi'
-  timestamp: Date
-  status?: 'sending' | 'sent' | 'delivered' | 'read'
-  type?: 'text' | 'system'
+  conversationId?: string
+  onConversationCreated?: (conversation: ConversationResponse) => void
 }
 
 // Helper function to format timestamps
@@ -37,15 +30,16 @@ const formatTimestamp = (timestamp: Date): string => {
 }
 
 // Helper to group consecutive messages from same sender
-const groupMessages = (messages: Message[]): Array<{ sender: string; messages: Message[]; timestamp: Date }> => {
-  const groups = []
-  let currentGroup: { sender: string; messages: Message[]; timestamp: Date } | null = null
+const groupMessages = (messages: ChatMessage[]): Array<{ sender: string; messages: ChatMessage[]; timestamp: Date }> => {
+  const groups: Array<{ sender: string; messages: ChatMessage[]; timestamp: Date }> = []
+  let currentGroup: { sender: string; messages: ChatMessage[]; timestamp: Date } | null = null
 
   for (const message of messages) {
-    if (!currentGroup || currentGroup.sender !== message.sender) {
+    const sender = message.role === 'user' ? 'user' : 'chidi'
+    if (!currentGroup || currentGroup.sender !== sender) {
       if (currentGroup) groups.push(currentGroup)
       currentGroup = {
-        sender: message.sender,
+        sender,
         messages: [message],
         timestamp: message.timestamp
       }
@@ -59,19 +53,30 @@ const groupMessages = (messages: Message[]): Array<{ sender: string; messages: M
   return groups
 }
 
-export default function ChatInterface(props: ChatInterfaceProps) {
+export default function ChatInterface({ conversationId, onConversationCreated }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState('')
-  const [messages, setMessages] = useState<Message[]>([])
-  const [isTyping, setIsTyping] = useState(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Use the conversation hook for state management
+  const {
+    conversation,
+    messages,
+    isLoading,
+    isSending,
+    error,
+    loadConversation,
+    createConversation,
+    sendMessage,
+    clearError,
+  } = useConversation(conversationId)
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
+  }, [messages, isSending])
 
   // Handle scroll to show/hide scroll to bottom button
   const handleScroll = () => {
@@ -90,70 +95,35 @@ export default function ChatInterface(props: ChatInterfaceProps) {
     navigator.clipboard.writeText(content)
   }
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
+    console.log('🔵 [HOME-TAB] handleSendMessage called, inputValue:', inputValue)
     if (!inputValue.trim()) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputValue,
-      sender: 'user',
-      timestamp: new Date(),
-      status: 'sending'
-    }
-
-    // Add user message immediately
-    setMessages(prev => [...prev, userMessage])
-    const messageToSend = inputValue
+    const messageContent = inputValue
     setInputValue('')
-    setIsTyping(true)
 
-    // Update message status to sent
-    setTimeout(() => {
-      setMessages(prev => prev.map(msg => 
-        msg.id === userMessage.id ? { ...msg, status: 'sent' } : msg
-      ))
-    }, 500)
-
-    try {
-      // Call the conversations API
-      const analysis = await conversationsAPI.analyzeMessage({
-        message: messageToSend,
-        businessContext: {
-          businessName: 'Your Business'
-        }
+    // If no conversation exists, create one first
+    if (!conversation) {
+      console.log('🔵 [HOME-TAB] No conversation, creating new one...')
+      const newConversation = await createConversation({
+        title: messageContent.slice(0, 50) + (messageContent.length > 50 ? '...' : ''),
+        topic: 'general_inquiry',
       })
-
-      // Create AI response message
-      const chidiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: analysis.aiResponse.message,
-        sender: 'chidi',
-        timestamp: new Date(),
-        status: 'delivered'
-      }
-
-      setMessages(prev => [...prev, chidiMessage])
       
-      // Update user message to delivered
-      setMessages(prev => prev.map(msg => 
-        msg.id === userMessage.id ? { ...msg, status: 'delivered' } : msg
-      ))
-    } catch (error) {
-      console.error('Failed to process message:', error)
-      
-      // Fallback response
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "Thanks for your message! I'm here to help with your business. Ask me about orders, products, customers, or analytics.",
-        sender: 'chidi',
-        timestamp: new Date(),
-        status: 'delivered'
+      console.log('🔵 [HOME-TAB] New conversation created:', newConversation?.id)
+      if (newConversation) {
+        onConversationCreated?.(newConversation)
+        // Send the message after conversation is created (pass ID directly to avoid stale state)
+        console.log('🔵 [HOME-TAB] Calling sendMessage with conversationId:', newConversation.id)
+        await sendMessage(messageContent, newConversation.id)
+        console.log('🔵 [HOME-TAB] sendMessage completed')
       }
-      setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
+    } else {
+      // Send message to existing conversation
+      console.log('🔵 [HOME-TAB] Existing conversation, sending message to:', conversation.id)
+      await sendMessage(messageContent)
     }
-  }
+  }, [inputValue, conversation, createConversation, sendMessage, onConversationCreated])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -322,13 +292,16 @@ export default function ChatInterface(props: ChatInterfaceProps) {
                     group.sender === 'user' ? 'justify-end' : 'justify-start'
                   }`}>
                     <span>{formatTimestamp(message.timestamp)}</span>
-                    {message.status === 'sending' && (
+                    {message.isLoading && (
                       <div className="w-1 h-1 bg-gray-500 rounded-full animate-pulse" />
                     )}
-                    {message.status === 'sent' && (
-                      <div className="w-1 h-1 bg-gray-400 rounded-full" />
+                    {message.error && (
+                      <div className="flex items-center gap-1 text-red-400">
+                        <AlertCircle className="w-3 h-3" />
+                        <span>Failed</span>
+                      </div>
                     )}
-                    {message.status === 'delivered' && (
+                    {!message.isLoading && !message.error && (
                       <div className="flex gap-0.5">
                         <div className="w-1 h-1 bg-emerald-400 rounded-full" />
                         <div className="w-1 h-1 bg-emerald-400 rounded-full" />
@@ -342,7 +315,7 @@ export default function ChatInterface(props: ChatInterfaceProps) {
         ))}
         
         {/* Typing indicator */}
-        {isTyping && (
+        {isSending && (
           <div className="flex items-start gap-2 mb-4">
             <Avatar className="w-6 h-6">
               <AvatarFallback className="bg-emerald-600 text-white text-xs">

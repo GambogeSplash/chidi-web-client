@@ -39,8 +39,19 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         password: signInPassword
       })
       
+      // Flatten user with businessName and businessSlug from root level
+      const user: UserType = {
+        ...response.user,
+        businessName: response.businessName || response.user.businessName,
+        businessSlug: response.businessSlug || response.user.businessSlug,
+      }
+      
+      console.log('✅ [AUTH-SCREEN] Login successful, user:', user)
+      console.log('✅ [AUTH-SCREEN] businessName:', user.businessName)
+      console.log('✅ [AUTH-SCREEN] businessSlug:', user.businessSlug)
+      
       setIsLoading(false)
-      onAuthSuccess(response.user, false) // Login - existing user
+      onAuthSuccess(user, false) // Login - existing user
     } catch (error: any) {
       setIsLoading(false)
       setError(error.message || 'Login failed')

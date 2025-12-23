@@ -1,194 +1,221 @@
-// AI/Conversations API service
+/**
+ * Conversations API service
+ * Integrates with backend conversation endpoints
+ */
 import { apiClient } from './client'
+import type {
+  ConversationResponse,
+  MessageResponse,
+  CreateConversationRequest,
+  SendMessageRequest,
+  UpdateConversationRequest,
+  ConversationStatus,
+  ConversationTopic,
+  ChatMessage,
+  ChatConversation,
+} from '../types/conversation'
+import { toUIMessage, toUIConversation } from '../types/conversation'
 
-// Mock data for testing
-const MOCK_CONVERSATIONS = [
+// Re-export types for convenience
+export type {
+  ConversationResponse,
+  MessageResponse,
+  CreateConversationRequest,
+  SendMessageRequest,
+  ChatMessage,
+  ChatConversation,
+  ConversationStatus,
+  ConversationTopic,
+}
+
+// === MOCK DATA (Development fallback) ===
+
+const MOCK_CONVERSATIONS: ConversationResponse[] = [
   {
-    id: 'conv_1',
-    customerId: 'cust_1',
-    customerName: 'John Doe',
-    messages: [
-      { id: 'msg_1', content: 'Hi, do you have any laptops in stock?', sender: 'customer', timestamp: '2024-01-15T10:00:00Z' },
-      { id: 'msg_2', content: 'Yes! We have several laptop models available. What are you looking for specifically?', sender: 'business', timestamp: '2024-01-15T10:05:00Z' }
-    ],
+    id: 'conv_mock_1',
+    workspace_id: 'ws_mock_1',
+    user_id: 'user_mock_1',
+    title: 'Inventory Analysis',
+    description: 'Analyzing current stock levels',
+    topic: 'inventory_analysis',
     status: 'active',
-    priority: 'medium',
-    lastActivity: '2024-01-15T10:05:00Z'
+    tags: ['inventory', 'analysis'],
+    pinned: false,
+    archived: false,
+    created_at: new Date().toISOString(),
+    last_activity: new Date().toISOString(),
   }
 ]
 
-const MOCK_AI_RESPONSE = {
-  message: 'I understand you\'re interested in our products. Based on your inquiry, I\'d recommend checking out our premium laptop stand and wireless headphones. They\'re very popular with our customers!',
-  confidence: 0.85,
-  suggestedActions: [
-    { type: 'show_products', label: 'View Electronics', data: { category: 'electronics' } },
-    { type: 'create_order', label: 'Create Order', data: {} }
-  ]
-}
-
-const MOCK_ANALYTICS = {
-  totalRevenue: 245000,
-  totalOrders: 45,
-  averageOrderValue: 5444,
-  topProducts: [
-    { name: 'Premium Laptop Stand', sales: 12 },
-    { name: 'Wireless Headphones', sales: 8 }
-  ],
-  monthlySales: {
-    January: 245000,
-    February: 198000
+const MOCK_MESSAGES: MessageResponse[] = [
+  {
+    id: 'msg_mock_1',
+    conversation_id: 'conv_mock_1',
+    user_id: 'user_mock_1',
+    role: 'user',
+    content: { text: 'What is my current inventory status?', type: 'text' },
+    tokens: 10,
+    edited: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: 'msg_mock_2',
+    conversation_id: 'conv_mock_1',
+    user_id: 'assistant',
+    role: 'assistant',
+    content: { 
+      text: 'Based on your inventory data, you have 45 products in stock with a total value of ₦2,450,000. Would you like me to show you the low stock items?',
+      type: 'text'
+    },
+    tokens: 35,
+    edited: false,
+    created_at: new Date().toISOString(),
   }
-}
+]
 
-export interface CustomerIntent {
-  type: "product_inquiry" | "price_check" | "availability" | "order_status" | "return_policy" | "delivery" | "general"
-  confidence: number
-  entities: {
-    productName?: string
-    location?: string
-    orderNumber?: string
-  }
-  sentiment?: "positive" | "neutral" | "negative" | "angry" | "urgent"
-}
-
-export interface AIResponse {
-  message: string
-  suggestedActions?: Array<{
-    label: string
-    action: string
-  }>
-  requiresHumanReview: boolean
-  confidence: number
-}
-
-export interface MessageAnalysisRequest {
-  message: string
-  customerContext?: {
-    id?: string
-    previousOrders?: any[]
-    preferences?: string[]
-  }
-  businessContext?: {
-    products?: any[]
-    businessName?: string
-    returnPolicy?: string
-  }
-}
-
-export interface ConversationMessage {
-  id: string
-  content: string
-  sender: 'customer' | 'agent' | 'ai'
-  timestamp: string
-  platform?: 'whatsapp' | 'instagram' | 'web'
-  customerId?: string
-  metadata?: any
-}
-
-export interface Conversation {
-  id: string
-  customerId: string
-  customerName: string
-  customerPhone: string
-  platform: 'whatsapp' | 'instagram' | 'web'
-  status: 'new' | 'active' | 'waiting' | 'resolved' | 'closed'
-  messages: ConversationMessage[]
-  assignedTo?: string
-  createdAt: string
-  updatedAt: string
-}
-
-export interface SmartSuggestion {
-  label: string
-  message: string
-  confidence: number
-  category: 'quick_reply' | 'upsell' | 'cross_sell' | 'follow_up'
-}
+// === CONVERSATIONS API ===
 
 export const conversationsAPI = {
-  async analyzeMessage(request: MessageAnalysisRequest): Promise<{
-    intent: CustomerIntent
-    aiResponse: AIResponse
-    suggestedReplies: string[]
-  }> {
-    // Simple intent detection for testing
-    const message = request.message.toLowerCase()
-    let intent = { type: 'general_inquiry', confidence: 0.7 }
-    
-    if (message.includes('order') || message.includes('buy')) {
-      intent = { type: 'business_command', action: 'create_order', confidence: 0.9 }
-    } else if (message.includes('analytics') || message.includes('sales') || message.includes('performance')) {
-      intent = { type: 'business_command', action: 'show_analytics', confidence: 0.9 }
-    } else if (message.includes('stock') || message.includes('inventory')) {
-      intent = { type: 'business_command', action: 'check_inventory', confidence: 0.8 }
-    }
-    
-    const mockResponse = {
-      intent,
-      aiResponse: {
-        message: request.tone === 'nigerian-gen-z' 
-          ? 'Oya boss! I don understand wetin you dey talk. Make I help you quick quick! 🔥'
-          : MOCK_AI_RESPONSE.message,
-        suggestedActions: MOCK_AI_RESPONSE.suggestedActions
-      }
-    }
-    
-    return apiClient.post('/conversations/analyze', request, undefined, mockResponse)
-  },
+  // ============================================================================
+  // USER-CENTRIC ENDPOINTS (Recommended - uses JWT auth)
+  // ============================================================================
 
-  async generateResponse(intent: CustomerIntent, context?: any): Promise<AIResponse> {
-    return await apiClient.post('/conversations/respond', { intent, context })
-  },
-
-  async getConversations(filters?: {
-    status?: Conversation['status']
-    platform?: Conversation['platform']
-    customerId?: string
+  /**
+   * Get all conversations for the authenticated user
+   * Uses: GET /api/conversations/user/me
+   */
+  async getMyConversations(filters?: {
+    status?: ConversationStatus
     limit?: number
     offset?: number
-  }): Promise<{
-    conversations: Conversation[]
-    total: number
-  }> {
-    const queryParams = new URLSearchParams()
+  }): Promise<ConversationResponse[]> {
+    const params = new URLSearchParams()
     
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined) {
-          queryParams.append(key, value.toString())
-        }
-      })
-    }
+    if (filters?.status) params.append('status_filter', filters.status)
+    if (filters?.limit) params.append('limit', filters.limit.toString())
+    if (filters?.offset) params.append('offset', filters.offset.toString())
     
-    const endpoint = `/conversations${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
-    return await apiClient.get(endpoint, undefined, MOCK_CONVERSATIONS)
+    const query = params.toString()
+    const endpoint = `/api/conversations/user/me${query ? `?${query}` : ''}`
+    
+    return apiClient.get<ConversationResponse[]>(endpoint)
   },
 
-  async getConversation(id: string): Promise<Conversation> {
-    return await apiClient.get<Conversation>(`/conversations/${id}`, undefined, MOCK_CONVERSATIONS[0])
+  /**
+   * Create a new conversation for the authenticated user
+   * Uses: POST /api/conversations/user/me
+   */
+  async createConversation(request: CreateConversationRequest): Promise<ConversationResponse> {
+    // No mock fallback - must succeed on backend
+    return apiClient.post<ConversationResponse>(
+      '/api/conversations/user/me',
+      request
+    )
   },
 
-  async createMessage(conversationId: string, message: {
-    content: string
-    sender: 'customer' | 'agent' | 'ai'
-    metadata?: any
-  }): Promise<ConversationMessage> {
-    return await apiClient.post(`/conversations/${conversationId}/messages`, message)
+  /**
+   * Search conversations for the authenticated user
+   * Uses: GET /api/conversations/user/me/search
+   */
+  async searchConversations(query: string, limit?: number): Promise<ConversationResponse[]> {
+    const params = new URLSearchParams({ query })
+    if (limit) params.append('limit', limit.toString())
+    
+    return apiClient.get<ConversationResponse[]>(
+      `/api/conversations/user/me/search?${params.toString()}`
+    )
   },
 
-  async updateConversationStatus(id: string, status: Conversation['status']): Promise<Conversation> {
-    return await apiClient.put(`/conversations/${id}/status`, { status })
+  // ============================================================================
+  // CONVERSATION OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get a specific conversation by ID
+   * Uses: GET /api/conversations/{id}
+   */
+  async getConversation(conversationId: string): Promise<ConversationResponse> {
+    return apiClient.get<ConversationResponse>(
+      `/api/conversations/${conversationId}`
+    )
   },
 
-  async assignConversation(id: string, agentId: string): Promise<Conversation> {
-    return await apiClient.put(`/conversations/${id}/assign`, { agentId })
+  /**
+   * Update a conversation
+   * Uses: PUT /api/conversations/{id}
+   */
+  async updateConversation(
+    conversationId: string,
+    updates: UpdateConversationRequest
+  ): Promise<ConversationResponse> {
+    return apiClient.put<ConversationResponse>(
+      `/api/conversations/${conversationId}`,
+      updates
+    )
   },
 
-  async getSmartSuggestions(conversationId: string): Promise<SmartSuggestion[]> {
-    return await apiClient.get<SmartSuggestion[]>(`/conversations/${conversationId}/suggestions`)
+  /**
+   * Delete a conversation
+   * Uses: DELETE /api/conversations/{id}
+   */
+  async deleteConversation(conversationId: string): Promise<{ message: string }> {
+    return apiClient.delete<{ message: string }>(`/api/conversations/${conversationId}`)
   },
 
-  async markAsRead(conversationId: string): Promise<void> {
-    return await apiClient.post(`/conversations/${conversationId}/read`)
-  }
+  /**
+   * Archive a conversation
+   * Uses: POST /api/conversations/{id}/archive
+   */
+  async archiveConversation(conversationId: string): Promise<{ message: string }> {
+    return apiClient.post<{ message: string }>(`/api/conversations/${conversationId}/archive`)
+  },
+
+  /**
+   * Update conversation status
+   * Uses: PUT /api/conversations/{id}/status
+   */
+  async updateConversationStatus(
+    conversationId: string,
+    status: ConversationStatus
+  ): Promise<{ message: string }> {
+    return apiClient.put<{ message: string }>(
+      `/api/conversations/${conversationId}/status?new_status=${status}`
+    )
+  },
+
+  // ============================================================================
+  // MESSAGE OPERATIONS
+  // ============================================================================
+
+  /**
+   * Get messages for a conversation
+   * Uses: GET /api/conversations/{id}/messages
+   */
+  async getMessages(
+    conversationId: string,
+    options?: { limit?: number; offset?: number }
+  ): Promise<MessageResponse[]> {
+    const params = new URLSearchParams()
+    if (options?.limit) params.append('limit', options.limit.toString())
+    if (options?.offset) params.append('offset', options.offset.toString())
+    
+    const query = params.toString()
+    const endpoint = `/api/conversations/${conversationId}/messages${query ? `?${query}` : ''}`
+    
+    return apiClient.get<MessageResponse[]>(endpoint)
+  },
+
+  /**
+   * Send a message and get AI response
+   * Uses: POST /api/conversations/{id}/messages
+   */
+  async sendMessage(
+    conversationId: string,
+    request: SendMessageRequest
+  ): Promise<MessageResponse> {
+    return apiClient.post<MessageResponse>(
+      `/api/conversations/${conversationId}/messages`,
+      request
+    )
+  },
 }

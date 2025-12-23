@@ -38,6 +38,16 @@ export interface User {
   createdAt: string
 }
 
+// Backend returns CompleteUserResponse from /auth/me
+export interface CompleteUserResponse {
+  user: User
+  business_id?: string
+  workspace_id?: string
+  inventory_id?: string
+  businessName?: string
+  businessSlug?: string
+}
+
 export interface LoginRequest {
   email: string
   password: string
@@ -54,6 +64,7 @@ export interface AuthResponse {
   business_id: string
   workspace_id: string
   inventory_id: string
+  businessName?: string  // Business name for display
   businessSlug?: string  // Business slug for URL routing
   tokens: TokenResponse
 }
@@ -161,14 +172,27 @@ export const authAPI = {
   async getMe(): Promise<User> {
     console.log('👤 [AUTH] Fetching current user data...')
     try {
-      const user = await apiClient.get<User>('/auth/me', undefined, undefined)
-      console.log('✅ [AUTH] User data retrieved:', {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        businessName: user.businessName || 'Not set',
-        hasCompletedOnboarding: !!user.businessName
-      })
+      // Backend returns CompleteUserResponse with nested user object
+      const response = await apiClient.get<CompleteUserResponse>('/auth/me', undefined, undefined)
+      console.log('✅ [AUTH] Raw response from /auth/me:', response)
+      console.log('✅ [AUTH] response.user:', response.user)
+      console.log('✅ [AUTH] response.businessName:', response.businessName)
+      
+      // Flatten the response to match frontend User interface
+      // businessName and businessSlug are at the root level, not in user object
+      const user: User = {
+        id: response.user.id,
+        email: response.user.email,
+        name: response.user.name,
+        phone: response.user.phone,
+        businessName: response.businessName,  // From root level
+        businessSlug: response.businessSlug,  // From root level
+        createdAt: (response.user as any).created_at || (response.user as any).createdAt || new Date().toISOString(),
+      }
+      
+      console.log('✅ [AUTH] Flattened user:', user)
+      console.log('✅ [AUTH] user.businessName:', user.businessName)
+      console.log('✅ [AUTH] hasCompletedOnboarding:', !!user.businessName)
       return user
     } catch (error) {
       console.error('❌ [AUTH] Failed to get user data:', error)

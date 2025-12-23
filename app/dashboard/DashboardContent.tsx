@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { DesktopSidebar } from '@/components/chidi/desktop-sidebar'
 import ChatInterface from '@/components/chidi/home-tab'
@@ -10,9 +10,11 @@ import { EditProductModal } from '@/components/chidi/edit-product-modal'
 import { QuickEditModal } from '@/components/chidi/quick-edit-modal'
 import { ProductDetailModal } from '@/components/chidi/product-detail-modal'
 import { BulkCSVImport } from '@/components/chidi/bulk-csv-import'
-import { authAPI, productsAPI, conversationsAPI, type User } from '@/lib/api'
+import { authAPI, productsAPI, type User } from '@/lib/api'
 import type { DisplayProduct } from '@/lib/types/product'
 import { Loader2 } from 'lucide-react'
+import { useConversationList } from '@/hooks/use-conversation-list'
+import type { ConversationResponse } from '@/lib/types/conversation'
 
 interface Notification {
   id: string;
@@ -40,6 +42,15 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [dataLoading, setDataLoading] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [currentView, setCurrentView] = useState("main")
+  const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined)
+
+  // Use conversation list hook for chat history
+  const {
+    conversations: chatConversations,
+    isLoading: conversationsLoading,
+    loadConversations,
+    addConversation,
+  } = useConversationList(false) // Don't auto-load, we'll load after auth
   const [selectedProduct, setSelectedProduct] = useState<DisplayProduct | null>(null)
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showQuickEditModal, setShowQuickEditModal] = useState(false)
@@ -68,13 +79,18 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         }
 
         const userData = await authAPI.getMe()
+        console.log('👤 [DASHBOARD] userData from getMe():', userData)
+        console.log('👤 [DASHBOARD] businessName:', userData.businessName)
+        console.log('👤 [DASHBOARD] businessSlug:', userData.businessSlug)
         setUser(userData)
         
         // Check if user needs onboarding
         if (!userData.businessName) {
+          console.log('⚠️ [DASHBOARD] No businessName found, redirecting to onboarding')
           router.push('/onboarding')
           return
         }
+        console.log('✅ [DASHBOARD] businessName found:', userData.businessName)
 
         // Validate slug matches user's business (redirect if mismatch)
         if (businessSlug && userData.businessSlug && userData.businessSlug !== businessSlug) {
@@ -87,6 +103,8 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
         // Load dashboard data
         await loadAppData()
+        // Load conversations after auth
+        await loadConversations()
       } catch (error) {
         console.error('Auth check failed:', error)
         router.push('/auth')
@@ -104,19 +122,9 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
       setDataLoading(true)
       setApiError(null)
       
-      // Load data in parallel for better performance
-      const [productsRes, conversationsRes] = await Promise.allSettled([
-        productsAPI.getProducts(),
-        conversationsAPI.getConversations()
-      ])
-
-      if (productsRes.status === 'fulfilled') {
-        setProducts(productsRes.value.products)
-      }
-      
-      if (conversationsRes.status === 'fulfilled') {
-        setConversations(conversationsRes.value.conversations)
-      }
+      // Load products
+      const productsRes = await productsAPI.getProducts()
+      setProducts(productsRes.products)
       
       // Add welcome notification for first load
       setNotifications([{
@@ -273,21 +281,34 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
           else setActiveTab('home')
         }}
         onNewChat={() => {
+          setActiveConversationId(undefined) // Clear active conversation for new chat
           setActiveTab('home')
         }}
         onSettingsClick={() => setShowProfile(true)}
         user={user}
-        chatHistory={[]}
+        chatHistory={chatConversations.map(conv => ({
+          id: conv.id,
+          title: conv.title,
+          lastMessage: conv.lastMessage || '',
+          timestamp: conv.lastActivity.toLocaleDateString()
+        }))}
         onChatSelect={(chatId) => {
+          setActiveConversationId(chatId)
           setActiveTab('home')
         }}
-        activeChatId={undefined}
+        activeChatId={activeConversationId}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden bg-gray-950">
         {activeTab === "home" ? (
-          <ChatInterface />
+          <ChatInterface
+            conversationId={activeConversationId}
+            onConversationCreated={(conversation) => {
+              addConversation(conversation)
+              setActiveConversationId(conversation.id)
+            }}
+          />
         ) : activeTab === "catalog" ? (
           <div className="mx-auto max-w-7xl p-6 w-full">
             <CatalogTab
