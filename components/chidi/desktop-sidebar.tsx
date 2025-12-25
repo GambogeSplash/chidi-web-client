@@ -10,7 +10,8 @@ import {
   Plus,
   Settings,
   MoreHorizontal,
-  Zap
+  Zap,
+  Building2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { User } from "@/lib/api"
@@ -20,6 +21,7 @@ interface ChatSidebarProps {
   onSectionChange: (section: 'chat' | 'inventory') => void
   onNewChat: () => void
   onSettingsClick: () => void
+  onBusinessProfileClick?: () => void
   user: User | null
   chatHistory: Array<{
     id: string
@@ -36,6 +38,7 @@ export function DesktopSidebar({
   onSectionChange = () => {},
   onNewChat = () => {},
   onSettingsClick = () => {},
+  onBusinessProfileClick,
   user,
   chatHistory = [],
   onChatSelect = () => {},
@@ -90,6 +93,17 @@ export function DesktopSidebar({
               <Package className="w-4 h-4 mr-3" />
               Inventory
             </Button>
+
+            {onBusinessProfileClick && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-gray-300 hover:bg-gray-700 hover:text-white"
+                onClick={onBusinessProfileClick}
+              >
+                <Building2 className="w-4 h-4 mr-3" />
+                Business Profile
+              </Button>
+            )}
             
           </div>
         </div>

@@ -27,15 +27,29 @@ const MOCK_LOGIN_RESPONSE = {
   }
 }
 
+export interface BusinessProfile {
+  business_category?: string
+  description?: string
+  phone?: string
+  whatsapp_number?: string
+  instagram?: string
+  website?: string
+  address_line1?: string
+  city?: string
+  country?: string
+}
+
 export interface User {
   id: string
   email: string
   name: string
+  businessId?: string
   businessName?: string
   businessSlug?: string  // Business slug for URL routing
   phone?: string
   category?: string
   createdAt: string
+  profile?: BusinessProfile
 }
 
 // Backend returns CompleteUserResponse from /auth/me
@@ -185,6 +199,7 @@ export const authAPI = {
         email: response.user.email,
         name: response.user.name,
         phone: response.user.phone,
+        businessId: response.business_id,  // From root level
         businessName: response.businessName,  // From root level
         businessSlug: response.businessSlug,  // From root level
         createdAt: (response.user as any).created_at || (response.user as any).createdAt || new Date().toISOString(),

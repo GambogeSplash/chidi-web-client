@@ -285,6 +285,10 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
           setActiveTab('home')
         }}
         onSettingsClick={() => setShowProfile(true)}
+        onBusinessProfileClick={() => {
+          const slug = user?.businessSlug || businessSlug
+          if (slug) router.push(`/dashboard/${slug}/business-profile`)
+        }}
         user={user}
         chatHistory={chatConversations.map(conv => ({
           id: conv.id,
