@@ -2,31 +2,6 @@
 import { apiClient } from './client'
 import { setStoredInventoryId, clearStoredInventoryId } from './products'
 
-// Mock data for testing - New user without completed onboarding
-const MOCK_USER = {
-  id: 'user_123',
-  email: 'demo@business.com',
-  name: 'Demo User',
-  // businessName: undefined, // No business name = needs onboarding
-  phone: '+234-800-123-4567',
-  role: 'owner',
-  avatar: '/images/avatar.jpg',
-  createdAt: new Date().toISOString()
-}
-
-const MOCK_LOGIN_RESPONSE = {
-  user: MOCK_USER,
-  business_id: 'mock-business-id',
-  workspace_id: 'mock-workspace-id',
-  inventory_id: 'mock-inventory-id',
-  tokens: {
-    access_token: 'mock-jwt-token-for-testing-123456',
-    refresh_token: 'mock-refresh-token-654321',
-    token_type: 'bearer',
-    expires_in: 86400
-  }
-}
-
 export interface BusinessProfile {
   business_category?: string
   description?: string
@@ -60,6 +35,7 @@ export interface CompleteUserResponse {
   inventory_id?: string
   businessName?: string
   businessSlug?: string
+  profile?: BusinessProfile
 }
 
 export interface LoginRequest {
@@ -97,10 +73,9 @@ export interface MagicLinkRequest {
 export const authAPI = {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     console.log(' [AUTH] Attempting login for:', credentials.email)
-    const mockResponse = MOCK_LOGIN_RESPONSE
     
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/signin', credentials, undefined, undefined)
+      const response = await apiClient.post<AuthResponse>('/auth/signin', credentials)
       
       console.log(' [AUTH] Login successful for user:', response.user.email)
       console.log(' [AUTH] Received tokens:', {
@@ -129,21 +104,9 @@ export const authAPI = {
 
   async signup(userData: SignupRequest): Promise<User> {
     console.log(' [AUTH] Attempting signup for:', userData.email)
-    const mockSignupResponse = {
-      user: { ...MOCK_USER, name: userData.name, email: userData.email },
-      business_id: 'mock-business-id',
-      workspace_id: 'mock-workspace-id',
-      inventory_id: 'mock-inventory-id',
-      tokens: {
-        access_token: 'mock-jwt-token-signup-' + Date.now(),
-        refresh_token: 'mock-refresh-token-signup-' + Date.now(),
-        token_type: 'bearer',
-        expires_in: 86400
-      }
-    }
     
     try {
-      const response = await apiClient.post<User>('/auth/signup', userData, undefined, undefined)
+      const response = await apiClient.post<User>('/auth/signup', userData)
       
       console.log(' [AUTH] Signup API response:', response)
       console.log(' [AUTH] Response type:', typeof response)
@@ -179,15 +142,14 @@ export const authAPI = {
   },
 
   async sendMagicLink(email: string): Promise<{ success: boolean }> {
-    const mockResponse = { success: true }
-    return apiClient.post('/auth/magic-link', { email }, undefined, mockResponse)
+    return apiClient.post('/auth/magic-link', { email })
   },
 
   async getMe(): Promise<User> {
     console.log('👤 [AUTH] Fetching current user data...')
     try {
       // Backend returns CompleteUserResponse with nested user object
-      const response = await apiClient.get<CompleteUserResponse>('/auth/me', undefined, undefined)
+      const response = await apiClient.get<CompleteUserResponse>('/auth/me')
       console.log('✅ [AUTH] Raw response from /auth/me:', response)
       console.log('✅ [AUTH] response.user:', response.user)
       console.log('✅ [AUTH] response.businessName:', response.businessName)
@@ -203,6 +165,7 @@ export const authAPI = {
         businessName: response.businessName,  // From root level
         businessSlug: response.businessSlug,  // From root level
         createdAt: (response.user as any).created_at || (response.user as any).createdAt || new Date().toISOString(),
+        profile: response.profile,  // Business profile data
       }
       
       console.log('✅ [AUTH] Flattened user:', user)
@@ -221,16 +184,9 @@ export const authAPI = {
       throw new Error('No refresh token available')
     }
     
-    const mockTokenResponse = {
-      access_token: 'new-mock-jwt-token-' + Date.now(),
-      refresh_token: 'new-mock-refresh-token-' + Date.now(),
-      token_type: 'bearer',
-      expires_in: 86400
-    }
-    
     const response = await apiClient.post<TokenResponse>('/auth/refresh', {
       refresh_token: refreshToken
-    }, undefined, mockTokenResponse)
+    })
     
     // Update stored tokens
     if (typeof window !== 'undefined') {
@@ -243,8 +199,7 @@ export const authAPI = {
 
   async logout(): Promise<void> {
     try {
-      const mockResponse = { success: true }
-      await apiClient.post('/auth/logout', undefined, undefined, mockResponse)
+      await apiClient.post('/auth/logout')
     } finally {
       // Clear tokens regardless of API response
       if (typeof window !== 'undefined') {
@@ -255,8 +210,7 @@ export const authAPI = {
   },
 
   async updateProfile(userData: Partial<User>): Promise<User> {
-    const mockUpdatedUser = { ...MOCK_USER, ...userData }
-    return apiClient.put('/auth/profile', userData, undefined, mockUpdatedUser)
+    return apiClient.put('/auth/profile', userData)
   },
 
   // Helper to check if user is authenticated
@@ -286,19 +240,6 @@ export const authAPI = {
     whatsapp_number?: string
     instagram_handle?: string
   }): Promise<AuthResponse> {
-    const mockOnboardingResponse = {
-      user: MOCK_USER,
-      business_id: 'mock-business-id',
-      workspace_id: 'mock-workspace-id',
-      inventory_id: 'mock-inventory-id',
-      tokens: {
-        access_token: 'mock-jwt-token-onboarding-' + Date.now(),
-        refresh_token: 'mock-refresh-token-onboarding-' + Date.now(),
-        token_type: 'bearer',
-        expires_in: 86400
-      }
-    }
-    
     // Include refresh token in header so backend can return it in the response
     const refreshToken = this.getRefreshToken()
     const customHeaders: Record<string, string> = {}
@@ -306,7 +247,7 @@ export const authAPI = {
       customHeaders['X-Refresh-Token'] = refreshToken
     }
     
-    const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, customHeaders, mockOnboardingResponse)
+    const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, customHeaders)
     
     // Update stored tokens and inventory_id
     if (typeof window !== 'undefined') {
