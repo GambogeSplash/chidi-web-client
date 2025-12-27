@@ -9,6 +9,7 @@ import { businessAPI } from '@/lib/api/business'
 
 interface BusinessProfileContentProps {
   businessSlug: string
+  embedded?: boolean  // When true, hides the header/back button for dashboard integration
 }
 
 interface KnowledgeFormData {
@@ -17,7 +18,7 @@ interface KnowledgeFormData {
   content: string
 }
 
-export function BusinessProfileContent({ businessSlug }: BusinessProfileContentProps) {
+export function BusinessProfileContent({ businessSlug, embedded = false }: BusinessProfileContentProps) {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -268,29 +269,41 @@ export function BusinessProfileContent({ businessSlug }: BusinessProfileContentP
 
   const tabs = [
     { id: 'info' as const, label: 'Basic Info', icon: Building2 },
-    { id: 'faqs' as const, label: 'Customer Questions', icon: HelpCircle },
+    { id: 'faqs' as const, label: 'How We Respond', icon: HelpCircle },
     { id: 'rules' as const, label: 'How We Work', icon: BookOpen },
   ]
 
   return (
-    <div className="min-h-screen bg-gray-950">
-      {/* Header */}
-      <div className="border-b border-gray-800 bg-gray-900/50">
-        <div className="max-w-5xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push(`/dashboard/${businessSlug}`)}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5 text-gray-400" />
-            </button>
-            <div>
-              <h1 className="text-xl font-semibold text-white">Business Profile</h1>
-              <p className="text-sm text-gray-400">Manage your business information and AI knowledge base</p>
+    <div className={embedded ? "h-full bg-gray-950" : "min-h-screen bg-gray-950"}>
+      {/* Header - only show when not embedded */}
+      {!embedded && (
+        <div className="border-b border-gray-800 bg-gray-900/50">
+          <div className="max-w-5xl mx-auto px-6 py-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => router.push(`/dashboard/${businessSlug}`)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-400" />
+              </button>
+              <div>
+                <h1 className="text-xl font-semibold text-white">Business Profile</h1>
+                <p className="text-sm text-gray-400">Manage your business information and AI knowledge base</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Header for embedded mode */}
+      {embedded && (
+        <div className="border-b border-gray-800 bg-gray-900/50">
+          <div className="max-w-5xl mx-auto px-6 py-4">
+            <h1 className="text-xl font-semibold text-white">Business Profile</h1>
+            <p className="text-sm text-gray-400">Manage your business information and AI knowledge base</p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-800">
@@ -596,7 +609,7 @@ function KnowledgeTab({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-medium text-white">
-            {type === 'FAQ' ? 'Customer Questions (FAQs)' : 'How We Work (Business Rules)'}
+            {type === 'FAQ' ? 'How We Respond (FAQs)' : 'How We Work (Business Rules)'}
           </h2>
           <p className="text-sm text-gray-400">
             {type === 'FAQ' 

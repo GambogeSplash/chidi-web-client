@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { DesktopSidebar } from '@/components/chidi/desktop-sidebar'
+import { DesktopSidebar, SidebarProvider, MobileSidebarTrigger } from '@/components/chidi/desktop-sidebar'
 import ChatInterface from '@/components/chidi/home-tab'
 import { CatalogTab } from '@/components/chidi/catalog-tab'
+import { BusinessProfileContent } from '@/components/chidi/business-profile-content'
 import { AddProductModal } from '@/components/chidi/add-product-modal'
 import { EditProductModal } from '@/components/chidi/edit-product-modal'
 import { QuickEditModal } from '@/components/chidi/quick-edit-modal'
@@ -12,7 +13,7 @@ import { ProductDetailModal } from '@/components/chidi/product-detail-modal'
 import { BulkCSVImport } from '@/components/chidi/bulk-csv-import'
 import { authAPI, productsAPI, type User } from '@/lib/api'
 import type { DisplayProduct } from '@/lib/types/product'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Menu } from 'lucide-react'
 import { useConversationList } from '@/hooks/use-conversation-list'
 import type { ConversationResponse } from '@/lib/types/conversation'
 
@@ -272,39 +273,50 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
-      {/* Sidebar */}
-      <DesktopSidebar
-        activeSection={activeTab === 'catalog' ? 'inventory' : 'chat'}
-        onSectionChange={(section) => {
-          if (section === 'inventory') setActiveTab('catalog')
-          else setActiveTab('home')
-        }}
-        onNewChat={() => {
-          setActiveConversationId(undefined) // Clear active conversation for new chat
-          setActiveTab('home')
-        }}
-        onSettingsClick={() => setShowProfile(true)}
-        onBusinessProfileClick={() => {
-          const slug = user?.businessSlug || businessSlug
-          if (slug) router.push(`/dashboard/${slug}/business-profile`)
-        }}
-        user={user}
-        chatHistory={chatConversations.map(conv => ({
-          id: conv.id,
-          title: conv.title,
-          lastMessage: conv.lastMessage || '',
-          timestamp: conv.lastActivity.toLocaleDateString()
-        }))}
-        onChatSelect={(chatId) => {
-          setActiveConversationId(chatId)
-          setActiveTab('home')
-        }}
-        activeChatId={activeConversationId}
-      />
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex h-screen w-full overflow-hidden bg-gray-950">
+        {/* Sidebar */}
+        <DesktopSidebar
+          activeSection={activeTab === 'catalog' ? 'inventory' : 'chat'}
+          onSectionChange={(section) => {
+            if (section === 'inventory') setActiveTab('catalog')
+            else setActiveTab('home')
+          }}
+          onNewChat={() => {
+            setActiveConversationId(undefined) // Clear active conversation for new chat
+            setActiveTab('home')
+          }}
+          onSettingsClick={() => {
+            const slug = businessSlug || user?.businessSlug
+            console.log('🔧 [DASHBOARD] Navigating to settings, slug:', slug)
+            if (slug) {
+              router.push(`/dashboard/${slug}/settings`)
+            } else {
+              console.error('🔧 [DASHBOARD] No business slug available')
+            }
+          }}
+          onBusinessProfileClick={() => setActiveTab('business-profile')}
+          user={user}
+          chatHistory={chatConversations.map(conv => ({
+            id: conv.id,
+            title: conv.title,
+            lastMessage: conv.lastMessage || '',
+            timestamp: conv.lastActivity.toLocaleDateString()
+          }))}
+          onChatSelect={(chatId) => {
+            setActiveConversationId(chatId)
+            setActiveTab('home')
+          }}
+          activeChatId={activeConversationId}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-hidden bg-gray-950">
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-gray-950">
+          {/* Mobile Header with sidebar toggle */}
+          <div className="md:hidden flex items-center gap-2 p-3 border-b border-gray-800">
+            <MobileSidebarTrigger />
+            <span className="text-white font-semibold">CHIDI</span>
+          </div>
         {activeTab === "home" ? (
           <ChatInterface
             conversationId={activeConversationId}
@@ -323,6 +335,10 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
               onBulkExport={handleBulkExport}
             />
           </div>
+        ) : activeTab === "business-profile" ? (
+          <div className="h-full overflow-auto">
+            <BusinessProfileContent businessSlug={user?.businessSlug || businessSlug || ''} embedded={true} />
+          </div>
         ) : activeTab === "settings" ? (
           <div className="mx-auto max-w-7xl p-6 w-full">
             <div className="text-white">Settings view coming soon...</div>
@@ -332,7 +348,8 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             <div className="text-white">Select a section from the sidebar</div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Modals */}
       {showAddProductModal && (
@@ -402,6 +419,6 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
           onImport={handleBulkImport}
         />
       )}
-    </div>
+    </SidebarProvider>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { DesktopSidebar } from '@/components/chidi/desktop-sidebar'
+import { DesktopSidebar, SidebarProvider, MobileSidebarTrigger } from '@/components/chidi/desktop-sidebar'
 import { DesktopHeader } from '@/components/chidi/desktop-header'
 import ChatInterface from '@/components/chidi/home-tab'
 import { CatalogTab } from '@/components/chidi/catalog-tab'
@@ -274,28 +274,45 @@ export default function SlugDashboardPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950">
-      {/* Sidebar */}
-      <DesktopSidebar
-        activeSection={activeTab === 'catalog' ? 'inventory' : 'chat'}
-        onSectionChange={(section) => {
-          if (section === 'inventory') setActiveTab('catalog')
-          else setActiveTab('home')
-        }}
-        onNewChat={() => {
-          setActiveTab('home')
-        }}
-        onSettingsClick={() => setShowProfile(true)}
-        user={user}
-        chatHistory={[]}
-        onChatSelect={(chatId) => {
-          setActiveTab('home')
-        }}
-        activeChatId={undefined}
-      />
+    <SidebarProvider defaultOpen={true}>
+      <div className="flex h-screen w-full overflow-hidden bg-gray-950">
+        {/* Sidebar */}
+        <DesktopSidebar
+          activeSection={activeTab === 'catalog' ? 'inventory' : 'chat'}
+          onSectionChange={(section) => {
+            if (section === 'inventory') setActiveTab('catalog')
+            else setActiveTab('home')
+          }}
+          onNewChat={() => {
+            setActiveTab('home')
+          }}
+          onSettingsClick={() => {
+            console.log('🔧 [DASHBOARD] Settings click handler called')
+            console.log('🔧 [DASHBOARD] businessSlug:', businessSlug)
+            const settingsUrl = `/dashboard/${businessSlug}/settings`
+            console.log('🔧 [DASHBOARD] Navigating to:', settingsUrl)
+            try {
+              router.push(settingsUrl)
+              console.log('🔧 [DASHBOARD] router.push called successfully')
+            } catch (err) {
+              console.error('🔧 [DASHBOARD] router.push error:', err)
+            }
+          }}
+          user={user}
+          chatHistory={[]}
+          onChatSelect={(chatId) => {
+            setActiveTab('home')
+          }}
+          activeChatId={undefined}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-hidden bg-gray-950">
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col overflow-hidden bg-gray-950">
+          {/* Mobile Header with sidebar toggle */}
+          <div className="md:hidden flex items-center gap-2 p-3 border-b border-gray-800">
+            <MobileSidebarTrigger />
+            <span className="text-white font-semibold">CHIDI</span>
+          </div>
         {activeTab === "home" ? (
           <ChatInterface />
         ) : activeTab === "catalog" ? (
@@ -317,7 +334,8 @@ export default function SlugDashboardPage() {
             <div className="text-white">Select a section from the sidebar</div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       {/* Modals */}
       {showAddProductModal && (
@@ -358,6 +376,6 @@ export default function SlugDashboardPage() {
           onImport={handleBulkImport}
         />
       )}
-    </div>
+    </SidebarProvider>
   )
 }
