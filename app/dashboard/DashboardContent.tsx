@@ -16,16 +16,8 @@ import type { DisplayProduct } from '@/lib/types/product'
 import { Loader2, Menu } from 'lucide-react'
 import { useConversationList } from '@/hooks/use-conversation-list'
 import type { ConversationResponse } from '@/lib/types/conversation'
-
-interface Notification {
-  id: string;
-  type: 'system' | 'activity' | 'message';
-  title: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-  priority?: 'low' | 'medium' | 'high';
-}
+import { useNotifications, mapNotificationForUI, type MappedNotification } from '@/hooks/use-notifications'
+import { getStoredInventoryId } from '@/lib/api/products'
 
 interface DashboardContentProps {
   businessSlug?: string;
@@ -38,7 +30,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [activeTab, setActiveTab] = useState("home")
   const [products, setProducts] = useState<DisplayProduct[]>([])
   const [conversations, setConversations] = useState<any[]>([])
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [localNotifications, setLocalNotifications] = useState<MappedNotification[]>([])
   const [apiError, setApiError] = useState<string | null>(null)
   const [dataLoading, setDataLoading] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -52,6 +44,30 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     loadConversations,
     addConversation,
   } = useConversationList(false) // Don't auto-load, we'll load after auth
+
+  // Use notifications hook for real-time notifications
+  const inventoryId = typeof window !== 'undefined' ? getStoredInventoryId() : null
+  const {
+    notifications: apiNotifications,
+    unreadCount,
+    isLoading: notificationsLoading,
+    markAsRead: markNotificationAsRead,
+    markAllAsRead,
+    dismiss: dismissNotification,
+    checkLowStock,
+  } = useNotifications({
+    userId: user?.id || null,
+    businessId: user?.businessId || null,
+    inventoryId: inventoryId,
+    enableRealtime: true,
+    autoCheckLowStock: true,
+  })
+
+  // Combine API notifications with local notifications
+  const notifications = [
+    ...apiNotifications.map(mapNotificationForUI),
+    ...localNotifications,
+  ]
   const [selectedProduct, setSelectedProduct] = useState<DisplayProduct | null>(null)
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [showQuickEditModal, setShowQuickEditModal] = useState(false)
@@ -127,13 +143,13 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
       const productsRes = await productsAPI.getProducts()
       setProducts(productsRes.products)
       
-      // Add welcome notification for first load
-      setNotifications([{
+      // Add welcome notification for first load (local notification)
+      setLocalNotifications([{
         id: `welcome-${Date.now()}`,
         type: 'system',
         title: 'Welcome',
         message: 'Welcome to CHIDI! Your AI business assistant is ready to help.',
-        timestamp: new Date().toISOString(),
+        timestamp: 'Just now',
         read: false,
         priority: 'low'
       }])
@@ -161,10 +177,16 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     setShowNotifications(!showNotifications)
   }
 
-  const handleMarkNotificationAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
-    )
+  const handleMarkNotificationAsRead = async (id: string) => {
+    // Check if it's a local notification or API notification
+    const isLocalNotification = localNotifications.some(n => n.id === id)
+    if (isLocalNotification) {
+      setLocalNotifications((prev) =>
+        prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
+      )
+    } else {
+      await markNotificationAsRead(id)
+    }
   }
 
   const handleEditProduct = (product: DisplayProduct) => {
@@ -180,16 +202,16 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
       setProducts((prev) => prev.map((product) => (product.id === updatedProduct.id ? updated : product)))
 
       if (originalProduct && updated.stock > originalProduct.stock) {
-        const notification: Notification = {
+        const notification: MappedNotification = {
           id: `restock-${Date.now()}`,
           type: 'activity',
           title: 'Product Restocked',
           message: `${updated.name} restocked from ${originalProduct.stock} to ${updated.stock} units`,
-          timestamp: new Date().toISOString(),
+          timestamp: 'Just now',
           read: false,
           priority: 'medium'
         }
-        setNotifications((prev) => [notification, ...prev])
+        setLocalNotifications((prev) => [notification, ...prev])
       }
       
       setShowQuickEditModal(false)
@@ -240,16 +262,16 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
       const updatedProducts = await productsAPI.getProducts()
       setProducts(updatedProducts.products)
       
-      const notification: Notification = {
+      const notification: MappedNotification = {
         id: `import-${Date.now()}`,
         type: 'activity',
         title: 'Bulk Import Complete',
         message: `${result.imported} products imported successfully${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
-        timestamp: new Date().toISOString(),
+        timestamp: 'Just now',
         read: false,
         priority: 'medium'
       }
-      setNotifications((prev) => [notification, ...prev])
+      setLocalNotifications((prev) => [notification, ...prev])
     } catch (error) {
       console.error('Failed to import products:', error)
       setApiError('Failed to import products')

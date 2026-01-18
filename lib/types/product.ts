@@ -27,7 +27,7 @@ export interface BackendProduct {
   discount_price?: number
   stock_quantity: number
   reserved_quantity: number
-  reorder_level: number
+  low_stock_threshold: number
   max_stock_level?: number
   status: ProductStatus
   is_featured: boolean
@@ -60,7 +60,7 @@ export interface CreateProductRequest {
   subcategory?: string
   tags?: string[]
   discount_price?: number
-  reorder_level?: number
+  low_stock_threshold?: number
   custom_sku?: string
   sku_format?: 'smart' | 'simple' | 'date'
   is_featured?: boolean
@@ -90,7 +90,7 @@ export interface UpdateProductRequest {
   discount_price?: number
   stock_quantity?: number
   reserved_quantity?: number
-  reorder_level?: number
+  low_stock_threshold?: number
   max_stock_level?: number
   status?: ProductStatus
   is_featured?: boolean
