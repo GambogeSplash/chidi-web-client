@@ -145,8 +145,13 @@ class APIClient {
       errorData = { message: response.statusText }
     }
 
+    // Extract error message - FastAPI uses 'detail', others use 'message'
+    const errorMessage = typeof errorData.detail === 'string' 
+      ? errorData.detail 
+      : errorData.message || `HTTP ${response.status}`
+    
     throw new APIError(
-      errorData.message || `HTTP ${response.status}`,
+      errorMessage,
       response.status,
       errorData
     )

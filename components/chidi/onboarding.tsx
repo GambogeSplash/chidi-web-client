@@ -25,13 +25,13 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     instagramHandle: "",
   })
 
-  const totalSteps = 5
+  const totalSteps = 4
 
   const handleNext = async () => {
     if (step < totalSteps) {
       setStep(step + 1)
     } else {
-      // Complete onboarding by calling the API
+      // Complete onboarding by calling the API (step 4 is the last step)
       setIsLoading(true)
       try {
         const response = await authAPI.completeOnboarding({
@@ -44,13 +44,15 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         })
         
         // Call the parent completion handler with the API response
+        // This will redirect directly to the dashboard
         onComplete({
           ...response.user,
           businessName: userData.businessName,
           ownerName: user.name,
           business_id: response.business_id,
           workspace_id: response.workspace_id,
-          inventory_id: response.inventory_id
+          inventory_id: response.inventory_id,
+          businessSlug: response.businessSlug
         })
       } catch (error) {
         console.error('Onboarding completion failed:', error)
@@ -103,7 +105,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4, 5].map((stepNum) => (
+              {[1, 2, 3, 4].map((stepNum) => (
                 <div
                   key={stepNum}
                   className={`w-8 h-1 rounded-full transition-all duration-300 ${
@@ -185,7 +187,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4, 5].map((stepNum) => (
+              {[1, 2, 3, 4].map((stepNum) => (
                 <div
                   key={stepNum}
                   className={`w-8 h-1 rounded-full transition-all duration-300 ${
@@ -264,7 +266,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4, 5].map((stepNum) => (
+              {[1, 2, 3, 4].map((stepNum) => (
                 <div
                   key={stepNum}
                   className={`w-8 h-1 rounded-full transition-all duration-300 ${
@@ -325,7 +327,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           {/* Progress Bar */}
           <div className="mb-8">
             <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4, 5].map((stepNum) => (
+              {[1, 2, 3, 4].map((stepNum) => (
                 <div
                   key={stepNum}
                   className={`w-8 h-1 rounded-full transition-all duration-300 ${
@@ -399,26 +401,6 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     )
   }
 
-  // Step 5: Completion (fallback)
-  return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg animate-in fade-in duration-500">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Check className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-semibold text-white mb-2">Setup Complete!</h1>
-          <p className="text-gray-400 text-sm mb-8">Welcome to CHIDI. Let's get started with your business.</p>
-          
-          <Button
-            onClick={handleNext}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 font-medium transition-all duration-200"
-          >
-            Enter Dashboard
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
+  // Fallback - should not reach here
+  return null
 }

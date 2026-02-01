@@ -1,45 +1,139 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Zap, Loader2, Eye, EyeOff } from "lucide-react"
+import { Zap, Loader2, Eye, EyeOff, Check, X } from "lucide-react"
 import { authAPI, type User as UserType } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserType, isNewUser?: boolean) => void
 }
 
+interface FormErrors {
+  name?: string
+  email?: string
+  password?: string
+}
+
+// Validation functions
+function validateSignUpForm(name: string, email: string, password: string): FormErrors {
+  const errors: FormErrors = {}
+  
+  // Name validation
+  if (!name.trim()) {
+    errors.name = "Name is required"
+  } else if (name.trim().length < 2) {
+    errors.name = "Name must be at least 2 characters"
+  }
+  
+  // Email validation
+  if (!email.trim()) {
+    errors.email = "Email is required"
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    errors.email = "Please enter a valid email address"
+  }
+  
+  // Password validation
+  if (!password) {
+    errors.password = "Password is required"
+  } else if (password.length < 8) {
+    errors.password = "Password must be at least 8 characters"
+  } else if (!/[A-Z]/.test(password)) {
+    errors.password = "Password needs an uppercase letter"
+  } else if (!/[0-9]/.test(password)) {
+    errors.password = "Password needs a number"
+  }
+  
+  return errors
+}
+
+function validateSignInForm(email: string, password: string): FormErrors {
+  const errors: FormErrors = {}
+  
+  if (!email.trim()) {
+    errors.email = "Email is required"
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    errors.email = "Please enter a valid email address"
+  }
+  
+  if (!password) {
+    errors.password = "Password is required"
+  }
+  
+  return errors
+}
+
+// Password requirement checker component
+function PasswordRequirements({ password = "" }: { password: string }) {
+  const hasMinLength = password.length >= 8
+  const hasUppercase = /[A-Z]/.test(password)
+  const hasNumber = /[0-9]/.test(password)
+
+  const requirements = [
+    { label: "At least 8 characters", met: hasMinLength },
+    { label: "One uppercase letter", met: hasUppercase },
+    { label: "One number", met: hasNumber },
+  ]
+
+  return (
+    <div className="space-y-1.5 mt-2">
+      {requirements.map((req, index) => (
+        <div key={index} className="flex items-center gap-2 text-xs transition-colors duration-200">
+          {req.met ? (
+            <Check className="w-3.5 h-3.5 text-green-500" />
+          ) : (
+            <X className="w-3.5 h-3.5 text-gray-500" />
+          )}
+          <span className={req.met ? "text-green-500" : "text-gray-500"}>
+            {req.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signup")
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [apiError, setApiError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+  const [formErrors, setFormErrors] = useState<FormErrors>({})
+  const [passwordValue, setPasswordValue] = useState("")
 
-  // Sign In state
-  const [signInEmail, setSignInEmail] = useState("")
-  const [signInPassword, setSignInPassword] = useState("")
-
-  // Sign Up state
-  const [signUpName, setSignUpName] = useState("")
-  const [signUpEmail, setSignUpEmail] = useState("")
-  const [signUpPassword, setSignUpPassword] = useState("")
+  // Form refs to get actual DOM values
+  const signUpFormRef = useRef<HTMLFormElement>(null)
+  const signInFormRef = useRef<HTMLFormElement>(null)
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setApiError("")
+    setFormErrors({})
+
+    // Get values directly from the form
+    const form = signInFormRef.current
+    if (!form) return
+
+    const formData = new FormData(form)
+    const email = (formData.get("email") as string) || ""
+    const password = (formData.get("password") as string) || ""
+
+    // Validate
+    const errors = validateSignInForm(email, password)
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors)
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      const response = await authAPI.login({
-        email: signInEmail,
-        password: signInPassword
-      })
+      const response = await authAPI.login({ email: email.trim(), password })
       
-      // Flatten user with businessName and businessSlug from root level
       const user: UserType = {
         ...response.user,
         businessName: response.businessName || response.user.businessName,
@@ -47,55 +141,59 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       }
       
       console.log('✅ [AUTH-SCREEN] Login successful, user:', user)
-      console.log('✅ [AUTH-SCREEN] businessName:', user.businessName)
-      console.log('✅ [AUTH-SCREEN] businessSlug:', user.businessSlug)
       
       setIsLoading(false)
-      onAuthSuccess(user, false) // Login - existing user
+      onAuthSuccess(user, false)
     } catch (error: any) {
       setIsLoading(false)
-      setError(error.message || 'Login failed')
+      setApiError(error.message || 'Login failed. Please check your credentials.')
     }
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setApiError("")
+    setFormErrors({})
+
+    // Get values directly from the form
+    const form = signUpFormRef.current
+    if (!form) return
+
+    const formData = new FormData(form)
+    const name = (formData.get("name") as string) || ""
+    const email = (formData.get("email") as string) || ""
+    const password = (formData.get("password") as string) || ""
+
+    console.log('🔍 [DEBUG] Form values:', { name, email, password: '***' })
+
+    // Validate
+    const errors = validateSignUpForm(name, email, password)
+    if (Object.keys(errors).length > 0) {
+      console.log('🚨 [DEBUG] Validation errors:', errors)
+      setFormErrors(errors)
+      return
+    }
+
     setIsLoading(true)
 
     try {
       console.log('🔍 [DEBUG] Starting signup process...')
       const response = await authAPI.signup({
-        email: signUpEmail,
-        password: signUpPassword,
-        name: signUpName
+        email: email.trim(),
+        password,
+        name: name.trim()
       })
       
-      console.log('🔍 [DEBUG] Raw API response:', response)
-      console.log('🔍 [DEBUG] Response type:', typeof response)
-      console.log('🔍 [DEBUG] Response keys:', Object.keys(response || {}))
-      console.log('🔍 [DEBUG] Response.email:', response?.email)
-      // Note: response should be User directly, not nested in response.user
+      console.log('🔍 [DEBUG] Signup successful:', response)
       
       setIsLoading(false)
-      
-      console.log('🔍 [DEBUG] About to call onAuthSuccess with:', response)
-      try {
-        onAuthSuccess(response, true) // Signup - new user (response is User directly)
-        console.log('🔍 [DEBUG] onAuthSuccess completed successfully')
-      } catch (callbackError: any) {
-        console.error('🚨 [DEBUG] Error in onAuthSuccess callback:', callbackError)
-        console.error('🚨 [DEBUG] Callback error stack:', callbackError.stack)
-        setError(`Callback error: ${callbackError.message}`)
-      }
+      onAuthSuccess(response, true)
     } catch (error: any) {
       console.error('🚨 [DEBUG] Signup API error:', error)
-      console.error('🚨 [DEBUG] Error stack:', error.stack)
       setIsLoading(false)
-      setError(error.message || 'Signup failed')
+      setApiError(error.message || 'Signup failed. Please try again.')
     }
   }
-
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
@@ -112,7 +210,11 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         {/* Tab Switcher */}
         <div className="flex bg-gray-800 rounded-lg p-1 mb-8 animate-in slide-in-from-bottom-4 duration-500 delay-100">
           <button
-            onClick={() => setActiveTab('signin')}
+            onClick={() => {
+              setActiveTab('signin')
+              setApiError("")
+              setFormErrors({})
+            }}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
               activeTab === 'signin'
                 ? 'bg-gray-700 text-white'
@@ -122,7 +224,11 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             Sign In
           </button>
           <button
-            onClick={() => setActiveTab('signup')}
+            onClick={() => {
+              setActiveTab('signup')
+              setApiError("")
+              setFormErrors({})
+            }}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
               activeTab === 'signup'
                 ? 'bg-gray-700 text-white'
@@ -136,20 +242,24 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         {/* Auth Form */}
         <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
           {activeTab === 'signup' ? (
-            <form onSubmit={handleSignUp} className="space-y-4">
+            <form ref={signUpFormRef} onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signup-name" className="text-gray-300 text-sm font-medium">
                   Full Name
                 </Label>
                 <Input
                   id="signup-name"
+                  name="name"
                   type="text"
                   placeholder="Jane Adebayo"
-                  value={signUpName}
-                  onChange={(e) => setSignUpName(e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
-                  required
+                  className={cn(
+                    "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12",
+                    formErrors.name && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                  )}
                 />
+                {formErrors.name && (
+                  <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -158,13 +268,17 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 </Label>
                 <Input
                   id="signup-email"
+                  name="email"
                   type="email"
                   placeholder="you@example.com"
-                  value={signUpEmail}
-                  onChange={(e) => setSignUpEmail(e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
-                  required
+                  className={cn(
+                    "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12",
+                    formErrors.email && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                  )}
                 />
+                {formErrors.email && (
+                  <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -174,13 +288,14 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 <div className="relative">
                   <Input
                     id="signup-password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
-                    value={signUpPassword}
-                    onChange={(e) => setSignUpPassword(e.target.value)}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12"
-                    required
-                    minLength={6}
+                    onChange={(e) => setPasswordValue(e.target.value)}
+                    className={cn(
+                      "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12",
+                      formErrors.password && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    )}
                   />
                   <button
                     type="button"
@@ -190,12 +305,12 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500">Must be at least 6 characters</p>
+                <PasswordRequirements password={passwordValue} />
               </div>
 
-              {error && (
+              {apiError && (
                 <div className="text-sm text-red-400 bg-red-900/20 px-3 py-2 rounded-md border border-red-800">
-                  {error}
+                  {apiError}
                 </div>
               )}
 
@@ -222,20 +337,24 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </p>
             </form>
           ) : (
-            <form onSubmit={handleSignIn} className="space-y-4">
+            <form ref={signInFormRef} onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signin-email" className="text-gray-300 text-sm font-medium">
                   Email
                 </Label>
                 <Input
                   id="signin-email"
+                  name="email"
                   type="email"
                   placeholder="you@example.com"
-                  value={signInEmail}
-                  onChange={(e) => setSignInEmail(e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
-                  required
+                  className={cn(
+                    "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12",
+                    formErrors.email && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                  )}
                 />
+                {formErrors.email && (
+                  <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -245,12 +364,13 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 <div className="relative">
                   <Input
                     id="signin-password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
-                    value={signInPassword}
-                    onChange={(e) => setSignInPassword(e.target.value)}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12"
-                    required
+                    className={cn(
+                      "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12",
+                      formErrors.password && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    )}
                   />
                   <button
                     type="button"
@@ -262,9 +382,9 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 </div>
               </div>
 
-              {error && (
+              {apiError && (
                 <div className="text-sm text-red-400 bg-red-900/20 px-3 py-2 rounded-md border border-red-800">
-                  {error}
+                  {apiError}
                 </div>
               )}
 

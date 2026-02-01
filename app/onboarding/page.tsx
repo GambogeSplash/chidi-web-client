@@ -37,23 +37,16 @@ export default function OnboardingPage() {
 
   const handleOnboardingComplete = async (onboardingData: any) => {
     try {
-      const response = await authAPI.completeOnboarding({
-        business_name: onboardingData.businessName,
-        business_industry: onboardingData.categories?.[0],
-        phone: onboardingData.phone,
-        categories: onboardingData.categories,
-        whatsapp_number: onboardingData.whatsappNumber,
-        instagram_handle: onboardingData.instagramHandle
-      })
+      // The onboarding component already calls the API, so we just need the slug
+      const businessSlug = onboardingData.businessSlug
 
-      // Redirect to slug-based dashboard after successful onboarding
-      const businessSlug = response.businessSlug
+      // Redirect to slug-based dashboard with welcome banner
       if (businessSlug) {
         console.log('🏢 [ONBOARDING] Redirecting to dashboard with slug:', businessSlug)
-        router.push(`/dashboard/${businessSlug}`)
+        router.push(`/dashboard/${businessSlug}?welcome=true`)
       } else {
         console.log('⚠️ [ONBOARDING] No business slug found, redirecting to default dashboard')
-        router.push('/dashboard')
+        router.push('/dashboard?welcome=true')
       }
     } catch (err: any) {
       setError(err.message || 'Failed to complete onboarding')

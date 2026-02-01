@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { DesktopSidebar, SidebarProvider, MobileSidebarTrigger } from '@/components/chidi/desktop-sidebar'
 import ChatInterface from '@/components/chidi/home-tab'
 import { CatalogTab } from '@/components/chidi/catalog-tab'
@@ -13,7 +13,7 @@ import { ProductDetailModal } from '@/components/chidi/product-detail-modal'
 import { BulkCSVImport } from '@/components/chidi/bulk-csv-import'
 import { authAPI, productsAPI, type User } from '@/lib/api'
 import type { DisplayProduct } from '@/lib/types/product'
-import { Loader2, Menu } from 'lucide-react'
+import { Loader2, Menu, X, Sparkles } from 'lucide-react'
 import { useConversationList } from '@/hooks/use-conversation-list'
 import type { ConversationResponse } from '@/lib/types/conversation'
 import { useNotifications, mapNotificationForUI, type MappedNotification } from '@/hooks/use-notifications'
@@ -25,6 +25,7 @@ interface DashboardContentProps {
 
 export default function DashboardContent({ businessSlug }: DashboardContentProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("home")
@@ -36,6 +37,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [currentView, setCurrentView] = useState("main")
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined)
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false)
 
   // Use conversation list hook for chat history
   const {
@@ -85,6 +87,18 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [teamMembers, setTeamMembers] = useState([])
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [showWhisperMode, setShowWhisperMode] = useState(false)
+
+  // Check for welcome parameter (from onboarding redirect)
+  useEffect(() => {
+    const welcome = searchParams.get('welcome')
+    if (welcome === 'true') {
+      setShowWelcomeBanner(true)
+      // Remove the query param from URL without refresh
+      const url = new URL(window.location.href)
+      url.searchParams.delete('welcome')
+      window.history.replaceState({}, '', url.pathname)
+    }
+  }, [searchParams])
 
   // Authentication check on page load
   useEffect(() => {
@@ -339,6 +353,34 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             <MobileSidebarTrigger />
             <span className="text-white font-semibold">CHIDI</span>
           </div>
+
+          {/* Welcome Banner - shows after onboarding */}
+          {showWelcomeBanner && (
+            <div className="mx-4 mt-4 mb-2 animate-in slide-in-from-top-2 duration-300">
+              <div className="relative bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-4 shadow-lg">
+                <button
+                  onClick={() => setShowWelcomeBanner(false)}
+                  className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="pr-8">
+                    <h3 className="text-white font-semibold text-lg mb-1">
+                      Welcome to CHIDI, {user?.name?.split(' ')[0] || 'there'}! 🎉
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      Your AI business assistant is ready. Start by chatting below or add products to your catalog.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         {activeTab === "home" ? (
           <ChatInterface
             conversationId={activeConversationId}
