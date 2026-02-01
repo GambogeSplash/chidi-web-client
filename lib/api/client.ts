@@ -1,4 +1,10 @@
 // API Client - Base HTTP client for external backend integration
+
+// Debug logging helper - only logs in development
+const isDev = process.env.NODE_ENV === 'development'
+const debugLog = (...args: any[]) => { if (isDev) console.log(...args) }
+const debugError = (...args: any[]) => { if (isDev) console.error(...args) }
+
 class APIError extends Error {
   constructor(
     message: string,
@@ -31,11 +37,9 @@ class APIClient {
       'Content-Type': 'application/json',
     }
     
-    // Log API client configuration
-    console.log('🔧 [API-CLIENT] Initialized with config:', {
+    debugLog('🔧 [API-CLIENT] Initialized with config:', {
       baseURL: this.baseURL,
       isDevelopmentMode: this.isDevelopmentMode,
-      defaultHeaders: this.defaultHeaders
     })
   }
 
@@ -98,44 +102,19 @@ class APIClient {
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
-    console.log('🔍 [RESPONSE-DEBUG] handleResponse called, response.ok:', response.ok)
-    console.log('🔍 [RESPONSE-DEBUG] Response status:', response.status, response.statusText)
-    
     if (response.ok) {
       const contentType = response.headers.get('content-type')
-      console.log('🔍 [RESPONSE-DEBUG] Content-Type:', contentType)
       
       if (contentType && contentType.includes('application/json')) {
         try {
-          console.log('🔍 [RESPONSE-DEBUG] About to parse JSON...')
-          const jsonData = await response.json()
-          console.log('🔍 [RESPONSE-DEBUG] Parsed JSON:', jsonData)
-          console.log('🔍 [RESPONSE-DEBUG] JSON type:', typeof jsonData)
-          console.log('🔍 [RESPONSE-DEBUG] JSON keys:', Object.keys(jsonData || {}))
-          console.log('🔍 [RESPONSE-DEBUG] Returning JSON data...')
-          return jsonData
+          return await response.json()
         } catch (jsonError: any) {
-          console.error('🚨 [RESPONSE-DEBUG] JSON parsing failed:', jsonError)
-          console.error('🚨 [RESPONSE-DEBUG] JSON error stack:', jsonError.stack)
-          
-          // Try to get raw text to see what the response actually contains
-          try {
-            const responseClone = response.clone()
-            const textFallback = await responseClone.text()
-            console.log('🔍 [RESPONSE-DEBUG] Raw response text:', textFallback)
-            console.log('🔍 [RESPONSE-DEBUG] Text length:', textFallback.length)
-          } catch (textError) {
-            console.error('🚨 [RESPONSE-DEBUG] Could not read response as text:', textError)
-          }
-          
+          debugError('🚨 JSON parsing failed:', jsonError.message)
           throw new Error(`JSON parsing failed: ${jsonError.message}`)
         }
       }
       
-      console.log('🔍 [RESPONSE-DEBUG] Not JSON, reading as text...')
-      const textData = await response.text()
-      console.log('🔍 [RESPONSE-DEBUG] Text response:', textData)
-      return textData as any
+      return await response.text() as any
     }
 
     let errorData
@@ -159,25 +138,11 @@ class APIClient {
 
   async request<T>(endpoint: string, options: RequestConfig = {}): Promise<T> {
     const { method = 'GET', headers = {}, body, token } = options
-    const requestId = Math.random().toString(36).substr(2, 9)
     
-    // Enhanced logging for all requests
-    console.log(`🚀 [${requestId}] ${method} ${endpoint}`)
-    if (body) {
-      console.log(`📤 [${requestId}] Request body:`, body)
-    }
-    if (headers && Object.keys(headers).length > 0) {
-      console.log(`📋 [${requestId}] Custom headers:`, headers)
-    }
+    debugLog(`🚀 ${method} ${endpoint}`)
 
     const url = `${this.baseURL}${endpoint}`
-    let authToken = token || this.getAuthToken()
-    
-    if (authToken) {
-      console.log(`🔐 [${requestId}] Using auth token: ${authToken.substring(0, 20)}...`)
-    } else {
-      console.log(`❌ [${requestId}] No auth token available`)
-    }
+    const authToken = token || this.getAuthToken()
     
     const requestHeaders = {
       ...this.defaultHeaders,
@@ -197,95 +162,49 @@ class APIClient {
       requestConfig.body = JSON.stringify(body)
     }
 
-    console.log(`🌐 [${requestId}] Full URL: ${url}`)
-    console.log(`📋 [${requestId}] Request headers:`, requestHeaders)
-
     try {
       const startTime = Date.now()
       const response = await fetch(url, requestConfig)
       const duration = Date.now() - startTime
       
-      console.log(`📥 [${requestId}] Response: ${response.status} ${response.statusText} (${duration}ms)`)
-      console.log(`📋 [${requestId}] Response headers:`, Object.fromEntries(response.headers.entries()))
+      debugLog(`📥 ${method} ${endpoint}: ${response.status} (${duration}ms)`)
       
       // Handle token expiration
       if (response.status === 401 && authToken && !this.isRefreshing) {
-        console.log(`🔄 [${requestId}] Token expired, attempting refresh...`)
+        debugLog('🔄 Token expired, attempting refresh...')
         try {
-          // Attempt to refresh token
           const newToken = await this.refreshAccessToken()
-          console.log(`✅ [${requestId}] Token refreshed successfully`)
           
-          // Retry request with new token
-          const newHeaders = {
-            ...requestHeaders,
-            'Authorization': `Bearer ${newToken}`
-          }
-          
-          console.log(`🔄 [${requestId}] Retrying request with new token...`)
-          const retryStartTime = Date.now()
           const retryResponse = await fetch(url, {
             ...requestConfig,
-            headers: newHeaders
+            headers: { ...requestHeaders, 'Authorization': `Bearer ${newToken}` }
           })
-          const retryDuration = Date.now() - retryStartTime
-          
-          console.log(`📥 [${requestId}] Retry response: ${retryResponse.status} ${retryResponse.statusText} (${retryDuration}ms)`)
           
           return this.handleResponse<T>(retryResponse)
         } catch (refreshError) {
-          console.error(`❌ [${requestId}] Token refresh failed:`, refreshError)
           // If refresh fails, redirect to login
           if (typeof window !== 'undefined') {
             localStorage.removeItem('chidi_auth_token')
             localStorage.removeItem('chidi_refresh_token')
-            console.log(`🚪 [${requestId}] Redirecting to auth page`)
             window.location.href = '/auth'
           }
           throw refreshError
         }
       }
       
-      console.log(`🔍 [${requestId}] About to call handleResponse...`)
-      const result = await this.handleResponse<T>(response)
-      console.log(`🔍 [${requestId}] handleResponse returned:`, result)
-      console.log(`✅ [${requestId}] Request completed successfully`)
-      return result
+      return await this.handleResponse<T>(response)
     } catch (error) {
-      console.error(`❌ [${requestId}] Request failed:`, error)
-      
-      // Enhanced error logging with fetch failure detection
+      // Only log errors in development
       if (error instanceof APIError) {
-        console.error(`❌ [${requestId}] API Error Details:`, {
-          status: error.status,
-          message: error.message,
-          data: error.data
-        })
+        debugError(`❌ API Error: ${error.status} ${error.message}`)
       } else if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error(`🌐 [${requestId}] FETCH FAILURE - Network/CORS Error:`, {
-          message: error.message,
-          url: url,
-          method: method,
-          possibleCauses: [
-            'Backend server not running',
-            'CORS configuration issue', 
-            'Network connectivity problem',
-            'Incorrect backend URL'
-          ],
-          currentBackendURL: this.baseURL,
-          requestHeaders: requestHeaders
-        })
-      } else if (error instanceof Error) {
-        console.error(`❌ [${requestId}] Network/Other Error:`, {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        })
+        debugError(`🌐 Network Error: ${error.message} - Check if backend is running at ${this.baseURL}`)
+      } else {
+        debugError(`❌ Request failed:`, error)
       }
       
       // Handle auth errors by clearing token
       if (error instanceof APIError && error.status === 401) {
-        console.log(`🔐 [${requestId}] Clearing auth tokens due to 401 error`)
         if (typeof window !== 'undefined') {
           localStorage.removeItem('chidi_auth_token')
           localStorage.removeItem('chidi_refresh_token')
@@ -299,9 +218,9 @@ class APIClient {
   createMockResponse<T>(data: T): Promise<T> {
     return new Promise((resolve) => {
       setTimeout(() => {
-        console.log('📦 [MOCK] Returning mock data:', data)
+        debugLog('📦 [MOCK] Returning mock data')
         resolve(data)
-      }, 300) // Simulate network delay
+      }, 300)
     })
   }
 
@@ -310,9 +229,8 @@ class APIClient {
     try {
       return await this.request<T>(endpoint, { method: 'GET', headers })
     } catch (error) {
-      console.error(`🔄 GET ${endpoint} failed, error:`, error)
       if (this.isDevelopmentMode && mockData) {
-        console.log('🔄 [DEV] API failed, using mock data for GET', endpoint)
+        debugLog('🔄 [DEV] Using mock data for GET', endpoint)
         return this.createMockResponse(mockData)
       }
       throw error
@@ -323,9 +241,8 @@ class APIClient {
     try {
       return await this.request<T>(endpoint, { method: 'POST', body, headers })
     } catch (error) {
-      console.error(`🔄 POST ${endpoint} failed, error:`, error)
       if (this.isDevelopmentMode && mockData) {
-        console.log('🔄 [DEV] API failed, using mock data for POST', endpoint)
+        debugLog('🔄 [DEV] Using mock data for POST', endpoint)
         return this.createMockResponse(mockData)
       }
       throw error
@@ -336,9 +253,8 @@ class APIClient {
     try {
       return await this.request<T>(endpoint, { method: 'PUT', body, headers })
     } catch (error) {
-      console.error(`🔄 PUT ${endpoint} failed, error:`, error)
       if (this.isDevelopmentMode && mockData) {
-        console.log('🔄 [DEV] API failed, using mock data for PUT', endpoint)
+        debugLog('🔄 [DEV] Using mock data for PUT', endpoint)
         return this.createMockResponse(mockData)
       }
       throw error
@@ -349,9 +265,8 @@ class APIClient {
     try {
       return await this.request<T>(endpoint, { method: 'DELETE', headers })
     } catch (error) {
-      console.error(`🔄 DELETE ${endpoint} failed, error:`, error)
       if (this.isDevelopmentMode && mockData) {
-        console.log('🔄 [DEV] API failed, using mock data for DELETE', endpoint)
+        debugLog('🔄 [DEV] Using mock data for DELETE', endpoint)
         return this.createMockResponse(mockData)
       }
       throw error
@@ -362,9 +277,8 @@ class APIClient {
     try {
       return await this.request<T>(endpoint, { method: 'PATCH', body, headers })
     } catch (error) {
-      console.error(`🔄 PATCH ${endpoint} failed, error:`, error)
       if (this.isDevelopmentMode && mockData) {
-        console.log('🔄 [DEV] API failed, using mock data for PATCH', endpoint)
+        debugLog('🔄 [DEV] Using mock data for PATCH', endpoint)
         return this.createMockResponse(mockData)
       }
       throw error

@@ -299,10 +299,36 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading dashboard...</p>
+      <div className="flex h-screen w-full overflow-hidden bg-gray-950">
+        {/* Skeleton Sidebar */}
+        <div className="w-64 border-r border-gray-800 bg-gray-900 p-4 hidden md:block">
+          {/* Logo skeleton */}
+          <div className="flex items-center gap-2 mb-6">
+            <div className="w-8 h-8 bg-gray-700 rounded-lg animate-pulse" />
+            <div className="w-16 h-4 bg-gray-700 rounded animate-pulse" />
+          </div>
+          {/* Nav items skeleton */}
+          <div className="space-y-2">
+            <div className="w-full h-10 bg-gray-800 rounded-lg animate-pulse" />
+            <div className="w-full h-10 bg-gray-800 rounded-lg animate-pulse" />
+            <div className="w-full h-10 bg-gray-800 rounded-lg animate-pulse" />
+          </div>
+          {/* Chat history skeleton */}
+          <div className="mt-6 space-y-2">
+            <div className="w-12 h-3 bg-gray-700 rounded animate-pulse mb-3" />
+            <div className="w-full h-8 bg-gray-800 rounded animate-pulse" />
+            <div className="w-full h-8 bg-gray-800 rounded animate-pulse" />
+            <div className="w-3/4 h-8 bg-gray-800 rounded animate-pulse" />
+          </div>
+        </div>
+        {/* Skeleton Main Content */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 bg-gray-800 rounded-2xl animate-pulse mb-6" />
+          <div className="w-48 h-6 bg-gray-800 rounded animate-pulse mb-8" />
+          <div className="w-full max-w-xl px-4">
+            <div className="w-full h-14 bg-gray-800 rounded-xl animate-pulse" />
+          </div>
+          <p className="text-gray-500 text-sm mt-4">Loading your workspace...</p>
         </div>
       </div>
     )

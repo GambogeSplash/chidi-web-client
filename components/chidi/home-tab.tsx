@@ -14,6 +14,13 @@ interface ChatInterfaceProps {
   onConversationCreated?: (conversation: ConversationResponse) => void
 }
 
+// Loading messages that rotate while waiting for AI response
+const LOADING_MESSAGES = [
+  "Checking...",
+  "I'm coming...",
+  "Please, wait small...",
+]
+
 // Helper function to format timestamps
 const formatTimestamp = (timestamp: Date): string => {
   const now = new Date()
@@ -56,6 +63,8 @@ const groupMessages = (messages: ChatMessage[]): Array<{ sender: string; message
 export default function ChatInterface({ conversationId, onConversationCreated }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState('')
   const [showScrollButton, setShowScrollButton] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0])
+  const messageIndexRef = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -67,11 +76,26 @@ export default function ChatInterface({ conversationId, onConversationCreated }:
     isLoading,
     isSending,
     error,
-    loadConversation,
-    createConversation,
     sendMessage,
+    createAndSendMessage,
     clearError,
   } = useConversation(conversationId)
+
+  // Rotate loading messages while sending - sequential order, cycles back
+  useEffect(() => {
+    if (!isSending) return
+
+    // Start with first message
+    messageIndexRef.current = 0
+    setLoadingMessage(LOADING_MESSAGES[0])
+
+    const interval = setInterval(() => {
+      messageIndexRef.current = (messageIndexRef.current + 1) % LOADING_MESSAGES.length
+      setLoadingMessage(LOADING_MESSAGES[messageIndexRef.current])
+    }, 3500) // Change every 3.5 seconds
+
+    return () => clearInterval(interval)
+  }, [isSending])
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -96,34 +120,22 @@ export default function ChatInterface({ conversationId, onConversationCreated }:
   }
 
   const handleSendMessage = useCallback(async () => {
-    console.log('🔵 [HOME-TAB] handleSendMessage called, inputValue:', inputValue)
     if (!inputValue.trim()) return
 
     const messageContent = inputValue
     setInputValue('')
 
-    // If no conversation exists, create one first
     if (!conversation) {
-      console.log('🔵 [HOME-TAB] No conversation, creating new one...')
-      const newConversation = await createConversation({
-        title: messageContent.slice(0, 50) + (messageContent.length > 50 ? '...' : ''),
-        topic: 'general_inquiry',
-      })
-      
-      console.log('🔵 [HOME-TAB] New conversation created:', newConversation?.id)
+      // New conversation - use combined create + send for immediate UI feedback
+      const newConversation = await createAndSendMessage(messageContent)
       if (newConversation) {
         onConversationCreated?.(newConversation)
-        // Send the message after conversation is created (pass ID directly to avoid stale state)
-        console.log('🔵 [HOME-TAB] Calling sendMessage with conversationId:', newConversation.id)
-        await sendMessage(messageContent, newConversation.id)
-        console.log('🔵 [HOME-TAB] sendMessage completed')
       }
     } else {
-      // Send message to existing conversation
-      console.log('🔵 [HOME-TAB] Existing conversation, sending message to:', conversation.id)
+      // Existing conversation - just send
       await sendMessage(messageContent)
     }
-  }, [inputValue, conversation, createConversation, sendMessage, onConversationCreated])
+  }, [inputValue, conversation, createAndSendMessage, sendMessage, onConversationCreated])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -314,7 +326,7 @@ export default function ChatInterface({ conversationId, onConversationCreated }:
           </div>
         ))}
         
-        {/* Typing indicator */}
+        {/* Typing indicator with rotating messages */}
         {isSending && (
           <div className="flex items-start gap-2 mb-4">
             <Avatar className="w-6 h-6">
@@ -323,16 +335,19 @@ export default function ChatInterface({ conversationId, onConversationCreated }:
               </AvatarFallback>
             </Avatar>
             <div className="bg-gray-800 text-white rounded-2xl rounded-bl-md px-4 py-3 animate-in slide-in-from-bottom-2">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '0.1s' }}
-                />
-                <div
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: '0.2s' }}
-                />
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-300 animate-pulse">{loadingMessage}</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce" />
+                  <div
+                    className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.1s' }}
+                  />
+                  <div
+                    className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"
+                    style={{ animationDelay: '0.2s' }}
+                  />
+                </div>
               </div>
             </div>
           </div>
