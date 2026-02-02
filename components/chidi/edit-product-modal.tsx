@@ -197,6 +197,7 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
                   id="stock"
                   type="number"
                   placeholder="10"
+                  min="0"
                   value={formData.stock}
                   onChange={(e) => handleInputChange("stock", e.target.value)}
                   className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

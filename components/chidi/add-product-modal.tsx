@@ -195,6 +195,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   id="stock"
                   type="number"
                   placeholder="10"
+                  min="0"
                   value={formData.stock}
                   onChange={(e) => handleInputChange("stock", e.target.value)}
                   className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
