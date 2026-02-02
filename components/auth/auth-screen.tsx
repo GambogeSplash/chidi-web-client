@@ -146,7 +146,22 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       onAuthSuccess(user, false)
     } catch (error: any) {
       setIsLoading(false)
-      setApiError(error.message || 'Login failed. Please check your credentials.')
+      console.error('🚨 [AUTH-SCREEN] Login error:', error)
+      
+      // Provide user-friendly error messages based on error type
+      let errorMessage = 'Login failed. Please try again.'
+      
+      if (error.status === 401) {
+        errorMessage = 'Invalid email or password. Please check your credentials.'
+      } else if (error.status === 404) {
+        errorMessage = 'Account not found. Please sign up first.'
+      } else if (error.status === 0 || error.message?.includes('connect')) {
+        errorMessage = 'Unable to connect to the server. Please check your connection.'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setApiError(errorMessage)
     }
   }
 
@@ -191,7 +206,19 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     } catch (error: any) {
       console.error('🚨 [DEBUG] Signup API error:', error)
       setIsLoading(false)
-      setApiError(error.message || 'Signup failed. Please try again.')
+      
+      // Provide user-friendly error messages based on error type
+      let errorMessage = 'Signup failed. Please try again.'
+      
+      if (error.status === 400 && error.message?.includes('already exists')) {
+        errorMessage = 'An account with this email already exists. Please sign in instead.'
+      } else if (error.status === 0 || error.message?.includes('connect')) {
+        errorMessage = 'Unable to connect to the server. Please check your connection.'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setApiError(errorMessage)
     }
   }
 

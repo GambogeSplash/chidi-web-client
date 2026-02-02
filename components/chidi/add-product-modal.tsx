@@ -1,13 +1,13 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Package, Loader2 } from "lucide-react"
+import { X, Package, Loader2, ImageIcon, Trash2 } from "lucide-react"
 import { productsAPI } from "@/lib/api"
 import type { DisplayProduct, CreateProductRequest } from "@/lib/types/product"
 import { parseCurrency } from "@/lib/utils/product-transformer"
@@ -29,14 +29,77 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
     category: "",
     description: "",
     brand: "",
-    imageUrl: "",
   })
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     setError(null)
+  }
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file')
+        return
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image must be less than 5MB')
+        return
+      }
+      
+      setImageFile(file)
+      setError(null)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image must be less than 5MB')
+        return
+      }
+      
+      setImageFile(file)
+      setError(null)
+      
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,9 +112,10 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
       const sellingPrice = parseCurrency(formData.sellingPrice)
       const costPrice = formData.costPrice ? parseCurrency(formData.costPrice) : sellingPrice * 0.7
 
+      // Use the base64 image preview as the image URL if an image was selected
       const imageUrls: string[] = []
-      if (formData.imageUrl) {
-        imageUrls.push(formData.imageUrl)
+      if (imagePreview) {
+        imageUrls.push(imagePreview)
       }
 
       const productData: CreateProductRequest = {
@@ -90,8 +154,12 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
       category: "",
       description: "",
       brand: "",
-      imageUrl: "",
     })
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
     setError(null)
   }
 
@@ -251,19 +319,53 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
               />
             </div>
 
-            {/* Image URL */}
+            {/* Product Image */}
             <div className="space-y-2">
-              <Label htmlFor="imageUrl" className="text-sm font-medium text-gray-300">
-                Image URL
+              <Label className="text-sm font-medium text-gray-300">
+                Product Image
               </Label>
-              <Input
-                id="imageUrl"
-                placeholder="https://example.com/image.jpg"
-                value={formData.imageUrl}
-                onChange={(e) => handleInputChange("imageUrl", e.target.value)}
-                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              
+              {imagePreview ? (
+                <div className="relative rounded-lg overflow-hidden border border-gray-700 bg-gray-800">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="w-full h-40 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  className="border-2 border-dashed border-gray-700 hover:border-emerald-500/50 rounded-lg p-6 cursor-pointer transition-colors bg-gray-800/50 hover:bg-gray-800"
+                >
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="p-3 bg-gray-700/50 rounded-full">
+                      <ImageIcon className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-300">Click to upload or drag and drop</p>
+                      <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 5MB</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
               />
-              <p className="text-xs text-gray-500">Optional: Enter a URL for the product image</p>
             </div>
           </form>
         </div>

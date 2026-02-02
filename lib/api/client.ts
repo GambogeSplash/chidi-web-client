@@ -199,6 +199,12 @@ class APIClient {
         debugError(`❌ API Error: ${error.status} ${error.message}`)
       } else if (error instanceof TypeError && error.message.includes('fetch')) {
         debugError(`🌐 Network Error: ${error.message} - Check if backend is running at ${this.baseURL}`)
+        // Throw a more user-friendly error for network issues
+        throw new APIError(
+          'Unable to connect to the server. Please check your internet connection and try again.',
+          0,
+          { originalError: error.message }
+        )
       } else {
         debugError(`❌ Request failed:`, error)
       }
