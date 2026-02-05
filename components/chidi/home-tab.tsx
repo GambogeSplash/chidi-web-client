@@ -156,8 +156,130 @@ export default function ChatInterface({ conversationId, onConversationCreated }:
     }
   }, [])
 
-  // Show centered interface when no messages
-  if (messages.length === 0) {
+  // Show loading skeleton when loading an existing conversation
+  if (isLoading && conversationId) {
+    return (
+      <div className="flex flex-col h-full bg-gray-950">
+        {/* Messages skeleton */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {/* User message skeleton 1 */}
+          <div className="flex justify-end">
+            <div className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 w-[65%] sm:w-[50%] md:w-[45%] animate-pulse">
+              <div className="h-4 bg-gray-700 rounded w-full" />
+            </div>
+          </div>
+          
+          {/* AI message skeleton 1 - longer response */}
+          <div className="flex items-start gap-2">
+            <div className="w-6 h-6 bg-emerald-600/50 rounded-full animate-pulse flex-shrink-0" />
+            <div className="w-[75%] sm:w-[65%] md:w-[55%]">
+              <div className="bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 animate-pulse">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-700 rounded w-full" />
+                  <div className="h-4 bg-gray-700 rounded w-[90%]" />
+                  <div className="h-4 bg-gray-700 rounded w-[75%]" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* User message skeleton 2 - short */}
+          <div className="flex justify-end">
+            <div className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 w-[45%] sm:w-[35%] md:w-[30%] animate-pulse">
+              <div className="h-4 bg-gray-700 rounded w-full" />
+            </div>
+          </div>
+
+          {/* AI message skeleton 2 - medium response */}
+          <div className="flex items-start gap-2">
+            <div className="w-6 h-6 bg-emerald-600/50 rounded-full animate-pulse flex-shrink-0" />
+            <div className="w-[70%] sm:w-[60%] md:w-[50%]">
+              <div className="bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 animate-pulse">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-700 rounded w-full" />
+                  <div className="h-4 bg-gray-700 rounded w-[85%]" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* User message skeleton 3 */}
+          <div className="flex justify-end">
+            <div className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 w-[55%] sm:w-[45%] md:w-[40%] animate-pulse">
+              <div className="h-4 bg-gray-700 rounded w-full" />
+            </div>
+          </div>
+
+          {/* AI message skeleton 3 - longer response */}
+          <div className="flex items-start gap-2">
+            <div className="w-6 h-6 bg-emerald-600/50 rounded-full animate-pulse flex-shrink-0" />
+            <div className="w-[80%] sm:w-[70%] md:w-[60%]">
+              <div className="bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 animate-pulse">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-700 rounded w-full" />
+                  <div className="h-4 bg-gray-700 rounded w-[95%]" />
+                  <div className="h-4 bg-gray-700 rounded w-[80%]" />
+                  <div className="h-4 bg-gray-700 rounded w-[60%]" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* User message skeleton 4 - short */}
+          <div className="flex justify-end">
+            <div className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 w-[40%] sm:w-[30%] md:w-[25%] animate-pulse">
+              <div className="h-4 bg-gray-700 rounded w-full" />
+            </div>
+          </div>
+
+          {/* AI message skeleton 4 - medium */}
+          <div className="flex items-start gap-2">
+            <div className="w-6 h-6 bg-emerald-600/50 rounded-full animate-pulse flex-shrink-0" />
+            <div className="w-[65%] sm:w-[55%] md:w-[45%]">
+              <div className="bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 animate-pulse">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-700 rounded w-full" />
+                  <div className="h-4 bg-gray-700 rounded w-[70%]" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* User message skeleton 5 */}
+          <div className="flex justify-end">
+            <div className="bg-gray-800 rounded-2xl rounded-br-md px-4 py-3 w-[60%] sm:w-[50%] md:w-[40%] animate-pulse">
+              <div className="h-4 bg-gray-700 rounded w-full" />
+            </div>
+          </div>
+
+          {/* AI message skeleton 5 - long response */}
+          <div className="flex items-start gap-2">
+            <div className="w-6 h-6 bg-emerald-600/50 rounded-full animate-pulse flex-shrink-0" />
+            <div className="w-[75%] sm:w-[65%] md:w-[55%]">
+              <div className="bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 animate-pulse">
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-700 rounded w-full" />
+                  <div className="h-4 bg-gray-700 rounded w-[92%]" />
+                  <div className="h-4 bg-gray-700 rounded w-[85%]" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Input skeleton */}
+        <div className="shrink-0 p-4 border-t border-gray-800 bg-gray-950">
+          <div className="bg-gray-800 rounded-xl h-12 animate-pulse" />
+          <div className="flex items-center justify-center mt-2">
+            <div className="h-3 bg-gray-800 rounded w-48 animate-pulse" />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Show centered interface when no messages (new chat)
+  if (messages.length === 0 && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white p-4">
         <div className="w-full max-w-2xl text-center space-y-8">
