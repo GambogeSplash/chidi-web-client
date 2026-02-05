@@ -43,7 +43,7 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-950">
+    <div className="flex flex-col h-full bg-gray-950 overflow-hidden">
       {/* Clean Header */}
       <div className="flex items-center justify-between p-6 border-b border-gray-800">
         <div>

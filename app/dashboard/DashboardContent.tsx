@@ -416,15 +416,13 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             }}
           />
         ) : activeTab === "catalog" ? (
-          <div className="mx-auto max-w-7xl p-6 w-full">
-            <CatalogTab
-              products={products}
-              onAddProduct={() => setShowAddProductModal(true)}
-              onEditProduct={handleEditProduct}
-              onViewProduct={handleViewProduct}
-              onBulkExport={handleBulkExport}
-            />
-          </div>
+          <CatalogTab
+            products={products}
+            onAddProduct={() => setShowAddProductModal(true)}
+            onEditProduct={handleEditProduct}
+            onViewProduct={handleViewProduct}
+            onBulkExport={handleBulkExport}
+          />
         ) : activeTab === "business-profile" ? (
           <div className="h-full overflow-auto">
             <BusinessProfileContent businessSlug={user?.businessSlug || businessSlug || ''} embedded={true} />
