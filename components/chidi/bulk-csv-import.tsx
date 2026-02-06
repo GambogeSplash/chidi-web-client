@@ -88,20 +88,20 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-white border-[var(--chidi-border-default)]">
         <DialogHeader>
-          <DialogTitle>Bulk Import Products via CSV</DialogTitle>
+          <DialogTitle className="text-[var(--chidi-text-primary)]">Bulk Import Products via CSV</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           {/* CSV Upload */}
           <div className="space-y-2">
-            <Label>Upload CSV File</Label>
-            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6">
+            <Label className="text-[var(--chidi-text-secondary)]">Upload CSV File</Label>
+            <div className="border-2 border-dashed border-[var(--chidi-border-subtle)] rounded-lg p-6 hover:border-[var(--chidi-accent)]/50 transition-colors">
               <label className="flex flex-col items-center gap-2 cursor-pointer">
-                <Upload className="w-8 h-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Click to upload CSV or drag and drop</span>
-                <span className="text-xs text-muted-foreground/60">
+                <Upload className="w-8 h-8 text-[var(--chidi-text-muted)]" />
+                <span className="text-sm text-[var(--chidi-text-secondary)]">Click to upload CSV or drag and drop</span>
+                <span className="text-xs text-[var(--chidi-text-muted)]">
                   CSV format: name, price, stock, category, description
                 </span>
                 <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
@@ -111,7 +111,7 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
 
           {/* Error Message */}
           {error && (
-            <div className="flex gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+            <div className="flex gap-2 p-3 bg-[var(--chidi-danger)]/5 border border-[var(--chidi-danger)]/20 rounded-lg text-sm text-[var(--chidi-danger)]">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
@@ -120,24 +120,24 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
           {/* Preview */}
           {preview.length > 0 && (
             <div className="space-y-2">
-              <Label>Preview (showing first 5 products)</Label>
-              <div className="border border-border rounded-lg overflow-auto max-h-64">
+              <Label className="text-[var(--chidi-text-secondary)]">Preview (showing first 5 products)</Label>
+              <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-auto max-h-64">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted">
+                  <thead className="bg-[var(--chidi-surface)]">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium">Name</th>
-                      <th className="px-3 py-2 text-left font-medium">Price</th>
-                      <th className="px-3 py-2 text-left font-medium">Stock</th>
-                      <th className="px-3 py-2 text-left font-medium">Category</th>
+                      <th className="px-3 py-2 text-left font-medium text-[var(--chidi-text-secondary)]">Name</th>
+                      <th className="px-3 py-2 text-left font-medium text-[var(--chidi-text-secondary)]">Price</th>
+                      <th className="px-3 py-2 text-left font-medium text-[var(--chidi-text-secondary)]">Stock</th>
+                      <th className="px-3 py-2 text-left font-medium text-[var(--chidi-text-secondary)]">Category</th>
                     </tr>
                   </thead>
                   <tbody>
                     {preview.map((product, idx) => (
-                      <tr key={idx} className="border-t border-border hover:bg-muted/50">
-                        <td className="px-3 py-2">{product.name}</td>
-                        <td className="px-3 py-2">₦{product.price}</td>
-                        <td className="px-3 py-2">{product.stock}</td>
-                        <td className="px-3 py-2 capitalize">{product.category}</td>
+                      <tr key={idx} className="border-t border-[var(--chidi-border-subtle)] hover:bg-[var(--chidi-surface)]">
+                        <td className="px-3 py-2 text-[var(--chidi-text-primary)]">{product.name}</td>
+                        <td className="px-3 py-2 text-[var(--chidi-text-primary)]">₦{product.price}</td>
+                        <td className="px-3 py-2 text-[var(--chidi-text-primary)]">{product.stock}</td>
+                        <td className="px-3 py-2 text-[var(--chidi-text-primary)] capitalize">{product.category}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -148,10 +148,18 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
 
           {/* Actions */}
           <div className="flex gap-2 pt-4">
-            <Button variant="outline" onClick={onClose} className="flex-1 bg-transparent">
+            <Button 
+              variant="outline" 
+              onClick={onClose} 
+              className="flex-1 bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
+            >
               Cancel
             </Button>
-            <Button onClick={handleImport} disabled={!csvContent || isImporting} className="flex-1">
+            <Button 
+              onClick={handleImport} 
+              disabled={!csvContent || isImporting} 
+              className="flex-1 bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+            >
               {isImporting ? 'Importing...' : `Import ${preview.length > 0 ? `${preview.length}+` : ''} Products`}
             </Button>
           </div>

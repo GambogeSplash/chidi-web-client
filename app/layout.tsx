@@ -10,28 +10,28 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "CHIDI - AI Business Assistant",
+  title: "chidi - AI Business Assistant",
   description: "AI-powered business assistant for African entrepreneurs managing WhatsApp & Instagram sales",
   generator: "v0.app",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "CHIDI",
+    title: "chidi",
   },
   formatDetection: {
     telephone: false,
   },
   openGraph: {
     type: "website",
-    siteName: "CHIDI",
-    title: "CHIDI - AI Business Assistant",
+    siteName: "chidi",
+    title: "chidi - AI Business Assistant",
     description: "Manage your business effortlessly with AI",
   },
 }
 
 export const viewport = {
-  themeColor: "#000000",
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

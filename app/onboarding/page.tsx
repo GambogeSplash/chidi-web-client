@@ -55,10 +55,10 @@ export default function OnboardingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading...</p>
+          <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
+          <p className="text-[var(--chidi-text-muted)]">Loading...</p>
         </div>
       </div>
     )
@@ -66,12 +66,12 @@ export default function OnboardingPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error}</p>
+          <p className="text-[var(--chidi-danger)] mb-4">{error}</p>
           <button 
             onClick={() => router.push('/auth')}
-            className="text-indigo-400 hover:text-indigo-300"
+            className="text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] underline"
           >
             Return to Login
           </button>

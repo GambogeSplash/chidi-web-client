@@ -177,23 +177,23 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={handleClose}
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-gray-900 border border-gray-800 rounded-xl shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-white border border-[var(--chidi-border-default)] rounded-xl shadow-xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-emerald-600/20 rounded-lg">
-              <Package className="w-5 h-5 text-emerald-500" />
+            <div className="p-2 bg-[var(--chidi-surface)] rounded-lg">
+              <Package className="w-5 h-5 text-[var(--chidi-text-primary)]" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Add New Product</h2>
+            <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Add New Product</h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            className="p-2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -204,22 +204,22 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
           <form id="add-product-form" onSubmit={handleSubmit} className="space-y-5">
             {/* Error Message */}
             {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-sm text-red-400">{error}</p>
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
 
             {/* Product Name */}
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium text-gray-300">
-                Product Name <span className="text-red-400">*</span>
+              <Label htmlFor="name" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                Product Name <span className="text-[var(--chidi-danger)]">*</span>
               </Label>
               <Input
                 id="name"
                 placeholder="e.g., Blue Ankara Dress"
                 value={formData.name}
                 onChange={(e) => handleInputChange("name", e.target.value)}
-                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                 required
               />
             </div>
@@ -227,20 +227,20 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
             {/* Selling Price and Cost Price */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="sellingPrice" className="text-sm font-medium text-gray-300">
-                  Selling Price <span className="text-red-400">*</span>
+                <Label htmlFor="sellingPrice" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                  Selling Price <span className="text-[var(--chidi-danger)]">*</span>
                 </Label>
                 <Input
                   id="sellingPrice"
                   placeholder="₦15,000"
                   value={formData.sellingPrice}
                   onChange={(e) => handleInputChange("sellingPrice", e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="costPrice" className="text-sm font-medium text-gray-300">
+                <Label htmlFor="costPrice" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
                   Cost Price
                 </Label>
                 <Input
@@ -248,7 +248,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   placeholder="₦10,000"
                   value={formData.costPrice}
                   onChange={(e) => handleInputChange("costPrice", e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                 />
               </div>
             </div>
@@ -256,8 +256,8 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
             {/* Stock and Brand */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="stock" className="text-sm font-medium text-gray-300">
-                  Stock Quantity <span className="text-red-400">*</span>
+                <Label htmlFor="stock" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                  Stock Quantity <span className="text-[var(--chidi-danger)]">*</span>
                 </Label>
                 <Input
                   id="stock"
@@ -266,12 +266,12 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   min="0"
                   value={formData.stock}
                   onChange={(e) => handleInputChange("stock", e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="brand" className="text-sm font-medium text-gray-300">
+                <Label htmlFor="brand" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
                   Brand
                 </Label>
                 <Input
@@ -279,34 +279,34 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   placeholder="e.g., Nike"
                   value={formData.brand}
                   onChange={(e) => handleInputChange("brand", e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                 />
               </div>
             </div>
 
             {/* Category */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-300">
-                Category <span className="text-red-400">*</span>
+              <Label className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                Category <span className="text-[var(--chidi-danger)]">*</span>
               </Label>
               <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                <SelectTrigger className="bg-gray-800 border-gray-700 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                <SelectTrigger className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700">
-                  <SelectItem value="fashion" className="text-white hover:bg-gray-700">Fashion & Clothing</SelectItem>
-                  <SelectItem value="electronics" className="text-white hover:bg-gray-700">Electronics</SelectItem>
-                  <SelectItem value="beauty" className="text-white hover:bg-gray-700">Beauty & Cosmetics</SelectItem>
-                  <SelectItem value="food" className="text-white hover:bg-gray-700">Food & Beverages</SelectItem>
-                  <SelectItem value="home" className="text-white hover:bg-gray-700">Home & Living</SelectItem>
-                  <SelectItem value="other" className="text-white hover:bg-gray-700">Other</SelectItem>
+                <SelectContent className="bg-white border-[var(--chidi-border-default)]">
+                  <SelectItem value="fashion" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Fashion & Clothing</SelectItem>
+                  <SelectItem value="electronics" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Electronics</SelectItem>
+                  <SelectItem value="beauty" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Beauty & Cosmetics</SelectItem>
+                  <SelectItem value="food" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Food & Beverages</SelectItem>
+                  <SelectItem value="home" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Home & Living</SelectItem>
+                  <SelectItem value="other" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-sm font-medium text-gray-300">
+              <Label htmlFor="description" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
                 Description
               </Label>
               <Textarea
@@ -315,18 +315,18 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                 value={formData.description}
                 onChange={(e) => handleInputChange("description", e.target.value)}
                 rows={3}
-                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] resize-none"
               />
             </div>
 
             {/* Product Image */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-300">
+              <Label className="text-sm font-medium text-[var(--chidi-text-secondary)]">
                 Product Image
               </Label>
               
               {imagePreview ? (
-                <div className="relative rounded-lg overflow-hidden border border-gray-700 bg-gray-800">
+                <div className="relative rounded-lg overflow-hidden border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]">
                   <img 
                     src={imagePreview} 
                     alt="Preview" 
@@ -335,7 +335,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   <button
                     type="button"
                     onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 p-1.5 bg-red-500/90 hover:bg-red-600 text-white rounded-lg transition-colors"
+                    className="absolute top-2 right-2 p-1.5 bg-[var(--chidi-danger)] hover:bg-[var(--chidi-danger)]/90 text-white rounded-lg transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -345,15 +345,15 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   onClick={() => fileInputRef.current?.click()}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
-                  className="border-2 border-dashed border-gray-700 hover:border-emerald-500/50 rounded-lg p-6 cursor-pointer transition-colors bg-gray-800/50 hover:bg-gray-800"
+                  className="border-2 border-dashed border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-accent)]/50 rounded-lg p-6 cursor-pointer transition-colors bg-[var(--chidi-surface)] hover:bg-[var(--chidi-surface-elevated)]"
                 >
                   <div className="flex flex-col items-center gap-2 text-center">
-                    <div className="p-3 bg-gray-700/50 rounded-full">
-                      <ImageIcon className="w-6 h-6 text-gray-400" />
+                    <div className="p-3 bg-white rounded-full">
+                      <ImageIcon className="w-6 h-6 text-[var(--chidi-text-muted)]" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-300">Click to upload or drag and drop</p>
-                      <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 5MB</p>
+                      <p className="text-sm text-[var(--chidi-text-secondary)]">Click to upload or drag and drop</p>
+                      <p className="text-xs text-[var(--chidi-text-muted)] mt-1">PNG, JPG, WEBP up to 5MB</p>
                     </div>
                   </div>
                 </div>
@@ -371,12 +371,12 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-gray-800 bg-gray-900/50">
+        <div className="flex gap-3 px-6 py-4 border-t border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]">
           <Button 
             type="button" 
             variant="outline" 
             onClick={handleClose} 
-            className="flex-1 bg-transparent border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+            className="flex-1 bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)]"
           >
             Cancel
           </Button>
@@ -384,7 +384,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
             type="submit"
             form="add-product-form"
             disabled={isDisabled} 
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
               <>

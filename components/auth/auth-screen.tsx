@@ -1,11 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Zap, Loader2, Eye, EyeOff, Check, X } from "lucide-react"
+import { Loader2, Eye, EyeOff, Check, X } from "lucide-react"
 import { authAPI, type User as UserType } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -84,11 +85,11 @@ function PasswordRequirements({ password = "" }: { password: string }) {
       {requirements.map((req, index) => (
         <div key={index} className="flex items-center gap-2 text-xs transition-colors duration-200">
           {req.met ? (
-            <Check className="w-3.5 h-3.5 text-green-500" />
+            <Check className="w-3.5 h-3.5 text-[var(--chidi-success)]" />
           ) : (
-            <X className="w-3.5 h-3.5 text-gray-500" />
+            <X className="w-3.5 h-3.5 text-[var(--chidi-text-muted)]" />
           )}
-          <span className={req.met ? "text-green-500" : "text-gray-500"}>
+          <span className={req.met ? "text-[var(--chidi-success)]" : "text-[var(--chidi-text-muted)]"}>
             {req.label}
           </span>
         </div>
@@ -98,12 +99,23 @@ function PasswordRequirements({ password = "" }: { password: string }) {
 }
 
 export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signup")
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get('tab') === 'signin' ? 'signin' : 'signup'
+  
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(initialTab)
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [passwordValue, setPasswordValue] = useState("")
+
+  // Update tab when URL changes
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'signin' || tab === 'signup') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   // Form refs to get actual DOM values
   const signUpFormRef = useRef<HTMLFormElement>(null)
@@ -223,30 +235,32 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8 animate-in fade-in duration-500">
-          <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-semibold text-white mb-2">Welcome to CHIDI</h1>
-          <p className="text-gray-400 text-sm">Your AI business assistant for WhatsApp & Instagram</p>
+          <h1 className="text-3xl font-bold text-[var(--chidi-text-primary)] tracking-tight mb-2">
+            Chidi
+          </h1>
+          <p className="text-[var(--chidi-text-secondary)] text-sm">
+            Your AI business assistant for WhatsApp & Instagram
+          </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex bg-gray-800 rounded-lg p-1 mb-8 animate-in slide-in-from-bottom-4 duration-500 delay-100">
+        <div className="flex bg-[var(--chidi-surface)] rounded-xl p-1 mb-6 animate-in slide-in-from-bottom-4 duration-500 delay-100">
           <button
             onClick={() => {
               setActiveTab('signin')
               setApiError("")
               setFormErrors({})
             }}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+            className={cn(
+              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200",
               activeTab === 'signin'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-400 hover:text-white'
-            }`}
+                ? 'bg-white text-[var(--chidi-text-primary)] shadow-sm'
+                : 'text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]'
+            )}
           >
             Sign In
           </button>
@@ -256,11 +270,12 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               setApiError("")
               setFormErrors({})
             }}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all duration-200 ${
+            className={cn(
+              "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200",
               activeTab === 'signup'
-                ? 'bg-gray-700 text-white'
-                : 'text-gray-400 hover:text-white'
-            }`}
+                ? 'bg-white text-[var(--chidi-text-primary)] shadow-sm'
+                : 'text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]'
+            )}
           >
             Sign Up
           </button>
@@ -271,45 +286,45 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
           {activeTab === 'signup' ? (
             <form ref={signUpFormRef} onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signup-name" className="text-gray-300 text-sm font-medium">
+                <Label htmlFor="signup-name" className="text-[var(--chidi-text-primary)] text-sm font-medium">
                   Full Name
                 </Label>
                 <Input
                   id="signup-name"
                   name="name"
                   type="text"
-                  placeholder="Jane Adebayo"
+                  placeholder="Ciroma Chukwuma Adekunle"
                   className={cn(
-                    "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12",
-                    formErrors.name && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12",
+                    formErrors.name && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
                   )}
                 />
                 {formErrors.name && (
-                  <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>
+                  <p className="text-xs text-[var(--chidi-danger)] mt-1">{formErrors.name}</p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-email" className="text-gray-300 text-sm font-medium">
+                <Label htmlFor="signup-email" className="text-[var(--chidi-text-primary)] text-sm font-medium">
                   Email
                 </Label>
                 <Input
                   id="signup-email"
                   name="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="example@email.com"
                   className={cn(
-                    "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12",
-                    formErrors.email && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12",
+                    formErrors.email && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
                   )}
                 />
                 {formErrors.email && (
-                  <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
+                  <p className="text-xs text-[var(--chidi-danger)] mt-1">{formErrors.email}</p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signup-password" className="text-gray-300 text-sm font-medium">
+                <Label htmlFor="signup-password" className="text-[var(--chidi-text-primary)] text-sm font-medium">
                   Password
                 </Label>
                 <div className="relative">
@@ -320,14 +335,14 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     placeholder="••••••••"
                     onChange={(e) => setPasswordValue(e.target.value)}
                     className={cn(
-                      "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12",
-                      formErrors.password && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                      "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12 pr-12",
+                      formErrors.password && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
                     )}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -336,14 +351,14 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </div>
 
               {apiError && (
-                <div className="text-sm text-red-400 bg-red-900/20 px-3 py-2 rounded-md border border-red-800">
+                <div className="text-sm text-[var(--chidi-danger)] bg-[var(--chidi-danger)]/5 px-3 py-2 rounded-lg border border-[var(--chidi-danger)]/20">
                   {apiError}
                 </div>
               )}
 
               <Button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200"
+                className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -356,17 +371,17 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                 )}
               </Button>
 
-              <p className="text-xs text-center text-gray-500 mt-4">
+              <p className="text-xs text-center text-[var(--chidi-text-muted)] mt-4">
                 By signing up, you agree to our{' '}
-                <span className="text-indigo-400 hover:underline cursor-pointer">Terms of Service</span>
+                <span className="text-[var(--chidi-text-secondary)] hover:underline cursor-pointer">Terms of Service</span>
                 {' '}and{' '}
-                <span className="text-indigo-400 hover:underline cursor-pointer">Privacy Policy</span>
+                <span className="text-[var(--chidi-text-secondary)] hover:underline cursor-pointer">Privacy Policy</span>
               </p>
             </form>
           ) : (
             <form ref={signInFormRef} onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="signin-email" className="text-gray-300 text-sm font-medium">
+                <Label htmlFor="signin-email" className="text-[var(--chidi-text-primary)] text-sm font-medium">
                   Email
                 </Label>
                 <Input
@@ -375,17 +390,17 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                   type="email"
                   placeholder="you@example.com"
                   className={cn(
-                    "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12",
-                    formErrors.email && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12",
+                    formErrors.email && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
                   )}
                 />
                 {formErrors.email && (
-                  <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
+                  <p className="text-xs text-[var(--chidi-danger)] mt-1">{formErrors.email}</p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signin-password" className="text-gray-300 text-sm font-medium">
+                <Label htmlFor="signin-password" className="text-[var(--chidi-text-primary)] text-sm font-medium">
                   Password
                 </Label>
                 <div className="relative">
@@ -395,14 +410,14 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     className={cn(
-                      "bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pr-12",
-                      formErrors.password && "border-red-500 focus:ring-red-500 focus:border-red-500"
+                      "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12 pr-12",
+                      formErrors.password && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
                     )}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -410,14 +425,14 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               </div>
 
               {apiError && (
-                <div className="text-sm text-red-400 bg-red-900/20 px-3 py-2 rounded-md border border-red-800">
+                <div className="text-sm text-[var(--chidi-danger)] bg-[var(--chidi-danger)]/5 px-3 py-2 rounded-lg border border-[var(--chidi-danger)]/20">
                   {apiError}
                 </div>
               )}
 
               <Button
                 type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200"
+                className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (

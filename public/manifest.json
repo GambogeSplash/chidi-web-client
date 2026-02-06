@@ -1,11 +1,11 @@
 {
-  "name": "CHIDI - AI Business Assistant",
-  "short_name": "CHIDI",
+  "name": "chidi - AI Business Assistant",
+  "short_name": "chidi",
   "description": "AI-powered business assistant for African entrepreneurs managing WhatsApp & Instagram sales",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "theme_color": "#ffffff",
   "orientation": "portrait-primary",
   "icons": [
     {

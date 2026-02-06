@@ -4,13 +4,47 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Zap, Store, MessageCircle, BarChart3, ArrowRight, Check, Smartphone, Clock } from "lucide-react"
+import { Store, MessageCircle, BarChart3, ArrowRight, Check, Clock, Loader2 } from "lucide-react"
 import type { User } from "@/lib/api"
 import { authAPI } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 interface OnboardingProps {
   user: User
   onComplete: (userData: any) => void
+}
+
+// Progress bar component
+function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
+  return (
+    <div className="mb-8">
+      <div className="flex gap-2">
+        {Array.from({ length: totalSteps }, (_, i) => i + 1).map((stepNum) => (
+          <div
+            key={stepNum}
+            className={cn(
+              "flex-1 h-1 rounded-full transition-all duration-300",
+              stepNum <= currentStep 
+                ? "bg-[var(--chidi-accent)]" 
+                : "bg-[var(--chidi-border-subtle)]"
+            )}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Header component
+function OnboardingHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="text-center mb-8">
+      <h1 className="text-2xl font-bold text-[var(--chidi-text-primary)] tracking-tight mb-2">
+        {title}
+      </h1>
+      <p className="text-[var(--chidi-text-secondary)] text-sm">{subtitle}</p>
+    </div>
+  )
 }
 
 export function Onboarding({ user, onComplete }: OnboardingProps) {
@@ -100,76 +134,60 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   // Step 1: Welcome Screen
   if (step === 1) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4].map((stepNum) => (
-                <div
-                  key={stepNum}
-                  className={`w-8 h-1 rounded-full transition-all duration-300 ${
-                    stepNum <= step ? 'bg-indigo-500' : 'bg-gray-700'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-white mb-2">Welcome to CHIDI, {user.name}!</h1>
-            <p className="text-gray-400 text-sm">Set up your AI business assistant in just a few steps</p>
-          </div>
+          <OnboardingHeader 
+            title={`Welcome to Chidi, ${user.name}!`}
+            subtitle="Set up your AI business assistant in just a few steps"
+          />
 
           {/* Features */}
-          <div className="grid grid-cols-1 gap-4 mb-8">
-            <div className="flex items-center p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-              <div className="w-12 h-12 bg-gray-700 rounded-xl flex items-center justify-center mr-4">
-                <Store className="w-6 h-6 text-indigo-400" />
+          <div className="grid grid-cols-1 gap-3 mb-8">
+            <div className="flex items-center p-4 bg-[var(--chidi-surface)] rounded-xl border border-[var(--chidi-border-subtle)]">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mr-4 border border-[var(--chidi-border-subtle)]">
+                <Store className="w-6 h-6 text-[var(--chidi-text-secondary)]" />
               </div>
               <div>
-                <h3 className="font-medium text-white mb-1">Manage Inventory</h3>
-                <p className="text-sm text-gray-400">Track products, stock levels, and get low-stock alerts</p>
+                <h3 className="font-medium text-[var(--chidi-text-primary)] mb-0.5">Manage Inventory</h3>
+                <p className="text-sm text-[var(--chidi-text-muted)]">Track products, stock levels, and get low-stock alerts</p>
               </div>
             </div>
             
-            <div className="flex items-center p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-              <div className="w-12 h-12 bg-gray-700 rounded-xl flex items-center justify-center mr-4">
-                <MessageCircle className="w-6 h-6 text-indigo-400" />
+            <div className="flex items-center p-4 bg-[var(--chidi-surface)] rounded-xl border border-[var(--chidi-border-subtle)]">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mr-4 border border-[var(--chidi-border-subtle)]">
+                <MessageCircle className="w-6 h-6 text-[var(--chidi-text-secondary)]" />
               </div>
               <div>
-                <h3 className="font-medium text-white mb-1">AI Customer Chat</h3>
-                <p className="text-sm text-gray-400">Auto-respond to WhatsApp and Instagram messages</p>
+                <h3 className="font-medium text-[var(--chidi-text-primary)] mb-0.5">AI Customer Chat</h3>
+                <p className="text-sm text-[var(--chidi-text-muted)]">Auto-respond to WhatsApp and Instagram messages</p>
               </div>
             </div>
             
-            <div className="flex items-center p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-              <div className="w-12 h-12 bg-gray-700 rounded-xl flex items-center justify-center mr-4">
-                <BarChart3 className="w-6 h-6 text-indigo-400" />
+            <div className="flex items-center p-4 bg-[var(--chidi-surface)] rounded-xl border border-[var(--chidi-border-subtle)]">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mr-4 border border-[var(--chidi-border-subtle)]">
+                <BarChart3 className="w-6 h-6 text-[var(--chidi-text-secondary)]" />
               </div>
               <div>
-                <h3 className="font-medium text-white mb-1">Sales Analytics</h3>
-                <p className="text-sm text-gray-400">Real-time insights on revenue and customer behavior</p>
+                <h3 className="font-medium text-[var(--chidi-text-primary)] mb-0.5">Sales Analytics</h3>
+                <p className="text-sm text-[var(--chidi-text-muted)]">Real-time insights on revenue and customer behavior</p>
               </div>
             </div>
           </div>
 
           {/* Quick Setup Notice */}
-          <div className="flex items-center p-4 bg-indigo-900/20 border border-indigo-800 rounded-xl mb-8">
-            <Clock className="w-5 h-5 text-indigo-400 mr-3" />
+          <div className="flex items-center p-4 bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] rounded-xl mb-8">
+            <Clock className="w-5 h-5 text-[var(--chidi-text-muted)] mr-3 flex-shrink-0" />
             <div>
-              <h4 className="font-medium text-white text-sm mb-1">Quick Setup</h4>
-              <p className="text-xs text-gray-400">This will only take 2 minutes. You can always customize later.</p>
+              <h4 className="font-medium text-[var(--chidi-text-primary)] text-sm mb-0.5">Quick Setup</h4>
+              <p className="text-xs text-[var(--chidi-text-muted)]">This will only take 2 minutes. You can always customize later.</p>
             </div>
           </div>
 
           <Button
             onClick={handleNext}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200"
+            className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
           >
             Get Started
             <ArrowRight className="w-4 h-4 ml-2" />
@@ -182,67 +200,60 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   // Step 2: Business Details
   if (step === 2) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4].map((stepNum) => (
-                <div
-                  key={stepNum}
-                  className={`w-8 h-1 rounded-full transition-all duration-300 ${
-                    stepNum <= step ? 'bg-indigo-500' : 'bg-gray-700'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-white mb-2">Tell us about your business</h1>
-            <p className="text-gray-400 text-sm">This helps CHIDI personalize your experience</p>
-          </div>
+          <OnboardingHeader 
+            title="Tell us about your business"
+            subtitle="This helps Chidi personalize your experience"
+          />
 
           {/* Form */}
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="businessName" className="text-gray-300 text-sm font-medium">
-                Business Name <span className="text-red-400">*</span>
+              <Label htmlFor="businessName" className="text-[var(--chidi-text-primary)] text-sm font-medium">
+                Business Name <span className="text-[var(--chidi-danger)]">*</span>
               </Label>
               <Input
                 id="businessName"
                 placeholder="e.g., Bella's Fashion Store"
                 value={userData.businessName}
                 onChange={(e) => handleInputChange("businessName", e.target.value)}
-                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
+                className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-gray-300 text-sm font-medium">
-                Phone Number <span className="text-red-400">*</span>
+              <Label htmlFor="phone" className="text-[var(--chidi-text-primary)] text-sm font-medium">
+                Phone Number <span className="text-[var(--chidi-danger)]">*</span>
               </Label>
               <Input
                 id="phone"
                 placeholder="e.g., +234 801 234 5678"
                 value={userData.phone}
                 onChange={(e) => handleInputChange("phone", e.target.value)}
-                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
+                className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12"
               />
             </div>
 
-            <Button
-              onClick={handleNext}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200 mt-8"
-              disabled={!userData.businessName || !userData.phone}
-            >
-              Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex gap-3 pt-4">
+              <Button
+                onClick={handleBack}
+                variant="outline"
+                className="flex-1 h-12 font-medium rounded-xl border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
+              >
+                Back
+              </Button>
+              <Button
+                onClick={handleNext}
+                className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+                disabled={!userData.businessName || !userData.phone}
+              >
+                Continue
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -261,30 +272,14 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     ]
 
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4].map((stepNum) => (
-                <div
-                  key={stepNum}
-                  className={`w-8 h-1 rounded-full transition-all duration-300 ${
-                    stepNum <= step ? 'bg-indigo-500' : 'bg-gray-700'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-white mb-2">What do you sell?</h1>
-            <p className="text-gray-400 text-sm">This helps CHIDI understand your products better</p>
-          </div>
+          <OnboardingHeader 
+            title="What do you sell?"
+            subtitle="This helps Chidi understand your products better"
+          />
 
           {/* Categories Grid */}
           <div className="grid grid-cols-2 gap-3 mb-8">
@@ -292,11 +287,12 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
               <button
                 key={category.id}
                 onClick={() => handleCategoryToggle(category.id)}
-                className={`p-4 rounded-xl border transition-all duration-200 text-left ${
+                className={cn(
+                  "p-4 rounded-xl border transition-all duration-200 text-left",
                   selectedCategories.includes(category.id)
-                    ? 'bg-indigo-600 border-indigo-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600'
-                }`}
+                    ? "bg-[var(--chidi-accent)] border-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]"
+                    : "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:border-[var(--chidi-text-muted)]"
+                )}
               >
                 <div className="flex items-center space-x-3">
                   <span className="text-2xl">{category.icon}</span>
@@ -306,14 +302,23 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
             ))}
           </div>
 
-          <Button
-            onClick={handleNext}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200"
-            disabled={selectedCategories.length === 0}
-          >
-            Continue
-            <ArrowRight className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleBack}
+              variant="outline"
+              className="flex-1 h-12 font-medium rounded-xl border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
+            >
+              Back
+            </Button>
+            <Button
+              onClick={handleNext}
+              className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+              disabled={selectedCategories.length === 0}
+            >
+              Continue
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -322,80 +327,84 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   // Step 4: Connect Channels
   if (step === 4) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
-          {/* Progress Bar */}
-          <div className="mb-8">
-            <div className="flex justify-between mb-2">
-              {[1, 2, 3, 4].map((stepNum) => (
-                <div
-                  key={stepNum}
-                  className={`w-8 h-1 rounded-full transition-all duration-300 ${
-                    stepNum <= step ? 'bg-indigo-500' : 'bg-gray-700'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Zap className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-semibold text-white mb-2">Connect your channels</h1>
-            <p className="text-gray-400 text-sm">Link WhatsApp and Instagram to start receiving messages</p>
-          </div>
+          <OnboardingHeader 
+            title="Connect your channels"
+            subtitle="Link WhatsApp and Instagram to start receiving messages"
+          />
 
           {/* Form */}
-          <div className="space-y-6 mb-8">
+          <div className="space-y-5 mb-6">
             <div className="space-y-2">
-              <Label htmlFor="whatsappNumber" className="text-gray-300 text-sm font-medium">
-                WhatsApp Business Number (Optional)
+              <Label htmlFor="whatsappNumber" className="text-[var(--chidi-text-primary)] text-sm font-medium">
+                WhatsApp Business Number <span className="text-[var(--chidi-text-muted)]">(Optional)</span>
               </Label>
               <Input
                 id="whatsappNumber"
                 placeholder="e.g., +234 801 234 5678"
                 value={userData.whatsappNumber}
                 onChange={(e) => handleInputChange("whatsappNumber", e.target.value)}
-                className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12"
+                className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="instagramHandle" className="text-gray-300 text-sm font-medium">
-                Instagram Handle (Optional)
+              <Label htmlFor="instagramHandle" className="text-[var(--chidi-text-primary)] text-sm font-medium">
+                Instagram Handle <span className="text-[var(--chidi-text-muted)]">(Optional)</span>
               </Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">@</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)]">@</span>
                 <Input
                   id="instagramHandle"
                   placeholder="e.g., bellasfashion"
                   value={userData.instagramHandle}
                   onChange={(e) => handleInputChange("instagramHandle", e.target.value)}
-                  className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-12 pl-8"
+                  className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12 pl-8"
                 />
               </div>
             </div>
           </div>
 
           {/* What happens next */}
-          <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 mb-8">
-            <h4 className="font-medium text-white text-sm mb-2">What happens next?</h4>
-            <ul className="text-sm text-gray-400 space-y-1">
+          <div className="bg-[var(--chidi-surface)] rounded-xl p-4 border border-[var(--chidi-border-subtle)] mb-8">
+            <h4 className="font-medium text-[var(--chidi-text-primary)] text-sm mb-2">What happens next?</h4>
+            <ul className="text-sm text-[var(--chidi-text-muted)] space-y-1">
               <li>• You'll be able to connect these channels from Settings</li>
-              <li>• CHIDI will start monitoring for customer messages</li>
+              <li>• Chidi will start monitoring for customer messages</li>
               <li>• AI will help respond to common questions automatically</li>
             </ul>
           </div>
 
-          <Button
-            onClick={handleNext}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-12 font-medium transition-all duration-200"
-          >
-            Complete Setup
-            <Check className="w-4 h-4 ml-2" />
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleBack}
+              variant="outline"
+              className="flex-1 h-12 font-medium rounded-xl border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
+              disabled={isLoading}
+            >
+              Back
+            </Button>
+            <Button
+              onClick={handleNext}
+              className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Setting up...
+                </>
+              ) : (
+                <>
+                  Complete Setup
+                  <Check className="w-4 h-4 ml-2" />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     )

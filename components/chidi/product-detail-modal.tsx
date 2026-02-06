@@ -41,13 +41,13 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
   const getStatusColor = (status: string) => {
     switch (status) {
       case "good":
-        return "bg-green-500/20 text-green-400 border-green-500/30"
+        return "bg-[var(--chidi-success)]/10 text-[var(--chidi-success)] border-[var(--chidi-success)]/20"
       case "low":
-        return "bg-amber-500/20 text-amber-400 border-amber-500/30"
+        return "bg-[var(--chidi-warning)]/10 text-[var(--chidi-warning)] border-[var(--chidi-warning)]/20"
       case "out":
-        return "bg-red-500/20 text-red-400 border-red-500/30"
+        return "bg-[var(--chidi-danger)]/10 text-[var(--chidi-danger)] border-[var(--chidi-danger)]/20"
       default:
-        return "bg-gray-500/20 text-gray-400 border-gray-500/30"
+        return "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] border-[var(--chidi-border-subtle)]"
     }
   }
 
@@ -69,30 +69,30 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onClose}
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-gray-900 border border-gray-800 rounded-xl shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-white border border-[var(--chidi-border-default)] rounded-xl shadow-xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-600/20 rounded-lg">
-              <Package className="w-5 h-5 text-purple-500" />
+            <div className="p-2 bg-[var(--chidi-surface)] rounded-lg">
+              <Package className="w-5 h-5 text-[var(--chidi-text-primary)]" />
             </div>
-            <h2 className="text-lg font-semibold text-white">Product Details</h2>
+            <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Product Details</h2>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => onEditProduct(product)}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg transition-colors"
             >
               <Edit3 className="w-5 h-5" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -103,7 +103,7 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
         <div className="flex-1 overflow-y-auto px-6 py-4">
           <div className="space-y-4">
             {/* Product Image */}
-            <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden">
+            <div className="aspect-video bg-[var(--chidi-surface)] rounded-lg overflow-hidden">
               {product.image ? (
                 <img
                   src={product.image}
@@ -112,7 +112,7 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <Package className="w-12 h-12 text-gray-600" />
+                  <Package className="w-12 h-12 text-[var(--chidi-text-muted)]" />
                 </div>
               )}
             </div>
@@ -120,23 +120,23 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
           {/* Product Info */}
           <div className="space-y-3">
             <div>
-              <h3 className="text-lg font-semibold text-white">{product.name}</h3>
+              <h3 className="text-lg font-semibold text-[var(--chidi-text-primary)]">{product.name}</h3>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xl font-bold text-emerald-400">{product.price}</span>
+                <span className="text-xl font-bold text-[var(--chidi-text-primary)]">{product.price}</span>
                 <Badge className={`text-xs ${getStatusColor(product.stockStatus)}`}>{getStatusText(product.stockStatus)}</Badge>
               </div>
             </div>
 
             {/* Stock Alert */}
             {(product.stockStatus === "low" || product.stockStatus === "out") && (
-              <div className={`p-3 rounded-lg border ${product.stockStatus === "out" ? "bg-red-500/10 border-red-500/20" : "bg-amber-500/10 border-amber-500/20"}`}>
+              <div className={`p-3 rounded-lg border ${product.stockStatus === "out" ? "bg-[var(--chidi-danger)]/5 border-[var(--chidi-danger)]/20" : "bg-[var(--chidi-warning)]/5 border-[var(--chidi-warning)]/20"}`}>
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className={`w-4 h-4 ${product.stockStatus === "out" ? "text-red-400" : "text-amber-400"}`} />
+                  <AlertTriangle className={`w-4 h-4 ${product.stockStatus === "out" ? "text-[var(--chidi-danger)]" : "text-[var(--chidi-warning)]"}`} />
                   <div>
-                    <p className={`text-sm font-medium ${product.stockStatus === "out" ? "text-red-400" : "text-amber-400"}`}>
+                    <p className={`text-sm font-medium ${product.stockStatus === "out" ? "text-[var(--chidi-danger)]" : "text-[var(--chidi-warning)]"}`}>
                       {product.stockStatus === "out" ? "Out of Stock" : "Low Stock Alert"}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-[var(--chidi-text-muted)]">
                       {product.stockStatus === "out"
                         ? "This product is currently unavailable"
                         : `Only ${product.stock} units remaining`}
@@ -147,38 +147,38 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
             )}
 
             {/* Quick Stats */}
-            <div className="p-3 text-center bg-gray-800 rounded-lg border border-gray-700">
-              <div className="text-lg font-bold text-white">{product.stock}</div>
-              <div className="text-xs text-gray-400">Units in Stock</div>
+            <div className="p-3 text-center bg-[var(--chidi-surface)] rounded-lg border border-[var(--chidi-border-subtle)]">
+              <div className="text-lg font-bold text-[var(--chidi-text-primary)]">{product.stock}</div>
+              <div className="text-xs text-[var(--chidi-text-muted)]">Units in Stock</div>
             </div>
 
             {/* Product Details */}
             <div className="space-y-3 pt-2">
               {product.category && (
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Category</label>
-                  <p className="text-sm text-white capitalize">{product.category}</p>
+                  <label className="text-sm font-medium text-[var(--chidi-text-muted)]">Category</label>
+                  <p className="text-sm text-[var(--chidi-text-primary)] capitalize">{product.category}</p>
                 </div>
               )}
 
               {product.description && (
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Description</label>
-                  <p className="text-sm text-gray-300">{product.description}</p>
+                  <label className="text-sm font-medium text-[var(--chidi-text-muted)]">Description</label>
+                  <p className="text-sm text-[var(--chidi-text-secondary)]">{product.description}</p>
                 </div>
               )}
 
               {product.sku && (
                 <div>
-                  <label className="text-sm font-medium text-gray-400">SKU</label>
-                  <p className="text-sm text-white font-mono">{product.sku}</p>
+                  <label className="text-sm font-medium text-[var(--chidi-text-muted)]">SKU</label>
+                  <p className="text-sm text-[var(--chidi-text-primary)] font-mono">{product.sku}</p>
                 </div>
               )}
 
               {product.brand && (
                 <div>
-                  <label className="text-sm font-medium text-gray-400">Brand</label>
-                  <p className="text-sm text-white">{product.brand}</p>
+                  <label className="text-sm font-medium text-[var(--chidi-text-muted)]">Brand</label>
+                  <p className="text-sm text-[var(--chidi-text-primary)]">{product.brand}</p>
                 </div>
               )}
             </div>
@@ -188,19 +188,19 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-800 bg-gray-900/50">
+        <div className="px-6 py-4 border-t border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]">
           {!showDeleteConfirm ? (
             <div className="flex gap-3">
               <Button 
                 variant="outline"
-                className="flex-1 bg-transparent border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300" 
+                className="flex-1 bg-white border-[var(--chidi-danger)]/30 text-[var(--chidi-danger)] hover:bg-[var(--chidi-danger)]/5 hover:text-[var(--chidi-danger)]" 
                 onClick={() => setShowDeleteConfirm(true)}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
               </Button>
               <Button 
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white" 
+                className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)]" 
                 onClick={() => onEditProduct(product)}
               >
                 <Edit3 className="w-4 h-4 mr-2" />
@@ -209,17 +209,17 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
             </div>
           ) : (
             <div className="space-y-3">
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                <p className="text-sm text-red-400 font-medium">Delete this product?</p>
-                <p className="text-xs text-gray-400 mt-1">This action cannot be undone.</p>
+              <div className="p-3 bg-[var(--chidi-danger)]/5 border border-[var(--chidi-danger)]/20 rounded-lg">
+                <p className="text-sm text-[var(--chidi-danger)] font-medium">Delete this product?</p>
+                <p className="text-xs text-[var(--chidi-text-muted)] mt-1">This action cannot be undone.</p>
                 {deleteError && (
-                  <p className="text-xs text-red-400 mt-2">{deleteError}</p>
+                  <p className="text-xs text-[var(--chidi-danger)] mt-2">{deleteError}</p>
                 )}
               </div>
               <div className="flex gap-3">
                 <Button 
                   variant="outline"
-                  className="flex-1 bg-transparent border-gray-700 text-gray-300 hover:bg-gray-800" 
+                  className="flex-1 bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]" 
                   onClick={() => {
                     setShowDeleteConfirm(false)
                     setDeleteError(null)
@@ -229,7 +229,7 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
                   Cancel
                 </Button>
                 <Button 
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white" 
+                  className="flex-1 bg-[var(--chidi-danger)] hover:bg-[var(--chidi-danger)]/90 text-white" 
                   onClick={handleDelete}
                   disabled={isDeleting}
                 >

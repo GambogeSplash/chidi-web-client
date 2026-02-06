@@ -1,10 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
-  --background: oklch(1 0 0);
+  /* Base colors - Light theme only */
+  --background: oklch(0.995 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -12,78 +11,52 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.965 0 0);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted: oklch(0.965 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  --accent: oklch(0.965 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.91 0 0);
+  --input: oklch(0.91 0 0);
   --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+
+  /* Sidebar (kept for compatibility) */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.965 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.91 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Chart colors */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
 
-  /* Added landing page theme colors inspired by dark professional SaaS designs */
-  --landing-background: oklch(0.08 0 0);
-  --landing-foreground: oklch(0.98 0 0);
-  --landing-card: oklch(0.12 0 0);
-  --landing-card-foreground: oklch(0.98 0 0);
-  --landing-primary: oklch(0.7 0.15 280);
-  --landing-primary-foreground: oklch(0.98 0 0);
-  --landing-muted-foreground: oklch(0.65 0 0);
-  --landing-accent: oklch(0.6 0.2 200);
-  --landing-accent-foreground: oklch(0.98 0 0);
-  --landing-border: oklch(0.25 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  /* Chidi-specific design tokens */
+  --chidi-accent: oklch(0.205 0 0);
+  --chidi-accent-foreground: oklch(0.985 0 0);
+  --chidi-surface: oklch(0.975 0 0);
+  --chidi-surface-elevated: oklch(1 0 0);
+  --chidi-success: oklch(0.59 0.16 145);
+  --chidi-success-foreground: oklch(1 0 0);
+  --chidi-warning: oklch(0.75 0.18 55);
+  --chidi-warning-foreground: oklch(0.25 0 0);
+  --chidi-danger: oklch(0.577 0.245 27.325);
+  --chidi-danger-foreground: oklch(1 0 0);
+  --chidi-text-primary: oklch(0.145 0 0);
+  --chidi-text-secondary: oklch(0.45 0 0);
+  --chidi-text-muted: oklch(0.55 0 0);
+  --chidi-border-subtle: oklch(0.93 0 0);
+  --chidi-border-default: oklch(0.88 0 0);
 }
 
 @theme inline {
@@ -124,17 +97,22 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Added landing page theme color mappings */
-  --color-landing-background: var(--landing-background);
-  --color-landing-foreground: var(--landing-foreground);
-  --color-landing-card: var(--landing-card);
-  --color-landing-card-foreground: var(--landing-card-foreground);
-  --color-landing-primary: var(--landing-primary);
-  --color-landing-primary-foreground: var(--landing-primary-foreground);
-  --color-landing-muted-foreground: var(--landing-muted-foreground);
-  --color-landing-accent: var(--landing-accent);
-  --color-landing-accent-foreground: var(--landing-accent-foreground);
-  --color-landing-border: var(--landing-border);
+  /* Chidi tokens exposed to Tailwind */
+  --color-chidi-accent: var(--chidi-accent);
+  --color-chidi-accent-foreground: var(--chidi-accent-foreground);
+  --color-chidi-surface: var(--chidi-surface);
+  --color-chidi-surface-elevated: var(--chidi-surface-elevated);
+  --color-chidi-success: var(--chidi-success);
+  --color-chidi-success-foreground: var(--chidi-success-foreground);
+  --color-chidi-warning: var(--chidi-warning);
+  --color-chidi-warning-foreground: var(--chidi-warning-foreground);
+  --color-chidi-danger: var(--chidi-danger);
+  --color-chidi-danger-foreground: var(--chidi-danger-foreground);
+  --color-chidi-text-primary: var(--chidi-text-primary);
+  --color-chidi-text-secondary: var(--chidi-text-secondary);
+  --color-chidi-text-muted: var(--chidi-text-muted);
+  --color-chidi-border-subtle: var(--chidi-border-subtle);
+  --color-chidi-border-default: var(--chidi-border-default);
 }
 
 @layer base {
@@ -144,4 +122,184 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Safe area padding for mobile devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Landing page animations */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes cardFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes toastCycle {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  10%, 90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseBadge {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+@keyframes cardPop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Landing page animation utilities */
+.animate-fade-slide-up {
+  animation: fadeSlideUp 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-fade-scale-in {
+  animation: fadeScaleIn 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-card-float {
+  animation: cardFloat 3s ease-in-out infinite;
+}
+
+.animate-card-pop {
+  animation: cardPop 0.4s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--chidi-accent) 0%,
+    oklch(0.35 0 0) 50%,
+    var(--chidi-accent) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+.animate-toast-cycle {
+  animation: toastCycle 3s ease-in-out forwards;
+}
+
+.animate-pulse-badge {
+  animation: pulseBadge 1.5s ease-in-out infinite;
+}
+
+/* Animated gradient background for landing page */
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes floatingOrb {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.4;
+  }
+  25% {
+    transform: translate(10%, -10%) scale(1.1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-5%, 15%) scale(0.95);
+    opacity: 0.5;
+  }
+  75% {
+    transform: translate(-10%, -5%) scale(1.05);
+    opacity: 0.55;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+}
+
+.animate-gradient-shift {
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+.animate-floating-orb {
+  animation: floatingOrb 20s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 4s ease-in-out infinite;
 }

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { 
   MessageSquare, 
+  MessageCircle,
   Package, 
   Plus,
   Settings,
@@ -43,6 +44,7 @@ interface ChatSidebarProps {
   onNewChat: () => void
   onSettingsClick: () => void
   onBusinessProfileClick?: () => void
+  onWhatsAppClick?: () => void
   user: User | null
   chatHistory: Array<{
     id: string
@@ -61,6 +63,7 @@ function SidebarInnerContent({
   onNewChat,
   onSettingsClick,
   onBusinessProfileClick,
+  onWhatsAppClick,
   user,
   chatHistory,
   onChatSelect,
@@ -132,6 +135,20 @@ function SidebarInnerContent({
                 >
                   <Building2 className="w-4 h-4" />
                   <span>Business Profile</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+
+            {/* WhatsApp */}
+            {onWhatsAppClick && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={onWhatsAppClick}
+                  tooltip="WhatsApp"
+                  className="text-gray-300 hover:bg-gray-700 hover:text-white"
+                >
+                  <MessageCircle className="w-4 h-4 text-green-500" />
+                  <span>WhatsApp</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}

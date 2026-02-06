@@ -20,8 +20,12 @@ import {
   Eye,
   EyeOff,
   Check,
-  X
+  X,
+  ArrowLeft,
+  Plug,
+  Instagram
 } from "lucide-react"
+import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
 import { 
   settingsAPI, 
   type UserPreferences, 
@@ -207,121 +211,130 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--chidi-text-muted)]" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 p-6 max-w-4xl mx-auto">
+    <div className="space-y-6 p-6 max-w-2xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">Settings</h1>
-          <p className="text-gray-400 text-sm">Manage your account and preferences</p>
-        </div>
+      <div className="flex items-center gap-4">
         {onClose && (
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="w-4 h-4" />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose}
+            className="h-9 w-9 text-[var(--chidi-text-secondary)]"
+          >
+            <ArrowLeft className="w-5 h-5" />
           </Button>
         )}
+        <div>
+          <h1 className="text-2xl font-semibold text-[var(--chidi-text-primary)]">Settings</h1>
+          <p className="text-sm text-[var(--chidi-text-muted)]">Manage your account and preferences</p>
+        </div>
       </div>
 
       {/* Status Messages */}
       {error && (
-        <div className="bg-red-900/20 border border-red-800 text-red-400 px-4 py-3 rounded-lg flex items-center gap-2">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <AlertTriangle className="w-4 h-4" />
           {error}
         </div>
       )}
       
       {success && (
-        <div className="bg-green-900/20 border border-green-800 text-green-400 px-4 py-3 rounded-lg flex items-center gap-2">
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <Check className="w-4 h-4" />
           {success}
         </div>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-gray-800">
-          <TabsTrigger value="account" className="data-[state=active]:bg-gray-700">
-            <User className="w-4 h-4 mr-2" />
-            Account
+        <TabsList className="grid w-full grid-cols-5 bg-[var(--chidi-surface)]">
+          <TabsTrigger value="account" className="data-[state=active]:bg-white">
+            <User className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Account</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="data-[state=active]:bg-gray-700">
-            <Bell className="w-4 h-4 mr-2" />
-            Notifications
+          <TabsTrigger value="notifications" className="data-[state=active]:bg-white">
+            <Bell className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Alerts</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="data-[state=active]:bg-gray-700">
-            <Shield className="w-4 h-4 mr-2" />
-            Security
+          <TabsTrigger value="integrations" className="data-[state=active]:bg-white">
+            <Plug className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Integrations</span>
           </TabsTrigger>
-          <TabsTrigger value="logout" className="data-[state=active]:bg-gray-700">
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
+          <TabsTrigger value="security" className="data-[state=active]:bg-white">
+            <Shield className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Security</span>
+          </TabsTrigger>
+          <TabsTrigger value="logout" className="data-[state=active]:bg-white">
+            <LogOut className="w-4 h-4 sm:mr-2" />
+            <span className="hidden sm:inline">Sign Out</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Account Tab */}
         <TabsContent value="account" className="space-y-6">
-          <Card className="bg-gray-800/50 border-gray-700">
+          <Card className="bg-white border-[var(--chidi-border-subtle)]">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
                 <User className="w-5 h-5" />
                 Profile Information
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-[var(--chidi-text-muted)]">
                 Update your personal details
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Avatar */}
               <div className="flex items-center gap-6">
-                <Avatar className="w-20 h-20 bg-indigo-600">
-                  <AvatarFallback className="text-2xl text-white bg-indigo-600">
+                <Avatar className="w-16 h-16 bg-[var(--chidi-accent)]">
+                  <AvatarFallback className="text-xl text-[var(--chidi-accent-foreground)] bg-[var(--chidi-accent)]">
                     {account ? getInitials(account.name) : "U"}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-white font-medium">{account?.name}</p>
-                  <p className="text-gray-400 text-sm">{account?.email}</p>
-                  <p className="text-gray-500 text-xs mt-1">
+                  <p className="font-medium text-[var(--chidi-text-primary)]">{account?.name}</p>
+                  <p className="text-sm text-[var(--chidi-text-muted)]">{account?.email}</p>
+                  <p className="text-xs text-[var(--chidi-text-muted)] mt-1">
                     {account?.auth_provider === "email" ? "Email account" : `Signed in with ${account?.auth_provider}`}
                   </p>
                 </div>
               </div>
 
-              <Separator className="bg-gray-700" />
+              <Separator className="bg-[var(--chidi-border-subtle)]" />
 
               {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-gray-300">Full Name</Label>
+                <Label htmlFor="name" className="text-[var(--chidi-text-secondary)]">Full Name</Label>
                 <Input
                   id="name"
                   value={accountForm.name}
                   onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
-                  className="bg-gray-900 border-gray-700 text-white"
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
                   placeholder="Enter your name"
                 />
               </div>
 
               {/* Email (read-only) */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-300">Email</Label>
+                <Label htmlFor="email" className="text-[var(--chidi-text-secondary)]">Email</Label>
                 <Input
                   id="email"
                   value={account?.email || ""}
                   disabled
-                  className="bg-gray-900 border-gray-700 text-gray-500"
+                  className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-muted)]"
                 />
-                <p className="text-xs text-gray-500">Email cannot be changed</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">Email cannot be changed</p>
               </div>
 
               <div className="flex justify-end">
                 <Button 
                   onClick={handleSaveAccount}
                   disabled={isSaving}
-                  className="bg-indigo-600 hover:bg-indigo-700"
+                  className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
                 >
                   {isSaving ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -337,13 +350,13 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card className="bg-gray-800/50 border-gray-700">
+          <Card className="bg-white border-[var(--chidi-border-subtle)]">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
                 <Bell className="w-5 h-5" />
                 Notification Preferences
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-[var(--chidi-text-muted)]">
                 Choose what updates you want to receive
               </CardDescription>
             </CardHeader>
@@ -351,8 +364,8 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Email Notifications</p>
-                    <p className="text-gray-400 text-sm">Receive notifications via email</p>
+                    <p className="font-medium text-[var(--chidi-text-primary)]">Email Notifications</p>
+                    <p className="text-sm text-[var(--chidi-text-muted)]">Receive notifications via email</p>
                   </div>
                   <Switch
                     checked={notificationForm.email_notifications}
@@ -362,12 +375,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                   />
                 </div>
 
-                <Separator className="bg-gray-700" />
+                <Separator className="bg-[var(--chidi-border-subtle)]" />
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Stock Alerts</p>
-                    <p className="text-gray-400 text-sm">Get notified when products are low or out of stock</p>
+                    <p className="font-medium text-[var(--chidi-text-primary)]">Stock Alerts</p>
+                    <p className="text-sm text-[var(--chidi-text-muted)]">Get notified when products are low or out of stock</p>
                   </div>
                   <Switch
                     checked={notificationForm.stock_alerts}
@@ -377,12 +390,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                   />
                 </div>
 
-                <Separator className="bg-gray-700" />
+                <Separator className="bg-[var(--chidi-border-subtle)]" />
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Order Updates</p>
-                    <p className="text-gray-400 text-sm">New orders and status changes</p>
+                    <p className="font-medium text-[var(--chidi-text-primary)]">Order Updates</p>
+                    <p className="text-sm text-[var(--chidi-text-muted)]">New orders and status changes</p>
                   </div>
                   <Switch
                     checked={notificationForm.order_updates}
@@ -392,12 +405,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                   />
                 </div>
 
-                <Separator className="bg-gray-700" />
+                <Separator className="bg-[var(--chidi-border-subtle)]" />
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Daily Summary</p>
-                    <p className="text-gray-400 text-sm">Daily business performance summary</p>
+                    <p className="font-medium text-[var(--chidi-text-primary)]">Daily Summary</p>
+                    <p className="text-sm text-[var(--chidi-text-muted)]">Daily business performance summary</p>
                   </div>
                   <Switch
                     checked={notificationForm.daily_summary}
@@ -407,32 +420,17 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                   />
                 </div>
 
-                <Separator className="bg-gray-700" />
+                <Separator className="bg-[var(--chidi-border-subtle)]" />
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-white font-medium">Weekly Reports</p>
-                    <p className="text-gray-400 text-sm">Comprehensive weekly business analytics</p>
+                    <p className="font-medium text-[var(--chidi-text-primary)]">Weekly Reports</p>
+                    <p className="text-sm text-[var(--chidi-text-muted)]">Comprehensive weekly business analytics</p>
                   </div>
                   <Switch
                     checked={notificationForm.weekly_reports}
                     onCheckedChange={(checked) => 
                       setNotificationForm({ ...notificationForm, weekly_reports: checked })
-                    }
-                  />
-                </div>
-
-                <Separator className="bg-gray-700" />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-medium">Marketing Emails</p>
-                    <p className="text-gray-400 text-sm">Product updates and promotional content</p>
-                  </div>
-                  <Switch
-                    checked={notificationForm.marketing_emails}
-                    onCheckedChange={(checked) => 
-                      setNotificationForm({ ...notificationForm, marketing_emails: checked })
                     }
                   />
                 </div>
@@ -442,7 +440,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                 <Button 
                   onClick={handleSaveNotifications}
                   disabled={isSaving}
-                  className="bg-indigo-600 hover:bg-indigo-700"
+                  className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
                 >
                   {isSaving ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -456,35 +454,70 @@ export function UserSettings({ onClose }: UserSettingsProps) {
           </Card>
         </TabsContent>
 
+        {/* Integrations Tab */}
+        <TabsContent value="integrations" className="space-y-4">
+          <Card className="bg-white border-[var(--chidi-border-subtle)]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2 text-base">
+                <Plug className="w-5 h-5" />
+                Connected Services
+              </CardTitle>
+              <CardDescription className="text-[var(--chidi-text-muted)]">
+                Manage your messaging integrations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* WhatsApp */}
+              <WhatsAppSettings />
+              
+              {/* Instagram - Coming Soon */}
+              <div className="flex items-center justify-between p-3 rounded-lg border border-[var(--chidi-border-subtle)] opacity-60">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center">
+                    <Instagram className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Instagram</p>
+                    <p className="text-xs text-[var(--chidi-text-muted)]">Manage DMs and inquiries</p>
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-[var(--chidi-text-muted)] bg-[var(--chidi-surface)] px-2 py-1 rounded">
+                  Coming Soon
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-6">
-          <Card className="bg-gray-800/50 border-gray-700">
+          <Card className="bg-white border-[var(--chidi-border-subtle)]">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
                 <Shield className="w-5 h-5" />
                 Change Password
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-[var(--chidi-text-muted)]">
                 Update your password to keep your account secure
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Current Password */}
               <div className="space-y-2">
-                <Label htmlFor="currentPassword" className="text-gray-300">Current Password</Label>
+                <Label htmlFor="currentPassword" className="text-[var(--chidi-text-secondary)]">Current Password</Label>
                 <div className="relative">
                   <Input
                     id="currentPassword"
                     type={showCurrentPassword ? "text" : "password"}
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    className="bg-gray-900 border-gray-700 text-white pr-10"
+                    className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] pr-10"
                     placeholder="Enter current password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
                   >
                     {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -493,36 +526,36 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
               {/* New Password */}
               <div className="space-y-2">
-                <Label htmlFor="newPassword" className="text-gray-300">New Password</Label>
+                <Label htmlFor="newPassword" className="text-[var(--chidi-text-secondary)]">New Password</Label>
                 <div className="relative">
                   <Input
                     id="newPassword"
                     type={showNewPassword ? "text" : "password"}
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    className="bg-gray-900 border-gray-700 text-white pr-10"
+                    className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] pr-10"
                     placeholder="Enter new password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
                   >
                     {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500">Must be at least 6 characters</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">Must be at least 6 characters</p>
               </div>
 
               {/* Confirm Password */}
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-gray-300">Confirm New Password</Label>
+                <Label htmlFor="confirmPassword" className="text-[var(--chidi-text-secondary)]">Confirm New Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   value={passwordForm.confirmPassword}
                   onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  className="bg-gray-900 border-gray-700 text-white"
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
                   placeholder="Confirm new password"
                 />
               </div>
@@ -531,7 +564,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                 <Button 
                   onClick={handleChangePassword}
                   disabled={isChangingPassword || !passwordForm.currentPassword || !passwordForm.newPassword}
-                  className="bg-indigo-600 hover:bg-indigo-700"
+                  className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
                 >
                   {isChangingPassword ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -547,28 +580,28 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         {/* Logout Tab */}
         <TabsContent value="logout" className="space-y-6">
-          <Card className="bg-gray-800/50 border-gray-700">
+          <Card className="bg-white border-[var(--chidi-border-subtle)]">
             <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
+              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
                 <LogOut className="w-5 h-5" />
                 Sign Out
               </CardTitle>
-              <CardDescription className="text-gray-400">
+              <CardDescription className="text-[var(--chidi-text-muted)]">
                 Sign out of your account
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <div className="p-4 bg-gray-900 rounded-lg">
-                  <h4 className="text-white font-medium mb-2">Sign out of this device</h4>
-                  <p className="text-gray-400 text-sm mb-4">
-                    You will be signed out of CHIDI on this device only.
+                <div className="p-4 bg-[var(--chidi-surface)] rounded-lg">
+                  <h4 className="font-medium text-[var(--chidi-text-primary)] mb-2">Sign out of this device</h4>
+                  <p className="text-sm text-[var(--chidi-text-muted)] mb-4">
+                    You will be signed out of chidi on this device only.
                   </p>
                   <Button 
                     onClick={handleLogout}
                     disabled={isLoggingOut}
                     variant="outline"
-                    className="bg-transparent border-gray-600 text-white hover:bg-gray-700"
+                    className="border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
                   >
                     {isLoggingOut ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -579,18 +612,18 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                   </Button>
                 </div>
 
-                <Separator className="bg-gray-700" />
+                <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-                <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg">
-                  <h4 className="text-red-400 font-medium mb-2">Sign out of all devices</h4>
-                  <p className="text-gray-400 text-sm mb-4">
-                    You will be signed out of CHIDI on all devices. You will need to sign in again on each device.
+                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <h4 className="font-medium text-red-700 mb-2">Sign out of all devices</h4>
+                  <p className="text-sm text-red-600 mb-4">
+                    You will be signed out of chidi on all devices. You will need to sign in again on each device.
                   </p>
                   <Button 
                     onClick={handleLogoutAll}
                     disabled={isLoggingOut}
                     variant="destructive"
-                    className="bg-red-600 hover:bg-red-700"
+                    className="bg-[var(--chidi-danger)] text-[var(--chidi-danger-foreground)] hover:bg-[var(--chidi-danger)]/90"
                   >
                     {isLoggingOut ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
