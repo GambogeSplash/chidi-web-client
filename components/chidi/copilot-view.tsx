@@ -189,8 +189,9 @@ export function CopilotView({
   if (messages.length === 0 && !isLoading) {
     return (
       <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden">
-        {/* History button */}
-        <div className="flex justify-end p-4 flex-shrink-0">
+        {/* Header with branding and history button */}
+        <div className="flex items-center justify-between p-4 flex-shrink-0">
+          <span className="text-lg font-semibold text-[var(--chidi-text-primary)]">Chidi</span>
           <Button
             variant="ghost"
             size="icon"
@@ -273,8 +274,9 @@ export function CopilotView({
   // Conversation state
   return (
     <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden">
-      {/* Header with history button */}
-      <div className="flex-shrink-0 flex justify-end p-4 border-b border-[var(--chidi-border-subtle)] bg-white">
+      {/* Header with branding and history button */}
+      <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-[var(--chidi-border-subtle)] bg-white">
+        <span className="text-lg font-semibold text-[var(--chidi-text-primary)]">Chidi</span>
         <Button
           variant="ghost"
           size="icon"

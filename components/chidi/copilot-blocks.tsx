@@ -444,7 +444,8 @@ function NumberedProductList({ items, headerText }: NumberedProductListProps) {
       )}
       
       <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto scrollbar-none">
+        <table className="w-full text-sm min-w-[400px]">
           <thead>
             <tr className="bg-[var(--chidi-surface)] border-b border-[var(--chidi-border-subtle)]">
               <th className="text-left py-2.5 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
@@ -502,6 +503,7 @@ function NumberedProductList({ items, headerText }: NumberedProductListProps) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
@@ -522,7 +524,8 @@ function ProductListTable({ items, headerText }: ProductListProps) {
       )}
       
       <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto scrollbar-none">
+        <table className="w-full text-sm min-w-[350px]">
           <thead>
             <tr className="bg-[var(--chidi-surface)] border-b border-[var(--chidi-border-subtle)]">
               <th className="text-left py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
@@ -561,6 +564,7 @@ function ProductListTable({ items, headerText }: ProductListProps) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
@@ -604,7 +608,8 @@ function InventoryBlock({ categories, headerText }: InventoryBlockProps) {
             )}
           </div>
           
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto scrollbar-none">
+          <table className="w-full text-sm min-w-[350px]">
             <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
               {block.items.map((item, itemIdx) => (
                 <tr key={itemIdx} className="hover:bg-[var(--chidi-surface)]/50">
@@ -636,6 +641,7 @@ function InventoryBlock({ categories, headerText }: InventoryBlockProps) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ))}
     </div>
@@ -660,7 +666,8 @@ function RestockBlock({ items, headerText }: RestockBlockProps) {
       )}
       
       <div className="border border-[var(--chidi-warning)]/30 rounded-lg overflow-hidden bg-white">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto scrollbar-none">
+        <table className="w-full text-sm min-w-[300px]">
           <thead>
             <tr className="bg-[var(--chidi-warning)]/5 border-b border-[var(--chidi-warning)]/20">
               <th className="text-left py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
@@ -713,6 +720,7 @@ function RestockBlock({ items, headerText }: RestockBlockProps) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
@@ -733,7 +741,8 @@ function MetricsBlock({ metrics, headerText }: MetricsBlockProps) {
       )}
       
       <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto scrollbar-none">
+        <table className="w-full text-sm min-w-[280px]">
           <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
             {metrics.map((metric, idx) => (
               <tr key={idx}>
@@ -759,6 +768,7 @@ function MetricsBlock({ metrics, headerText }: MetricsBlockProps) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
