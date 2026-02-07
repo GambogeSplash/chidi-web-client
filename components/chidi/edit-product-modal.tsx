@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Edit3, Loader2, ImageIcon, Trash2 } from "lucide-react"
+import { X, Edit3, Loader2, ImageIcon, Trash2, Plus } from "lucide-react"
 import { productsAPI } from "@/lib/api"
+import { categoriesAPI, type ProductCategory, type CreateCategoryRequest } from "@/lib/api/categories"
 import type { DisplayProduct } from "@/lib/types/product"
 
 interface EditProductModalProps {
@@ -26,24 +27,50 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
     costPrice: "",
     stock: "",
     category: "",
+    categoryId: "",
     description: "",
     brand: "",
   })
+  const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [categoriesLoading, setCategoriesLoading] = useState(false)
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Fetch categories when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setCategoriesLoading(true)
+      categoriesAPI.getCategories()
+        .then(setCategories)
+        .catch((err) => {
+          console.error('Failed to load categories:', err)
+          setCategories([])
+        })
+        .finally(() => setCategoriesLoading(false))
+    }
+  }, [isOpen])
+
   // Initialize form with product data when modal opens
   useEffect(() => {
     if (isOpen && product) {
+      // Try to find matching category by name
+      const matchingCategory = categories.find(
+        c => c.name.toLowerCase() === product.category?.toLowerCase()
+      )
+      
       setFormData({
         name: product.name || "",
         sellingPrice: product.price?.replace(/[^\d.]/g, "") || "",
         costPrice: product.costPrice?.toString() || "",
         stock: product.stock?.toString() || "",
         category: product.category || "",
+        categoryId: matchingCategory?.id || "",
         description: product.description || "",
         brand: product.brand || "",
       })
@@ -52,11 +79,44 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
       setImageFile(null)
       setError(null)
     }
-  }, [isOpen, product])
+  }, [isOpen, product, categories])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
     setError(null)
+  }
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) {
+      setError("Please enter a category name")
+      return
+    }
+
+    setIsCreatingCategory(true)
+    setError(null)
+
+    try {
+      const newCategory = await categoriesAPI.createCategory({
+        name: newCategoryName.trim()
+      })
+      
+      // Add to categories list and select it
+      setCategories(prev => [...prev, newCategory])
+      setFormData(prev => ({
+        ...prev,
+        categoryId: newCategory.id,
+        category: newCategory.name
+      }))
+      
+      // Reset the input
+      setNewCategoryName("")
+      setShowNewCategoryInput(false)
+    } catch (err: any) {
+      console.error("Failed to create category:", err)
+      setError(err.message || "Failed to create category")
+    } finally {
+      setIsCreatingCategory(false)
+    }
   }
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,22 +344,124 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
 
             {/* Category */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-[var(--chidi-text-secondary)]">
-                Category
-              </Label>
-              <Select value={formData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                <SelectTrigger className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent className="bg-white border-[var(--chidi-border-default)]">
-                  <SelectItem value="fashion" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Fashion & Clothing</SelectItem>
-                  <SelectItem value="electronics" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Electronics</SelectItem>
-                  <SelectItem value="beauty" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Beauty & Cosmetics</SelectItem>
-                  <SelectItem value="food" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Food & Beverages</SelectItem>
-                  <SelectItem value="home" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Home & Living</SelectItem>
-                  <SelectItem value="other" className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                  Category
+                </Label>
+                {!showNewCategoryInput && (
+                  <button
+                    type="button"
+                    onClick={() => setShowNewCategoryInput(true)}
+                    className="text-xs text-[var(--chidi-accent)] hover:text-[var(--chidi-accent)]/80 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" />
+                    New category
+                  </button>
+                )}
+              </div>
+              
+              {showNewCategoryInput ? (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g., Electronics, Clothing"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleCreateCategory()
+                      }
+                      if (e.key === 'Escape') {
+                        setShowNewCategoryInput(false)
+                        setNewCategoryName("")
+                      }
+                    }}
+                    className="flex-1 bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
+                    autoFocus
+                    disabled={isCreatingCategory}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    disabled={isCreatingCategory || !newCategoryName.trim()}
+                    size="sm"
+                    className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90 px-3"
+                  >
+                    {isCreatingCategory ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Add"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowNewCategoryInput(false)
+                      setNewCategoryName("")
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="px-2 text-[var(--chidi-text-muted)]"
+                    disabled={isCreatingCategory}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Select 
+                  value={formData.categoryId || formData.category} 
+                  onValueChange={(value) => {
+                    if (value === "__create_new__") {
+                      setShowNewCategoryInput(true)
+                      return
+                    }
+                    const selectedCat = categories.find(c => c.id === value)
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      categoryId: selectedCat ? value : "",
+                      category: selectedCat?.name || value 
+                    }))
+                    setError(null)
+                  }}
+                  disabled={categoriesLoading}
+                >
+                  <SelectTrigger className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]">
+                    <SelectValue placeholder={categoriesLoading ? "Loading categories..." : categories.length === 0 ? "Create your first category" : "Select category"} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border-[var(--chidi-border-default)]">
+                    {categories.length > 0 ? (
+                      <>
+                        {categories.map((cat) => (
+                          <SelectItem 
+                            key={cat.id} 
+                            value={cat.id} 
+                            className="text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
+                          >
+                            {cat.icon && <span className="mr-2">{cat.icon}</span>}
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                        <div className="border-t border-[var(--chidi-border-subtle)] my-1" />
+                        <SelectItem 
+                          value="__create_new__" 
+                          className="text-[var(--chidi-accent)] hover:bg-[var(--chidi-surface)]"
+                        >
+                          <Plus className="w-4 h-4 mr-2 inline" />
+                          Create new category
+                        </SelectItem>
+                      </>
+                    ) : !categoriesLoading ? (
+                      <SelectItem 
+                        value="__create_new__" 
+                        className="text-[var(--chidi-accent)] hover:bg-[var(--chidi-surface)]"
+                      >
+                        <Plus className="w-4 h-4 mr-2 inline" />
+                        Create your first category
+                      </SelectItem>
+                    ) : null}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {/* Description */}

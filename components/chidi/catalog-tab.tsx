@@ -22,7 +22,8 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
   const [showFilters, setShowFilters] = useState(false)
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
 
-  const categories = ["all", "electronics", "clothing", "accessories", "home"]
+  // Derive categories dynamically from actual product data
+  const categories = ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())

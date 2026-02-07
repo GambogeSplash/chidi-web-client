@@ -260,9 +260,10 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     )
   }
 
-  // Step 3: Business Categories
+  // Step 3: Business Type Selection
+  // This determines the default product categories seeded for the business
   if (step === 3) {
-    const categories = [
+    const businessTypes = [
       { id: "fashion", label: "Fashion & Clothing", icon: "👗" },
       { id: "electronics", label: "Electronics", icon: "📱" },
       { id: "beauty", label: "Beauty & Cosmetics", icon: "💄" },
@@ -277,26 +278,26 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
           <OnboardingHeader 
-            title="What do you sell?"
-            subtitle="This helps Chidi understand your products better"
+            title="What type of business do you run?"
+            subtitle="We'll set up relevant product categories for you"
           />
 
-          {/* Categories Grid */}
+          {/* Business Types Grid */}
           <div className="grid grid-cols-2 gap-3 mb-8">
-            {categories.map((category) => (
+            {businessTypes.map((businessType) => (
               <button
-                key={category.id}
-                onClick={() => handleCategoryToggle(category.id)}
+                key={businessType.id}
+                onClick={() => handleCategoryToggle(businessType.id)}
                 className={cn(
                   "p-4 rounded-xl border transition-all duration-200 text-left",
-                  selectedCategories.includes(category.id)
+                  selectedCategories.includes(businessType.id)
                     ? "bg-[var(--chidi-accent)] border-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]"
                     : "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:border-[var(--chidi-text-muted)]"
                 )}
               >
                 <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{category.icon}</span>
-                  <span className="font-medium text-sm">{category.label}</span>
+                  <span className="text-2xl">{businessType.icon}</span>
+                  <span className="font-medium text-sm">{businessType.label}</span>
                 </div>
               </button>
             ))}

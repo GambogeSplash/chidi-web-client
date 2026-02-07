@@ -22,7 +22,8 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
 
-  const categories = ["all", "electronics", "clothing", "accessories", "home"]
+  // Derive categories dynamically from actual product data
+  const categories = ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())

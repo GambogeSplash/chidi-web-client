@@ -4,9 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { 
@@ -14,18 +12,23 @@ import {
   Bell, 
   Shield, 
   LogOut, 
-  Save, 
   Loader2, 
   AlertTriangle,
   Eye,
   EyeOff,
   Check,
-  X,
   ArrowLeft,
   Plug,
-  Instagram
+  Instagram,
+  Folder,
+  Download,
+  Clock,
+  ChevronRight,
+  HelpCircle,
+  Settings2
 } from "lucide-react"
 import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
+import { CategorySettings } from "@/components/settings/category-settings"
 import { 
   settingsAPI, 
   type UserPreferences, 
@@ -33,6 +36,13 @@ import {
   type NotificationPreferences 
 } from "@/lib/api/settings"
 import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 interface UserSettingsProps {
   onClose?: () => void
@@ -40,11 +50,31 @@ interface UserSettingsProps {
 
 export function UserSettings({ onClose }: UserSettingsProps) {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState("account")
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+
+  // Modal states
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [showSecurityModal, setShowSecurityModal] = useState(false)
+  const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false)
+
+  // Business hours state
+  // TODO: Persist business hours to backend
+  // - Add business_hours field to Business model in schema.prisma
+  // - Create API endpoint: GET/PUT /api/settings/business-hours
+  // - Load saved hours on component mount
+  // - Save hours when user clicks "Save Hours"
+  const [businessHours, setBusinessHours] = useState({
+    monday: { open: "09:00", close: "18:00", closed: false },
+    tuesday: { open: "09:00", close: "18:00", closed: false },
+    wednesday: { open: "09:00", close: "18:00", closed: false },
+    thursday: { open: "09:00", close: "18:00", closed: false },
+    friday: { open: "09:00", close: "18:00", closed: false },
+    saturday: { open: "10:00", close: "16:00", closed: false },
+    sunday: { open: "10:00", close: "16:00", closed: true },
+  })
 
   // Account state
   const [account, setAccount] = useState<AccountInfo | null>(null)
@@ -128,22 +158,16 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     }
   }
 
-  const handleSaveNotifications = async () => {
-    setIsSaving(true)
-    setError("")
-    setSuccess("")
+  const handleNotificationChange = async (key: keyof NotificationPreferences, value: boolean) => {
+    const newForm = { ...notificationForm, [key]: value }
+    setNotificationForm(newForm)
     
     try {
-      const updated = await settingsAPI.updatePreferences({
-        notifications: notificationForm
-      })
-      setPreferences(updated)
-      setSuccess("Notification preferences saved")
-      setTimeout(() => setSuccess(""), 3000)
+      await settingsAPI.updatePreferences({ notifications: newForm })
     } catch (err: any) {
-      setError(err.message || "Failed to save preferences")
-    } finally {
-      setIsSaving(false)
+      // Revert on error
+      setNotificationForm(notificationForm)
+      setError(err.message || "Failed to save preference")
     }
   }
 
@@ -169,6 +193,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       )
       setSuccess("Password changed successfully")
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+      setShowSecurityModal(false)
       setTimeout(() => setSuccess(""), 3000)
     } catch (err: any) {
       setError(err.message || "Failed to change password")
@@ -183,19 +208,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       await settingsAPI.logout()
       router.push("/auth")
     } catch (err) {
-      // Even if API fails, redirect to auth
       router.push("/auth")
-    }
-  }
-
-  const handleLogoutAll = async () => {
-    setIsLoggingOut(true)
-    try {
-      await settingsAPI.logoutAllSessions()
-      router.push("/auth")
-    } catch (err: any) {
-      setError(err.message || "Failed to logout all sessions")
-      setIsLoggingOut(false)
     }
   }
 
@@ -208,6 +221,11 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       .slice(0, 2) || "U"
   }
 
+  const getAuthProviderLabel = (provider?: string) => {
+    if (!provider || provider === "email") return "Signed in with EMAIL"
+    return `Signed in with ${provider.toUpperCase()}`
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -217,427 +235,499 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   }
 
   return (
-    <div className="space-y-6 p-6 max-w-2xl mx-auto">
+    <div className="max-w-xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        {onClose && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={onClose}
-            className="h-9 w-9 text-[var(--chidi-text-secondary)]"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-        )}
-        <div>
-          <h1 className="text-2xl font-semibold text-[var(--chidi-text-primary)]">Settings</h1>
-          <p className="text-sm text-[var(--chidi-text-muted)]">Manage your account and preferences</p>
+      <div className="sticky top-0 bg-[var(--chidi-surface)] z-10 px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
+        <div className="flex items-center gap-4">
+          {onClose && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={onClose}
+              className="h-9 w-9 text-[var(--chidi-text-secondary)]"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-semibold text-[var(--chidi-text-primary)]">Settings</h1>
+            <p className="text-sm text-[var(--chidi-text-muted)]">Manage your account and preferences</p>
+          </div>
         </div>
       </div>
 
       {/* Status Messages */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" />
-          {error}
+      {(error || success) && (
+        <div className="px-6 pt-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+              <Check className="w-4 h-4 flex-shrink-0" />
+              {success}
+            </div>
+          )}
         </div>
       )}
-      
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <Check className="w-4 h-4" />
-          {success}
-        </div>
-      )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 bg-[var(--chidi-surface)]">
-          <TabsTrigger value="account" className="data-[state=active]:bg-white">
-            <User className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Account</span>
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="data-[state=active]:bg-white">
-            <Bell className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Alerts</span>
-          </TabsTrigger>
-          <TabsTrigger value="integrations" className="data-[state=active]:bg-white">
-            <Plug className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Integrations</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="data-[state=active]:bg-white">
-            <Shield className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Security</span>
-          </TabsTrigger>
-          <TabsTrigger value="logout" className="data-[state=active]:bg-white">
-            <LogOut className="w-4 h-4 sm:mr-2" />
-            <span className="hidden sm:inline">Sign Out</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Account Tab */}
-        <TabsContent value="account" className="space-y-6">
-          <Card className="bg-white border-[var(--chidi-border-subtle)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Profile Information
-              </CardTitle>
-              <CardDescription className="text-[var(--chidi-text-muted)]">
-                Update your personal details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Avatar */}
-              <div className="flex items-center gap-6">
-                <Avatar className="w-16 h-16 bg-[var(--chidi-accent)]">
-                  <AvatarFallback className="text-xl text-[var(--chidi-accent-foreground)] bg-[var(--chidi-accent)]">
-                    {account ? getInitials(account.name) : "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium text-[var(--chidi-text-primary)]">{account?.name}</p>
-                  <p className="text-sm text-[var(--chidi-text-muted)]">{account?.email}</p>
-                  <p className="text-xs text-[var(--chidi-text-muted)] mt-1">
-                    {account?.auth_provider === "email" ? "Email account" : `Signed in with ${account?.auth_provider}`}
-                  </p>
-                </div>
+      <div className="px-6 space-y-1">
+        {/* ═══════════════════════════════════════════════════════════════
+            PROFILE SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6">
+          <div className="flex items-start gap-2 mb-4">
+            <User className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Profile</span>
+          </div>
+          
+          {/* User Card */}
+          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4">
+            <div className="flex items-center gap-4">
+              <Avatar className="w-12 h-12 bg-[var(--chidi-accent)]">
+                <AvatarFallback className="text-lg text-[var(--chidi-accent-foreground)] bg-[var(--chidi-accent)]">
+                  {account ? getInitials(account.name) : "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-[var(--chidi-text-primary)] truncate">{account?.name}</p>
+                <p className="text-sm text-[var(--chidi-text-muted)] truncate">{account?.email}</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">
+                  {getAuthProviderLabel(account?.auth_provider)}
+                </p>
               </div>
+            </div>
 
-              <Separator className="bg-[var(--chidi-border-subtle)]" />
+            <Separator className="my-4 bg-[var(--chidi-border-subtle)]" />
 
-              {/* Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-[var(--chidi-text-secondary)]">Full Name</Label>
-                <Input
-                  id="name"
-                  value={accountForm.name}
-                  onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
-                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
-                  placeholder="Enter your name"
-                />
-              </div>
+            {/* Name Input */}
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm text-[var(--chidi-text-secondary)]">Full Name</Label>
+              <Input
+                id="name"
+                value={accountForm.name}
+                onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
+                className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                placeholder="Enter your name"
+              />
+            </div>
 
-              {/* Email (read-only) */}
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-[var(--chidi-text-secondary)]">Email</Label>
-                <Input
-                  id="email"
-                  value={account?.email || ""}
-                  disabled
-                  className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-muted)]"
-                />
-                <p className="text-xs text-[var(--chidi-text-muted)]">Email cannot be changed</p>
-              </div>
+            {/* Email (read-only) */}
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="email" className="text-sm text-[var(--chidi-text-secondary)]">Email</Label>
+              <Input
+                id="email"
+                value={account?.email || ""}
+                disabled
+                className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-muted)]"
+              />
+              <p className="text-xs text-[var(--chidi-text-muted)]">Email cannot be changed</p>
+            </div>
 
-              <div className="flex justify-end">
+            {accountForm.name !== account?.name && (
+              <div className="flex justify-end mt-4">
                 <Button 
                   onClick={handleSaveAccount}
                   disabled={isSaving}
+                  size="sm"
                   className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
                 >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  Save Changes
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            )}
+          </div>
 
-        {/* Notifications Tab */}
-        <TabsContent value="notifications" className="space-y-6">
-          <Card className="bg-white border-[var(--chidi-border-subtle)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
-                <Bell className="w-5 h-5" />
-                Notification Preferences
-              </CardTitle>
-              <CardDescription className="text-[var(--chidi-text-muted)]">
-                Choose what updates you want to receive
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-[var(--chidi-text-primary)]">Email Notifications</p>
-                    <p className="text-sm text-[var(--chidi-text-muted)]">Receive notifications via email</p>
-                  </div>
-                  <Switch
-                    checked={notificationForm.email_notifications}
-                    onCheckedChange={(checked) => 
-                      setNotificationForm({ ...notificationForm, email_notifications: checked })
-                    }
-                  />
-                </div>
-
-                <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-[var(--chidi-text-primary)]">Stock Alerts</p>
-                    <p className="text-sm text-[var(--chidi-text-muted)]">Get notified when products are low or out of stock</p>
-                  </div>
-                  <Switch
-                    checked={notificationForm.stock_alerts}
-                    onCheckedChange={(checked) => 
-                      setNotificationForm({ ...notificationForm, stock_alerts: checked })
-                    }
-                  />
-                </div>
-
-                <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-[var(--chidi-text-primary)]">Order Updates</p>
-                    <p className="text-sm text-[var(--chidi-text-muted)]">New orders and status changes</p>
-                  </div>
-                  <Switch
-                    checked={notificationForm.order_updates}
-                    onCheckedChange={(checked) => 
-                      setNotificationForm({ ...notificationForm, order_updates: checked })
-                    }
-                  />
-                </div>
-
-                <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-[var(--chidi-text-primary)]">Daily Summary</p>
-                    <p className="text-sm text-[var(--chidi-text-muted)]">Daily business performance summary</p>
-                  </div>
-                  <Switch
-                    checked={notificationForm.daily_summary}
-                    onCheckedChange={(checked) => 
-                      setNotificationForm({ ...notificationForm, daily_summary: checked })
-                    }
-                  />
-                </div>
-
-                <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-[var(--chidi-text-primary)]">Weekly Reports</p>
-                    <p className="text-sm text-[var(--chidi-text-muted)]">Comprehensive weekly business analytics</p>
-                  </div>
-                  <Switch
-                    checked={notificationForm.weekly_reports}
-                    onCheckedChange={(checked) => 
-                      setNotificationForm({ ...notificationForm, weekly_reports: checked })
-                    }
-                  />
-                </div>
+          {/* Categories Row */}
+          <button
+            onClick={() => setShowCategoryModal(true)}
+            className="w-full mt-3 bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Folder className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+              <div className="text-left">
+                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Product Categories</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">Manage your inventory categories</p>
               </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+          </button>
 
-              <div className="flex justify-end pt-4">
-                <Button 
-                  onClick={handleSaveNotifications}
-                  disabled={isSaving}
-                  className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  Save Preferences
-                </Button>
+          {/* Business Hours Row */}
+          <button
+            onClick={() => setShowBusinessHoursModal(true)}
+            className="w-full mt-3 bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+              <div className="text-left">
+                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Business Hours</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">Set when you're available</p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
+            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+          </button>
+        </section>
 
-        {/* Integrations Tab */}
-        <TabsContent value="integrations" className="space-y-4">
-          <Card className="bg-white border-[var(--chidi-border-subtle)]">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2 text-base">
-                <Plug className="w-5 h-5" />
-                Connected Services
-              </CardTitle>
-              <CardDescription className="text-[var(--chidi-text-muted)]">
-                Manage your messaging integrations
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* WhatsApp */}
+        <Separator className="bg-[var(--chidi-border-subtle)]" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            INTEGRATIONS SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6">
+          <div className="flex items-start gap-2 mb-4">
+            <Plug className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Integrations</span>
+          </div>
+
+          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
+            {/* WhatsApp */}
+            <div className="p-4">
               <WhatsAppSettings />
-              
-              {/* Instagram - Coming Soon */}
-              <div className="flex items-center justify-between p-3 rounded-lg border border-[var(--chidi-border-subtle)] opacity-60">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center">
-                    <Instagram className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Instagram</p>
-                    <p className="text-xs text-[var(--chidi-text-muted)]">Manage DMs and inquiries</p>
-                  </div>
+            </div>
+            
+            {/* Instagram - Coming Soon */}
+            <div className="p-4 flex items-center justify-between opacity-60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
+                  <Instagram className="w-5 h-5 text-white" />
                 </div>
-                <span className="text-xs font-medium text-[var(--chidi-text-muted)] bg-[var(--chidi-surface)] px-2 py-1 rounded">
-                  Coming Soon
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Security Tab */}
-        <TabsContent value="security" className="space-y-6">
-          <Card className="bg-white border-[var(--chidi-border-subtle)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Change Password
-              </CardTitle>
-              <CardDescription className="text-[var(--chidi-text-muted)]">
-                Update your password to keep your account secure
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Current Password */}
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword" className="text-[var(--chidi-text-secondary)]">Current Password</Label>
-                <div className="relative">
-                  <Input
-                    id="currentPassword"
-                    type={showCurrentPassword ? "text" : "password"}
-                    value={passwordForm.currentPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                    className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] pr-10"
-                    placeholder="Enter current password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
-                  >
-                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                <div>
+                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Instagram</p>
+                  <p className="text-xs text-[var(--chidi-text-muted)]">Not connected</p>
                 </div>
               </div>
+              <span className="text-xs font-medium text-[var(--chidi-text-muted)] bg-[var(--chidi-surface)] px-2 py-1 rounded">
+                Coming Soon
+              </span>
+            </div>
+          </div>
+        </section>
 
-              {/* New Password */}
-              <div className="space-y-2">
-                <Label htmlFor="newPassword" className="text-[var(--chidi-text-secondary)]">New Password</Label>
-                <div className="relative">
-                  <Input
-                    id="newPassword"
-                    type={showNewPassword ? "text" : "password"}
-                    value={passwordForm.newPassword}
-                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                    className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] pr-10"
-                    placeholder="Enter new password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
-                  >
-                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-xs text-[var(--chidi-text-muted)]">Must be at least 6 characters</p>
+        <Separator className="bg-[var(--chidi-border-subtle)]" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            DATA MANAGEMENT SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6">
+          <div className="flex items-start gap-2 mb-4">
+            <Download className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Data Management</span>
+          </div>
+
+          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between">
+            <div>
+              <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Export Data</p>
+              <p className="text-xs text-[var(--chidi-text-muted)]">Backup your business information</p>
+            </div>
+            <Button variant="outline" size="sm" className="border-[var(--chidi-border-default)]">
+              Export
+            </Button>
+          </div>
+        </section>
+
+        <Separator className="bg-[var(--chidi-border-subtle)]" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            NOTIFICATIONS SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6">
+          <div className="flex items-start gap-2 mb-4">
+            <Bell className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Notifications</span>
+          </div>
+
+          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
+            <div className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Stock Alerts</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">Get notified when items are low</p>
               </div>
+              <Switch
+                checked={notificationForm.stock_alerts}
+                onCheckedChange={(checked) => handleNotificationChange('stock_alerts', checked)}
+              />
+            </div>
 
-              {/* Confirm Password */}
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-[var(--chidi-text-secondary)]">Confirm New Password</Label>
+            <div className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">New Messages</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">Customer inquiries and orders</p>
+              </div>
+              <Switch
+                checked={notificationForm.order_updates}
+                onCheckedChange={(checked) => handleNotificationChange('order_updates', checked)}
+              />
+            </div>
+
+            <div className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Daily Summary</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">Daily business performance</p>
+              </div>
+              <Switch
+                checked={notificationForm.daily_summary}
+                onCheckedChange={(checked) => handleNotificationChange('daily_summary', checked)}
+              />
+            </div>
+          </div>
+        </section>
+
+        <Separator className="bg-[var(--chidi-border-subtle)]" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            SECURITY SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6">
+          <div className="flex items-start gap-2 mb-4">
+            <Shield className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Security</span>
+          </div>
+
+          <button
+            onClick={() => setShowSecurityModal(true)}
+            className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
+          >
+            <div className="text-left">
+              <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Change Password</p>
+              <p className="text-xs text-[var(--chidi-text-muted)]">Update your account password</p>
+            </div>
+            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+          </button>
+        </section>
+
+        <Separator className="bg-[var(--chidi-border-subtle)]" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            HELP & SIGN OUT SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6 space-y-3">
+          <button
+            className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center gap-3 hover:bg-[var(--chidi-surface)] transition-colors"
+          >
+            <HelpCircle className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+            <span className="font-medium text-sm text-[var(--chidi-text-primary)]">Help & Support</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full bg-white rounded-xl border border-red-200 p-4 flex items-center gap-3 hover:bg-red-50 transition-colors"
+          >
+            {isLoggingOut ? (
+              <Loader2 className="w-5 h-5 text-red-600 animate-spin" />
+            ) : (
+              <LogOut className="w-5 h-5 text-red-600" />
+            )}
+            <span className="font-medium text-sm text-red-600">Sign Out</span>
+          </button>
+        </section>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CATEGORY MODAL
+      ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Product Categories</DialogTitle>
+            <DialogDescription>
+              Manage your inventory categories for better organization
+            </DialogDescription>
+          </DialogHeader>
+          <CategorySettings />
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SECURITY MODAL
+      ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={showSecurityModal} onOpenChange={setShowSecurityModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Change Password
+            </DialogTitle>
+            <DialogDescription>
+              Update your password to keep your account secure
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-4">
+            {/* Current Password */}
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword" className="text-sm text-[var(--chidi-text-secondary)]">Current Password</Label>
+              <div className="relative">
                 <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
-                  placeholder="Confirm new password"
+                  id="currentPassword"
+                  type={showCurrentPassword ? "text" : "password"}
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] pr-10"
+                  placeholder="Enter current password"
                 />
-              </div>
-
-              <div className="flex justify-end pt-4">
-                <Button 
-                  onClick={handleChangePassword}
-                  disabled={isChangingPassword || !passwordForm.currentPassword || !passwordForm.newPassword}
-                  className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
                 >
-                  {isChangingPassword ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Shield className="w-4 h-4 mr-2" />
-                  )}
-                  Change Password
-                </Button>
+                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </div>
 
-        {/* Logout Tab */}
-        <TabsContent value="logout" className="space-y-6">
-          <Card className="bg-white border-[var(--chidi-border-subtle)]">
-            <CardHeader>
-              <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
-                <LogOut className="w-5 h-5" />
-                Sign Out
-              </CardTitle>
-              <CardDescription className="text-[var(--chidi-text-muted)]">
-                Sign out of your account
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="p-4 bg-[var(--chidi-surface)] rounded-lg">
-                  <h4 className="font-medium text-[var(--chidi-text-primary)] mb-2">Sign out of this device</h4>
-                  <p className="text-sm text-[var(--chidi-text-muted)] mb-4">
-                    You will be signed out of chidi on this device only.
-                  </p>
-                  <Button 
-                    onClick={handleLogout}
-                    disabled={isLoggingOut}
-                    variant="outline"
-                    className="border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
-                  >
-                    {isLoggingOut ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <LogOut className="w-4 h-4 mr-2" />
-                    )}
-                    Sign Out
-                  </Button>
+            {/* New Password */}
+            <div className="space-y-2">
+              <Label htmlFor="newPassword" className="text-sm text-[var(--chidi-text-secondary)]">New Password</Label>
+              <div className="relative">
+                <Input
+                  id="newPassword"
+                  type={showNewPassword ? "text" : "password"}
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] pr-10"
+                  placeholder="Enter new password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-[var(--chidi-text-muted)]">Must be at least 6 characters</p>
+            </div>
+
+            {/* Confirm Password */}
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-sm text-[var(--chidi-text-secondary)]">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                placeholder="Confirm new password"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button 
+                variant="outline"
+                onClick={() => setShowSecurityModal(false)}
+                className="border-[var(--chidi-border-default)]"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleChangePassword}
+                disabled={isChangingPassword || !passwordForm.currentPassword || !passwordForm.newPassword}
+                className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+              >
+                {isChangingPassword && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Change Password
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          BUSINESS HOURS MODAL
+      ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={showBusinessHoursModal} onOpenChange={setShowBusinessHoursModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Clock className="w-5 h-5" />
+              Business Hours
+            </DialogTitle>
+            <DialogDescription>
+              Set your operating hours to let customers know when you're available
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-2 max-h-[60vh] overflow-y-auto">
+            {(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const).map((day) => (
+              <div key={day} className="flex items-center gap-3 p-3 bg-[var(--chidi-surface)] rounded-lg">
+                <div className="w-24">
+                  <span className="text-sm font-medium text-[var(--chidi-text-primary)] capitalize">{day}</span>
                 </div>
 
-                <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <h4 className="font-medium text-red-700 mb-2">Sign out of all devices</h4>
-                  <p className="text-sm text-red-600 mb-4">
-                    You will be signed out of chidi on all devices. You will need to sign in again on each device.
-                  </p>
-                  <Button 
-                    onClick={handleLogoutAll}
-                    disabled={isLoggingOut}
-                    variant="destructive"
-                    className="bg-[var(--chidi-danger)] text-[var(--chidi-danger-foreground)] hover:bg-[var(--chidi-danger)]/90"
-                  >
-                    {isLoggingOut ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <LogOut className="w-4 h-4 mr-2" />
-                    )}
-                    Sign Out Everywhere
-                  </Button>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={!businessHours[day].closed}
+                    onCheckedChange={(checked) => 
+                      setBusinessHours(prev => ({
+                        ...prev,
+                        [day]: { ...prev[day], closed: !checked }
+                      }))
+                    }
+                  />
+                  <span className="text-xs text-[var(--chidi-text-muted)] w-10">
+                    {businessHours[day].closed ? "Closed" : "Open"}
+                  </span>
                 </div>
+
+                {!businessHours[day].closed && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Input
+                      type="time"
+                      value={businessHours[day].open}
+                      onChange={(e) => 
+                        setBusinessHours(prev => ({
+                          ...prev,
+                          [day]: { ...prev[day], open: e.target.value }
+                        }))
+                      }
+                      className="w-24 h-8 text-sm bg-white border-[var(--chidi-border-subtle)]"
+                    />
+                    <span className="text-xs text-[var(--chidi-text-muted)]">to</span>
+                    <Input
+                      type="time"
+                      value={businessHours[day].close}
+                      onChange={(e) => 
+                        setBusinessHours(prev => ({
+                          ...prev,
+                          [day]: { ...prev[day], close: e.target.value }
+                        }))
+                      }
+                      className="w-24 h-8 text-sm bg-white border-[var(--chidi-border-subtle)]"
+                    />
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-[var(--chidi-border-subtle)]">
+            <Button 
+              variant="outline"
+              onClick={() => setShowBusinessHoursModal(false)}
+              className="border-[var(--chidi-border-default)]"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                // TODO: Save business hours to backend
+                setSuccess("Business hours saved")
+                setShowBusinessHoursModal(false)
+                setTimeout(() => setSuccess(""), 3000)
+              }}
+              className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+            >
+              Save Hours
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

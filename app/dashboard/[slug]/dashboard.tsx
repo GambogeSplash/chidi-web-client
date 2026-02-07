@@ -6,7 +6,6 @@ import { DesktopSidebar, SidebarProvider, MobileSidebarTrigger } from '@/compone
 import { DesktopHeader } from '@/components/chidi/desktop-header'
 import ChatInterface from '@/components/chidi/home-tab'
 import { CatalogTab } from '@/components/chidi/catalog-tab'
-import { SettingsTab } from '@/components/chidi/settings-tab'
 import { AddProductModal } from '@/components/chidi/add-product-modal'
 import { QuickEditModal } from '@/components/chidi/quick-edit-modal'
 import { ProductDetailPage } from '@/components/chidi/product-detail-page'

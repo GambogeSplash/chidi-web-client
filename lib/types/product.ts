@@ -48,6 +48,7 @@ export interface BackendProduct {
 
 /**
  * Request to create a new product - matches AddProductRequest from inventory_models.py
+ * SKU is auto-generated in BUS-CAT-0001 format unless custom_sku is provided.
  */
 export interface CreateProductRequest {
   name: string
@@ -61,8 +62,7 @@ export interface CreateProductRequest {
   tags?: string[]
   discount_price?: number
   low_stock_threshold?: number
-  custom_sku?: string
-  sku_format?: 'smart' | 'simple' | 'date'
+  custom_sku?: string  // Override auto-generation
   is_featured?: boolean
   is_digital?: boolean
   weight?: number
