@@ -27,6 +27,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
     sellingPrice: "",
     costPrice: "",
     stock: "",
+    lowStockThreshold: "",
     category: "",
     categoryId: "",
     description: "",
@@ -179,6 +180,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
         cost_price: costPrice,
         selling_price: sellingPrice,
         stock_quantity: stockNum,
+        low_stock_threshold: formData.lowStockThreshold ? parseInt(formData.lowStockThreshold) : undefined,
         description: formData.description || undefined,
         brand: formData.brand || undefined,
         image_urls: imageUrls.length > 0 ? imageUrls : undefined,
@@ -206,6 +208,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
       sellingPrice: "",
       costPrice: "",
       stock: "",
+      lowStockThreshold: "",
       category: "",
       categoryId: "",
       description: "",
@@ -309,7 +312,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
               </div>
             </div>
 
-            {/* Stock and Brand */}
+            {/* Stock and Low Stock Threshold */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="stock" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
@@ -327,17 +330,34 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="brand" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
-                  Brand
+                <Label htmlFor="lowStockThreshold" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                  Low Stock Alert
                 </Label>
                 <Input
-                  id="brand"
-                  placeholder="e.g., Nike"
-                  value={formData.brand}
-                  onChange={(e) => handleInputChange("brand", e.target.value)}
+                  id="lowStockThreshold"
+                  type="number"
+                  placeholder="Default: 10"
+                  min="1"
+                  value={formData.lowStockThreshold}
+                  onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
                   className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                 />
+                <p className="text-xs text-[var(--chidi-text-muted)]">Alert when stock falls to this level</p>
               </div>
+            </div>
+
+            {/* Brand */}
+            <div className="space-y-2">
+              <Label htmlFor="brand" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                Brand
+              </Label>
+              <Input
+                id="brand"
+                placeholder="e.g., Nike"
+                value={formData.brand}
+                onChange={(e) => handleInputChange("brand", e.target.value)}
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
+              />
             </div>
 
             {/* Category */}

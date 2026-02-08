@@ -45,13 +45,12 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     markAsRead: markNotificationAsRead,
     markAllAsRead,
     dismiss: dismissNotification,
-    checkLowStock,
   } = useNotifications({
     userId: user?.id || null,
     businessId: user?.businessId || null,
     inventoryId: inventoryId,
     enableRealtime: true,
-    autoCheckLowStock: true,
+    autoCheckLowStock: false, // Disabled - using PostgreSQL trigger for notifications
   })
 
   // Combine API notifications with local notifications
@@ -133,6 +132,37 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     }
   }
 
+  const handleMarkAllNotificationsAsRead = async () => {
+    // Mark all local notifications as read
+    setLocalNotifications((prev) =>
+      prev.map((notification) => ({ ...notification, read: true }))
+    )
+    // Mark all API notifications as read
+    await markAllAsRead()
+  }
+
+  const handleDismissNotification = async (id: string) => {
+    const isLocalNotification = localNotifications.some(n => n.id === id)
+    if (isLocalNotification) {
+      setLocalNotifications((prev) => prev.filter((n) => n.id !== id))
+    } else {
+      await dismissNotification(id)
+    }
+  }
+
+  const handleNotificationClick = (notification: MappedNotification) => {
+    // If it's a product-related notification, show the product detail
+    if (notification.referenceType === 'product' && notification.referenceId) {
+      const product = products.find(p => p.id === notification.referenceId)
+      if (product) {
+        setSelectedProduct(product)
+        setShowProductDetailModal(true)
+        // Switch to inventory tab
+        setActiveTab('inventory')
+      }
+    }
+  }
+
   const handleEditProduct = (product: DisplayProduct) => {
     setSelectedProduct(product)
     setShowQuickEditModal(true)
@@ -141,6 +171,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const handleUpdateProduct = async (updatedProduct: DisplayProduct) => {
     try {
       const originalProduct = products.find((p) => p.id === updatedProduct.id)
+      
       const updated = await productsAPI.updateProduct(updatedProduct.id, updatedProduct)
       
       setProducts((prev) => prev.map((product) => (product.id === updatedProduct.id ? updated : product)))
@@ -216,7 +247,15 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   return (
     <div className="flex flex-col h-screen w-full bg-white">
       {/* Header - hidden on Chidi tab for more immersive experience */}
-      {activeTab !== "chidi" && <AppHeader />}
+      {activeTab !== "chidi" && (
+        <AppHeader 
+          notifications={notifications}
+          onMarkAsRead={handleMarkNotificationAsRead}
+          onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+          onDismiss={handleDismissNotification}
+          onNotificationClick={handleNotificationClick}
+        />
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden pb-16">

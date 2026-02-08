@@ -63,6 +63,25 @@ export interface SecuritySettings {
   auth_provider: string
 }
 
+// === BUSINESS PREFERENCES ===
+export interface BusinessPreferences {
+  id: string
+  business_id: string
+  default_currency: string
+  date_format: string
+  fiscal_year_start: string
+  low_stock_threshold: number
+  created_at: string
+  updated_at: string
+}
+
+export interface UpdateBusinessPreferencesRequest {
+  default_currency?: string
+  date_format?: string
+  fiscal_year_start?: string
+  low_stock_threshold?: number
+}
+
 // === RESPONSES ===
 export interface SuccessResponse {
   success: boolean
@@ -297,6 +316,48 @@ export const settingsAPI = {
       return response
     } catch (error) {
       console.error('❌ [SETTINGS] Failed to logout all sessions:', error)
+      throw error
+    }
+  },
+
+  // =========================================================================
+  // BUSINESS PREFERENCES
+  // =========================================================================
+
+  /**
+   * Get business preferences (currency, low stock threshold, etc.)
+   */
+  async getBusinessPreferences(businessId: string): Promise<BusinessPreferences> {
+    console.log('🏢 [SETTINGS] Fetching business preferences...')
+    try {
+      const response = await apiClient.get<BusinessPreferences>(
+        `/api/business/${businessId}/preferences`
+      )
+      console.log('✅ [SETTINGS] Business preferences fetched:', response)
+      return response
+    } catch (error) {
+      console.error('❌ [SETTINGS] Failed to fetch business preferences:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Update business preferences
+   */
+  async updateBusinessPreferences(
+    businessId: string, 
+    data: UpdateBusinessPreferencesRequest
+  ): Promise<BusinessPreferences> {
+    console.log('🏢 [SETTINGS] Updating business preferences:', data)
+    try {
+      const response = await apiClient.put<BusinessPreferences>(
+        `/api/business/${businessId}/preferences`,
+        data
+      )
+      console.log('✅ [SETTINGS] Business preferences updated:', response)
+      return response
+    } catch (error) {
+      console.error('❌ [SETTINGS] Failed to update business preferences:', error)
       throw error
     }
   }

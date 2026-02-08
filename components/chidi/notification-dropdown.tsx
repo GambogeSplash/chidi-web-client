@@ -1,12 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Bell, Package, MessageSquare, TrendingUp, AlertTriangle, Check, X, Activity } from "lucide-react"
+import { Bell, Package, AlertTriangle, Check, X, PackageX } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface Notification {
   id: string
@@ -16,6 +13,8 @@ interface Notification {
   timestamp: string
   read: boolean
   priority: "low" | "medium" | "high"
+  referenceType?: string
+  referenceId?: string
 }
 
 interface NotificationDropdownProps {
@@ -23,6 +22,7 @@ interface NotificationDropdownProps {
   onMarkAsRead: (id: string) => void
   onMarkAllAsRead: () => void
   onDismiss: (id: string) => void
+  onNotificationClick?: (notification: Notification) => void
 }
 
 export function NotificationDropdown({
@@ -30,171 +30,197 @@ export function NotificationDropdown({
   onMarkAsRead,
   onMarkAllAsRead,
   onDismiss,
+  onNotificationClick,
 }: NotificationDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   const unreadCount = notifications.filter((n) => !n.read).length
 
-  const getNotificationIcon = (type: string) => {
+  const getNotificationIcon = (type: string, priority: string) => {
+    const iconClass = cn(
+      "w-4 h-4",
+      priority === "high" ? "text-[var(--chidi-danger)]" : "text-[var(--chidi-warning)]"
+    )
+    
     switch (type) {
       case "stock":
-        return <Package className="w-4 h-4 text-amber-600" />
-      case "message":
-        return <MessageSquare className="w-4 h-4 text-blue-600" />
-      case "sale":
-        return <TrendingUp className="w-4 h-4 text-green-600" />
-      case "activity":
-        return <Activity className="w-4 h-4 text-purple-600" />
+        return priority === "high" 
+          ? <PackageX className={iconClass} />
+          : <Package className={iconClass} />
       case "system":
-        return <AlertTriangle className="w-4 h-4 text-red-600" />
+        return <AlertTriangle className={iconClass} />
       default:
-        return <Bell className="w-4 h-4" />
+        return <Bell className={iconClass} />
     }
   }
 
-  const getPriorityColor = (priority: string, read: boolean) => {
-    if (read) return "bg-muted/50"
-
+  const getPriorityStyles = (priority: string, read: boolean) => {
+    if (read) {
+      return "bg-[var(--chidi-surface)] border-transparent"
+    }
+    
     switch (priority) {
       case "high":
-        return "bg-red-50 border-red-200"
+        return "bg-[var(--chidi-danger)]/5 border-[var(--chidi-danger)]/20"
       case "medium":
-        return "bg-amber-50 border-amber-200"
-      case "low":
-        return "bg-blue-50 border-blue-200"
+        return "bg-[var(--chidi-warning)]/5 border-[var(--chidi-warning)]/20"
       default:
-        return "bg-muted/50"
+        return "bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)]"
     }
   }
 
-  const formatTimestamp = (timestamp: string) => {
-    return timestamp
-  }
-
-  const groupedNotifications = notifications.reduce(
-    (groups, notification) => {
-      const type = notification.type
-      if (!groups[type]) {
-        groups[type] = []
-      }
-      groups[type].push(notification)
-      return groups
-    },
-    {} as Record<string, Notification[]>,
-  )
-
-  const typeOrder = ["stock", "message", "sale", "activity", "system"]
-  const sortedNotifications = typeOrder.flatMap((type) => groupedNotifications[type] || [])
+  // Sort: unread first, then by priority
+  const sortedNotifications = [...notifications].sort((a, b) => {
+    if (a.read !== b.read) return a.read ? 1 : -1
+    const priorityOrder = { high: 0, medium: 1, low: 2 }
+    return priorityOrder[a.priority] - priorityOrder[b.priority]
+  })
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 relative">
-          <Bell className="w-4 h-4" />
+        <button
+          type="button"
+          className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg transition-colors hover:bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs bg-red-500 hover:bg-red-500">
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] font-semibold bg-[var(--chidi-danger)] text-white rounded-full animate-pulse-badge">
               {unreadCount > 9 ? "9+" : unreadCount}
-            </Badge>
+            </span>
           )}
-        </Button>
+        </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-80 p-0" align="end">
-        <div className="border-b p-4">
+      <PopoverContent 
+        className="w-80 p-0 z-50 bg-white border-[var(--chidi-border-default)] shadow-lg rounded-xl overflow-hidden" 
+        align="end"
+        sideOffset={8}
+      >
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface-elevated)]">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Notifications</h3>
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--chidi-text-primary)]">
+                Notifications
+              </h3>
+              {unreadCount > 0 && (
+                <p className="text-xs text-[var(--chidi-text-muted)] mt-0.5">
+                  {unreadCount} unread
+                </p>
+              )}
+            </div>
             {unreadCount > 0 && (
-              <Button variant="ghost" size="sm" onClick={onMarkAllAsRead} className="text-xs">
+              <button
+                onClick={onMarkAllAsRead}
+                className="text-xs font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] transition-colors"
+              >
                 Mark all read
-              </Button>
+              </button>
             )}
           </div>
-          {unreadCount > 0 && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}
-            </p>
-          )}
         </div>
 
-        <ScrollArea className="max-h-96">
+        {/* Notification List */}
+        <div className="max-h-64 overflow-y-auto">
           {sortedNotifications.length === 0 ? (
-            <div className="p-8 text-center">
-              <Bell className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No notifications yet</p>
+            <div className="py-8 px-4 text-center">
+              <Bell className="w-5 h-5 text-[var(--chidi-text-muted)] mx-auto mb-2" />
+              <p className="text-xs text-[var(--chidi-text-muted)]">
+                No notifications
+              </p>
             </div>
           ) : (
             <div className="p-2 space-y-1">
               {sortedNotifications.map((notification) => (
-                <Card
+                <div
                   key={notification.id}
-                  className={`cursor-pointer hover:shadow-sm transition-shadow ${getPriorityColor(
-                    notification.priority,
-                    notification.read,
-                  )}`}
+                  onClick={() => {
+                    if (onNotificationClick) {
+                      onNotificationClick(notification)
+                      setIsOpen(false)
+                      if (!notification.read) {
+                        onMarkAsRead(notification.id)
+                      }
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg transition-colors cursor-pointer",
+                    "hover:bg-[var(--chidi-surface)]",
+                    !notification.read && "bg-[var(--chidi-surface)]/60"
+                  )}
                 >
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-0.5">{getNotificationIcon(notification.type)}</div>
+                  {/* Unread dot */}
+                  {!notification.read && (
+                    <div className={cn(
+                      "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                      notification.priority === "high" 
+                        ? "bg-[var(--chidi-danger)]" 
+                        : "bg-[var(--chidi-warning)]"
+                    )} />
+                  )}
 
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <p className={`text-sm font-medium ${notification.read ? "text-muted-foreground" : ""}`}>
-                              {notification.title}
-                            </p>
-                            <p className={`text-xs mt-1 ${notification.read ? "text-muted-foreground" : ""}`}>
-                              {notification.message}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {formatTimestamp(notification.timestamp)}
-                            </p>
-                          </div>
+                  {/* Icon */}
+                  <div className="flex-shrink-0">
+                    {getNotificationIcon(notification.type, notification.priority)}
+                  </div>
 
-                          <div className="flex gap-1">
-                            {!notification.read && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onMarkAsRead(notification.id)
-                                }}
-                              >
-                                <Check className="w-3 h-3" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onDismiss(notification.id)
-                              }}
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <p className={cn(
+                      "text-xs font-medium truncate",
+                      notification.read 
+                        ? "text-[var(--chidi-text-muted)]" 
+                        : "text-[var(--chidi-text-primary)]"
+                    )}>
+                      {notification.title}
+                    </p>
+                    <p className="text-[10px] text-[var(--chidi-text-muted)]">
+                      {notification.timestamp}
+                    </p>
+                  </div>
 
-                        {!notification.read && (
-                          <div className="w-2 h-2 bg-primary rounded-full absolute top-3 right-3" />
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  {/* Actions */}
+                  <div className="flex items-center flex-shrink-0">
+                    {!notification.read && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onMarkAsRead(notification.id)
+                        }}
+                        className="w-6 h-6 rounded flex items-center justify-center text-[var(--chidi-text-muted)] hover:text-[var(--chidi-success)] hover:bg-[var(--chidi-success)]/10 transition-colors"
+                        title="Mark as read"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDismiss(notification.id)
+                      }}
+                      className="w-6 h-6 rounded flex items-center justify-center text-[var(--chidi-text-muted)] hover:text-[var(--chidi-danger)] hover:bg-[var(--chidi-danger)]/10 transition-colors"
+                      title="Dismiss"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
 
+        {/* Footer */}
         {sortedNotifications.length > 0 && (
-          <div className="border-t p-2">
-            <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setIsOpen(false)}>
-              Close Notifications
-            </Button>
+          <div className="px-4 py-2.5 border-t border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="w-full text-xs font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] transition-colors"
+            >
+              Close
+            </button>
           </div>
         )}
       </PopoverContent>

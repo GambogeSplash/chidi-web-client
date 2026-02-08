@@ -33,7 +33,8 @@ import {
   settingsAPI, 
   type UserPreferences, 
   type AccountInfo, 
-  type NotificationPreferences 
+  type NotificationPreferences,
+  type BusinessPreferences 
 } from "@/lib/api/settings"
 import { useRouter } from "next/navigation"
 import {
@@ -95,6 +96,11 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     marketing_emails: false
   })
 
+  // Business preferences state
+  const [businessPreferences, setBusinessPreferences] = useState<BusinessPreferences | null>(null)
+  const [lowStockThreshold, setLowStockThreshold] = useState<number>(10)
+  const [isSavingThreshold, setIsSavingThreshold] = useState(false)
+
   // Password state
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -131,6 +137,22 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       
       setPreferences(prefsData)
       setNotificationForm(prefsData.notifications)
+
+      // Load business preferences if we have a business ID
+      // Get business ID from localStorage or account data
+      const storedBusinessId = typeof window !== 'undefined' 
+        ? localStorage.getItem('chidi_business_id') 
+        : null
+      
+      if (storedBusinessId) {
+        try {
+          const bizPrefs = await settingsAPI.getBusinessPreferences(storedBusinessId)
+          setBusinessPreferences(bizPrefs)
+          setLowStockThreshold(bizPrefs.low_stock_threshold)
+        } catch (bizErr) {
+          console.warn('Could not load business preferences:', bizErr)
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Failed to load settings")
     } finally {
@@ -168,6 +190,34 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       // Revert on error
       setNotificationForm(notificationForm)
       setError(err.message || "Failed to save preference")
+    }
+  }
+
+  const handleSaveLowStockThreshold = async () => {
+    const storedBusinessId = typeof window !== 'undefined' 
+      ? localStorage.getItem('chidi_business_id') 
+      : null
+    
+    if (!storedBusinessId) {
+      setError("Business ID not found")
+      return
+    }
+
+    setIsSavingThreshold(true)
+    setError("")
+    setSuccess("")
+
+    try {
+      const updated = await settingsAPI.updateBusinessPreferences(storedBusinessId, {
+        low_stock_threshold: lowStockThreshold
+      })
+      setBusinessPreferences(updated)
+      setSuccess("Low stock threshold updated successfully")
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(err.message || "Failed to update low stock threshold")
+    } finally {
+      setIsSavingThreshold(false)
     }
   }
 
@@ -451,6 +501,41 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                 checked={notificationForm.stock_alerts}
                 onCheckedChange={(checked) => handleNotificationChange('stock_alerts', checked)}
               />
+            </div>
+
+            {/* Low Stock Threshold Setting */}
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Low Stock Threshold</p>
+                  <p className="text-xs text-[var(--chidi-text-muted)]">Alert when product stock falls to this level</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={lowStockThreshold}
+                  onChange={(e) => setLowStockThreshold(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-24 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                />
+                <span className="text-sm text-[var(--chidi-text-muted)]">units</span>
+                {lowStockThreshold !== (businessPreferences?.low_stock_threshold ?? 10) && (
+                  <Button 
+                    onClick={handleSaveLowStockThreshold}
+                    disabled={isSavingThreshold}
+                    size="sm"
+                    className="ml-auto bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+                  >
+                    {isSavingThreshold && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-[var(--chidi-text-muted)] mt-2">
+                This is the default threshold for new products. You can set individual thresholds per product.
+              </p>
             </div>
 
             <div className="p-4 flex items-center justify-between">

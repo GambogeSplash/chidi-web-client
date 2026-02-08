@@ -161,32 +161,46 @@ export function useNotifications({
   // Mark single notification as read
   const markAsRead = useCallback(async (id: string) => {
     try {
-      await apiMarkAsRead(id)
+      // Optimistically update local state first (atomic update)
+      setNotifications(prev => {
+        const updated = prev.map(n => 
+          n.id === id ? { ...n, read: true, read_at: new Date().toISOString() } : n
+        )
+        // Compute unread count from the updated array to keep in sync
+        const newUnreadCount = updated.filter(n => !n.read && !n.dismissed).length
+        setUnreadCount(newUnreadCount)
+        return updated
+      })
       
-      setNotifications(prev =>
-        prev.map(n => (n.id === id ? { ...n, read: true, read_at: new Date().toISOString() } : n))
-      )
-      setUnreadCount(prev => Math.max(0, prev - 1))
+      // Then call the API
+      await apiMarkAsRead(id)
     } catch (err) {
       console.error('Failed to mark notification as read:', err)
+      // Revert on error - refetch to get correct state
+      fetchNotifications()
       throw err
     }
-  }, [])
+  }, [fetchNotifications])
 
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
     try {
-      await apiMarkAllAsRead()
+      // Optimistically update local state first
+      setNotifications(prev => {
+        const updated = prev.map(n => ({ ...n, read: true, read_at: new Date().toISOString() }))
+        setUnreadCount(0)
+        return updated
+      })
       
-      setNotifications(prev =>
-        prev.map(n => ({ ...n, read: true, read_at: new Date().toISOString() }))
-      )
-      setUnreadCount(0)
+      // Then call the API
+      await apiMarkAllAsRead()
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err)
+      // Revert on error - refetch to get correct state
+      fetchNotifications()
       throw err
     }
-  }, [])
+  }, [fetchNotifications])
 
   // Dismiss notification
   const dismiss = useCallback(async (id: string) => {
