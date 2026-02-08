@@ -1,11 +1,13 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback } from "react"
-import { Send, History, Loader2 } from "lucide-react"
+import { Send, History, Loader2, Settings } from "lucide-react"
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useConversation } from "@/hooks/use-conversation"
 import { useConversationList } from "@/hooks/use-conversation-list"
+import { conversationsAPI } from "@/lib/api/conversations"
 import { CopilotHistoryPanel } from "./copilot-history-panel"
 import { CopilotMessageContent } from "./copilot-blocks"
 import type { ConversationResponse, ChatMessage } from "@/lib/types/conversation"
@@ -53,12 +55,22 @@ export function CopilotView({
   onConversationSelect,
   products = []
 }: CopilotViewProps) {
+  const router = useRouter()
+  const params = useParams()
+  const slug = params.slug as string
+  
   const [inputValue, setInputValue] = useState("")
   const [showHistory, setShowHistory] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0])
   const messageIndexRef = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  
+  const handleSettingsClick = () => {
+    if (slug) {
+      router.push(`/dashboard/${slug}/settings`)
+    }
+  }
 
   // Use the conversation hook for state management
   const {
@@ -78,6 +90,7 @@ export function CopilotView({
     isLoading: historyLoading,
     loadConversations: loadHistory,
     addConversation,
+    removeConversation,
   } = useConversationList(false)
 
   // Track if history has been loaded at least once
@@ -152,6 +165,20 @@ export function CopilotView({
     onConversationSelect?.(id)
   }
 
+  const handleDeleteConversation = async (id: string) => {
+    try {
+      await conversationsAPI.deleteConversation(id)
+      removeConversation(id)
+      // If we deleted the active conversation, clear it
+      if (conversationId === id) {
+        clearConversation()
+        onConversationSelect?.(undefined)
+      }
+    } catch (err) {
+      console.error('Failed to delete conversation:', err)
+    }
+  }
+
   useEffect(() => {
     if (inputRef.current && messages.length === 0) {
       inputRef.current.focus()
@@ -189,17 +216,27 @@ export function CopilotView({
   if (messages.length === 0 && !isLoading) {
     return (
       <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden">
-        {/* Header with branding and history button */}
+        {/* Header with branding, settings and history buttons */}
         <div className="flex items-center justify-between p-4 flex-shrink-0">
           <span className="text-lg font-semibold text-[var(--chidi-text-primary)]">Chidi</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowHistory(true)}
-            className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white"
-          >
-            <History className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSettingsClick}
+              className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white"
+            >
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowHistory(true)}
+              className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white"
+            >
+              <History className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Centered content */}
@@ -266,6 +303,7 @@ export function CopilotView({
           activeConversationId={conversationId}
           onSelectConversation={handleSelectConversation}
           onNewConversation={handleNewConversation}
+          onDeleteConversation={handleDeleteConversation}
         />
       </div>
     )
@@ -274,17 +312,27 @@ export function CopilotView({
   // Conversation state
   return (
     <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden">
-      {/* Header with branding and history button */}
+      {/* Header with branding, settings and history buttons */}
       <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-[var(--chidi-border-subtle)] bg-white">
         <span className="text-lg font-semibold text-[var(--chidi-text-primary)]">Chidi</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowHistory(true)}
-          className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
-        >
-          <History className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSettingsClick}
+            className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
+          >
+            <Settings className="w-5 h-5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowHistory(true)}
+            className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
+          >
+            <History className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -377,6 +425,7 @@ export function CopilotView({
         activeConversationId={conversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
       />
     </div>
   )

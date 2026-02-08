@@ -1,6 +1,7 @@
 "use client"
 
-import { X, Plus, MessageSquare, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { X, Plus, MessageSquare, Loader2, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { ChatConversation } from "@/lib/types/conversation"
 import { cn } from "@/lib/utils"
@@ -13,6 +14,7 @@ interface CopilotHistoryPanelProps {
   activeConversationId?: string
   onSelectConversation: (conversationId: string) => void
   onNewConversation: () => void
+  onDeleteConversation?: (conversationId: string) => Promise<void>
 }
 
 export function CopilotHistoryPanel({
@@ -23,8 +25,23 @@ export function CopilotHistoryPanel({
   activeConversationId,
   onSelectConversation,
   onNewConversation,
+  onDeleteConversation,
 }: CopilotHistoryPanelProps) {
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   if (!isOpen) return null
+
+  const handleDelete = async (e: React.MouseEvent, conversationId: string) => {
+    e.stopPropagation() // Prevent selecting the conversation
+    if (!onDeleteConversation) return
+    
+    setDeletingId(conversationId)
+    try {
+      await onDeleteConversation(conversationId)
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const formatDate = (date: Date) => {
     const now = new Date()
@@ -90,24 +107,44 @@ export function CopilotHistoryPanel({
           ) : (
             <div className="py-2">
               {conversations.map((conversation) => (
-                <button
+                <div
                   key={conversation.id}
-                  onClick={() => {
-                    onSelectConversation(conversation.id)
-                    onClose()
-                  }}
                   className={cn(
-                    "w-full px-4 py-3 text-left transition-colors hover:bg-[var(--chidi-surface)]",
+                    "group flex items-center gap-2 px-4 py-3 transition-colors hover:bg-[var(--chidi-surface)]",
                     activeConversationId === conversation.id && "bg-[var(--chidi-surface)]"
                   )}
                 >
-                  <p className="font-medium text-sm text-[var(--chidi-text-primary)] truncate mb-0.5">
-                    {conversation.title}
-                  </p>
-                  <p className="text-xs text-[var(--chidi-text-muted)]">
-                    {formatDate(conversation.lastActivity)}
-                  </p>
-                </button>
+                  <button
+                    onClick={() => {
+                      onSelectConversation(conversation.id)
+                      onClose()
+                    }}
+                    className="flex-1 text-left min-w-0"
+                  >
+                    <p className="font-medium text-sm text-[var(--chidi-text-primary)] truncate mb-0.5">
+                      {conversation.title}
+                    </p>
+                    <p className="text-xs text-[var(--chidi-text-muted)]">
+                      {formatDate(conversation.lastActivity)}
+                    </p>
+                  </button>
+                  
+                  {onDeleteConversation && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={(e) => handleDelete(e, conversation.id)}
+                      disabled={deletingId === conversation.id}
+                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--chidi-text-muted)] hover:text-red-500 hover:bg-red-50"
+                    >
+                      {deletingId === conversation.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           )}

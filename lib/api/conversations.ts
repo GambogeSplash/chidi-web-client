@@ -155,11 +155,11 @@ export const conversationsAPI = {
   },
 
   /**
-   * Delete a conversation
-   * Uses: DELETE /api/conversations/{id}
+   * Delete a conversation for the authenticated user
+   * Uses: DELETE /api/conversations/user/me/{id}
    */
   async deleteConversation(conversationId: string): Promise<{ message: string }> {
-    return apiClient.delete<{ message: string }>(`/api/conversations/${conversationId}`)
+    return apiClient.delete<{ message: string }>(`/api/conversations/user/me/${conversationId}`)
   },
 
   /**
