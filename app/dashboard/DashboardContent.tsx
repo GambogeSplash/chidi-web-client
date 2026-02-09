@@ -246,16 +246,14 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
   return (
     <div className="flex flex-col h-screen w-full bg-white">
-      {/* Header - hidden on Chidi tab for more immersive experience */}
-      {activeTab !== "chidi" && (
-        <AppHeader 
-          notifications={notifications}
-          onMarkAsRead={handleMarkNotificationAsRead}
-          onMarkAllAsRead={handleMarkAllNotificationsAsRead}
-          onDismiss={handleDismissNotification}
-          onNotificationClick={handleNotificationClick}
-        />
-      )}
+      {/* Header - consistent across all tabs */}
+      <AppHeader 
+        notifications={notifications}
+        onMarkAsRead={handleMarkNotificationAsRead}
+        onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+        onDismiss={handleDismissNotification}
+        onNotificationClick={handleNotificationClick}
+      />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden pb-16">

@@ -58,12 +58,12 @@ export function CopilotHistoryPanel({
     <>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/20 z-40"
+        className="absolute inset-0 bg-black/20 z-40"
         onClick={onClose}
       />
       
       {/* Panel */}
-      <div className="fixed right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-xl z-50 flex flex-col">
+      <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white shadow-xl z-50 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[var(--chidi-border-subtle)]">
           <h2 className="font-semibold text-[var(--chidi-text-primary)]">History</h2>

@@ -1,8 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback } from "react"
-import { Send, History, Loader2, Settings } from "lucide-react"
-import { useRouter, useParams } from "next/navigation"
+import { Send, History, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useConversation } from "@/hooks/use-conversation"
@@ -55,22 +54,12 @@ export function CopilotView({
   onConversationSelect,
   products = []
 }: CopilotViewProps) {
-  const router = useRouter()
-  const params = useParams()
-  const slug = params.slug as string
-  
   const [inputValue, setInputValue] = useState("")
   const [showHistory, setShowHistory] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0])
   const messageIndexRef = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  
-  const handleSettingsClick = () => {
-    if (slug) {
-      router.push(`/dashboard/${slug}/settings`)
-    }
-  }
 
   // Use the conversation hook for state management
   const {
@@ -215,28 +204,17 @@ export function CopilotView({
   // Empty state (new chat)
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden">
-        {/* Header with branding, settings and history buttons */}
-        <div className="flex items-center justify-between p-4 flex-shrink-0">
-          <span className="text-lg font-semibold text-[var(--chidi-text-primary)]">Chidi</span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSettingsClick}
-              className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white"
-            >
-              <Settings className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowHistory(true)}
-              className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white"
-            >
-              <History className="w-5 h-5" />
-            </Button>
-          </div>
+      <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
+        {/* History button - top right corner */}
+        <div className="absolute top-4 right-4 z-10">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowHistory(true)}
+            className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white rounded-full"
+          >
+            <History className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Centered content */}
@@ -311,32 +289,21 @@ export function CopilotView({
 
   // Conversation state
   return (
-    <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden">
-      {/* Header with branding, settings and history buttons */}
-      <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-[var(--chidi-border-subtle)] bg-white">
-        <span className="text-lg font-semibold text-[var(--chidi-text-primary)]">Chidi</span>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSettingsClick}
-            className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowHistory(true)}
-            className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
-          >
-            <History className="w-5 h-5" />
-          </Button>
-        </div>
+    <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
+      {/* History button - top right corner */}
+      <div className="absolute top-4 right-4 z-10">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowHistory(true)}
+          className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/80 backdrop-blur-sm rounded-full shadow-sm"
+        >
+          <History className="w-5 h-5" />
+        </Button>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 pt-14 space-y-4 min-h-0">
         {messages.map((message) => (
           <div
             key={message.id}
