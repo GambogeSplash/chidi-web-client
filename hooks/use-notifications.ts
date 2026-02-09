@@ -205,18 +205,27 @@ export function useNotifications({
   // Dismiss notification
   const dismiss = useCallback(async (id: string) => {
     try {
-      const notification = notifications.find(n => n.id === id)
-      await apiDismissNotification(id)
+      // Optimistically update local state first (atomic update)
+      setNotifications(prev => {
+        const notification = prev.find(n => n.id === id)
+        const updated = prev.filter(n => n.id !== id)
+        // Recompute unread count if the dismissed notification was unread
+        if (notification && !notification.read) {
+          const newUnreadCount = updated.filter(n => !n.read && !n.dismissed).length
+          setUnreadCount(newUnreadCount)
+        }
+        return updated
+      })
       
-      setNotifications(prev => prev.filter(n => n.id !== id))
-      if (notification && !notification.read) {
-        setUnreadCount(prev => Math.max(0, prev - 1))
-      }
+      // Then call the API
+      await apiDismissNotification(id)
     } catch (err) {
       console.error('Failed to dismiss notification:', err)
+      // Revert on error - refetch to get correct state
+      fetchNotifications()
       throw err
     }
-  }, [notifications])
+  }, [fetchNotifications])
 
   // Initial fetch
   useEffect(() => {
