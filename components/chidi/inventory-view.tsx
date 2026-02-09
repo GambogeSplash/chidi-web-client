@@ -31,9 +31,9 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     return matchesSearch && matchesCategory
   })
 
-  const getStockStatus = (stock: number) => {
+  const getStockStatus = (stock: number, reorderLevel: number) => {
     if (stock === 0) return { label: "Out of stock", variant: "danger" as const }
-    if (stock <= 5) return { label: "Low stock", variant: "warning" as const }
+    if (stock <= reorderLevel) return { label: "Low stock", variant: "warning" as const }
     return { label: "In stock", variant: "success" as const }
   }
 
@@ -144,7 +144,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredProducts.map((product) => {
-              const stockStatus = getStockStatus(product.stock)
+              const stockStatus = getStockStatus(product.stock, product.reorderLevel)
 
               return (
                 <div
@@ -192,8 +192,8 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                       </DropdownMenu>
                     </div>
 
-                    {/* Stock status badge */}
-                    {product.stock <= 5 && (
+                    {/* Stock status badge - show when stock is at or below reorder level */}
+                    {product.stock <= product.reorderLevel && (
                       <div className="absolute bottom-2 left-2 z-10">
                         <Badge className={cn("text-[10px] border-0", getStockBadgeClasses(stockStatus.variant))}>
                           {stockStatus.label}

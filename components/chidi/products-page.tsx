@@ -38,9 +38,9 @@ export function ProductsPage({
     const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
     const matchesStock =
       stockFilter === "all" ||
-      (stockFilter === "low" && product.stock <= 5 && product.stock > 0) ||
+      (stockFilter === "low" && product.stock <= product.reorderLevel && product.stock > 0) ||
       (stockFilter === "out" && product.stock === 0) ||
-      (stockFilter === "good" && product.stock > 5)
+      (stockFilter === "good" && product.stock > product.reorderLevel)
 
     return matchesSearch && matchesCategory && matchesStock
   })
@@ -59,9 +59,9 @@ export function ProductsPage({
     }
   }
 
-  const getStockStatus = (stock: number) => {
+  const getStockStatus = (stock: number, reorderLevel: number) => {
     if (stock === 0) return { label: "Out of Stock", color: "bg-red-100 text-red-800", icon: AlertTriangle }
-    if (stock <= 5)
+    if (stock <= reorderLevel)
       return { label: `Low Stock (${stock})`, color: "bg-yellow-100 text-yellow-800", icon: AlertTriangle }
     return { label: `In Stock (${stock})`, color: "bg-green-100 text-green-800", icon: CheckCircle }
   }
@@ -215,7 +215,7 @@ export function ProductsPage({
               </thead>
               <tbody>
                 {filteredProducts.map((product) => {
-                  const stockStatus = getStockStatus(product.stock)
+                  const stockStatus = getStockStatus(product.stock, product.reorderLevel)
                   const StockIcon = stockStatus.icon
 
                   return (
@@ -293,7 +293,7 @@ export function ProductsPage({
       {/* Products Grid (Mobile) */}
       <div className="lg:hidden grid grid-cols-2 gap-4">
         {filteredProducts.map((product) => {
-          const stockStatus = getStockStatus(product.stock)
+          const stockStatus = getStockStatus(product.stock, product.reorderLevel)
           const StockIcon = stockStatus.icon
 
           return (

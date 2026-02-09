@@ -37,9 +37,9 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
     )
   }
 
-  const getStockStatus = (stock: number) => {
+  const getStockStatus = (stock: number, reorderLevel: number) => {
     if (stock === 0) return { label: "Out of Stock", color: "destructive", icon: AlertTriangle }
-    if (stock <= 5) return { label: "Low Stock", color: "warning", icon: AlertTriangle }
+    if (stock <= reorderLevel) return { label: "Low Stock", color: "warning", icon: AlertTriangle }
     return { label: "In Stock", color: "success", icon: CheckCircle }
   }
 
@@ -107,7 +107,7 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
       <div className="flex-1 overflow-auto p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProducts.map((product) => {
-            const stockStatus = getStockStatus(product.stock)
+            const stockStatus = getStockStatus(product.stock, product.reorderLevel)
             const StockIcon = stockStatus.icon
 
             return (
@@ -155,8 +155,8 @@ export function CatalogTab({ products, onAddProduct, onEditProduct, onViewProduc
                     </DropdownMenu>
                   </div>
 
-                  {/* Stock Status Badge */}
-                  {product.stock <= 5 && (
+                  {/* Stock Status Badge - show when stock is at or below reorder level */}
+                  {product.stock <= product.reorderLevel && (
                     <div className="absolute bottom-3 left-3 z-10">
                       <Badge 
                         className={`text-xs px-2 py-1 ${
