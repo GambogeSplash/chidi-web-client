@@ -25,10 +25,15 @@ import {
   Clock,
   ChevronRight,
   HelpCircle,
-  Settings2
+  Settings2,
+  Bot,
+  ScrollText,
+  Brain
 } from "lucide-react"
 import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
 import { CategorySettings } from "@/components/settings/category-settings"
+import { PolicySettings } from "@/components/settings/policy-settings"
+import { MemorySettings } from "@/components/settings/memory-settings"
 import { 
   settingsAPI, 
   type UserPreferences, 
@@ -60,6 +65,11 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [showSecurityModal, setShowSecurityModal] = useState(false)
   const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false)
+  const [showPolicyModal, setShowPolicyModal] = useState(false)
+  const [showMemoryModal, setShowMemoryModal] = useState(false)
+  
+  // Business ID for policy/memory settings (stored in state to avoid hydration issues)
+  const [businessId, setBusinessId] = useState<string | null>(null)
 
   // Business hours state
   // TODO: Persist business hours to backend
@@ -116,6 +126,10 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
   // Load initial data
   useEffect(() => {
+    // Get business ID from localStorage (client-side only)
+    const storedBusinessId = localStorage.getItem('chidi_business_id')
+    setBusinessId(storedBusinessId)
+    
     loadData()
   }, [])
 
@@ -455,6 +469,50 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                 Coming Soon
               </span>
             </div>
+          </div>
+        </section>
+
+        <Separator className="bg-[var(--chidi-border-subtle)]" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            AI ASSISTANT SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6">
+          <div className="flex items-start gap-2 mb-4">
+            <Bot className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">AI Assistant</span>
+          </div>
+
+          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
+            {/* Business Policies */}
+            <button
+              onClick={() => setShowPolicyModal(true)}
+              className="w-full p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <ScrollText className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+                <div className="text-left">
+                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Business Policies</p>
+                  <p className="text-xs text-[var(--chidi-text-muted)]">FAQs and rules your AI follows</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+            </button>
+
+            {/* AI Memory */}
+            <button
+              onClick={() => setShowMemoryModal(true)}
+              className="w-full p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Brain className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+                <div className="text-left">
+                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">AI Memory</p>
+                  <p className="text-xs text-[var(--chidi-text-muted)]">View what your AI remembers</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+            </button>
           </div>
         </section>
 
@@ -811,6 +869,54 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               Save Hours
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          POLICY MODAL
+      ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={showPolicyModal} onOpenChange={setShowPolicyModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ScrollText className="w-5 h-5" />
+              Business Policies
+            </DialogTitle>
+            <DialogDescription>
+              Manage FAQs and business rules your AI assistant follows
+            </DialogDescription>
+          </DialogHeader>
+          {businessId ? (
+            <PolicySettings businessId={businessId} />
+          ) : (
+            <div className="py-8 text-center text-[var(--chidi-text-muted)]">
+              No business selected. Please set up your business first.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          MEMORY MODAL
+      ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={showMemoryModal} onOpenChange={setShowMemoryModal}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="w-5 h-5" />
+              AI Memory
+            </DialogTitle>
+            <DialogDescription>
+              Browse and manage what your AI assistant remembers about your business
+            </DialogDescription>
+          </DialogHeader>
+          {businessId ? (
+            <MemorySettings businessId={businessId} />
+          ) : (
+            <div className="py-8 text-center text-[var(--chidi-text-muted)]">
+              No business selected. Please set up your business first.
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
