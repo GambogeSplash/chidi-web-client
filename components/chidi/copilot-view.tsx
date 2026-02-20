@@ -67,8 +67,10 @@ export function CopilotView({
     messages,
     isLoading,
     isSending,
+    isStreaming,
     error,
     sendMessage,
+    sendMessageStreaming,
     createAndSendMessage,
     clearConversation,
   } = useConversation(conversationId)
@@ -93,9 +95,11 @@ export function CopilotView({
     }
   }, [showHistory, loadHistory])
 
-  // Rotate loading messages while sending
+  // Rotate loading messages while waiting for first token
   useEffect(() => {
-    if (!isSending) return
+    // Stop rotating once we have streaming content
+    const hasStreamingContent = messages.some(m => m.isStreaming && m.content.length > 0)
+    if (!isSending || hasStreamingContent) return
 
     messageIndexRef.current = 0
     setLoadingMessage(LOADING_MESSAGES[0])
@@ -103,15 +107,15 @@ export function CopilotView({
     const interval = setInterval(() => {
       messageIndexRef.current = (messageIndexRef.current + 1) % LOADING_MESSAGES.length
       setLoadingMessage(LOADING_MESSAGES[messageIndexRef.current])
-    }, 2500)
+    }, 4000)
 
     return () => clearInterval(interval)
-  }, [isSending])
+  }, [isSending, messages])
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive or streaming updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isSending])
+  }, [messages, isSending, isStreaming])
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return
@@ -119,15 +123,17 @@ export function CopilotView({
     setInputValue("")
 
     if (!conversation) {
-      const newConversation = await createAndSendMessage(content)
+      // Use streaming for new conversations
+      const newConversation = await createAndSendMessage(content, true)
       if (newConversation) {
         addConversation(newConversation)
         onConversationCreated?.(newConversation)
       }
     } else {
-      await sendMessage(content)
+      // Use streaming for existing conversations
+      await sendMessageStreaming(content)
     }
-  }, [conversation, createAndSendMessage, sendMessage, addConversation, onConversationCreated])
+  }, [conversation, createAndSendMessage, sendMessageStreaming, addConversation, onConversationCreated])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -304,7 +310,10 @@ export function CopilotView({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 pt-14 space-y-4 min-h-0">
-        {messages.map((message) => (
+        {messages
+          // Don't render streaming messages with no content yet (show loading instead)
+          .filter(m => !(m.isStreaming && m.content.length === 0))
+          .map((message) => (
           <div
             key={message.id}
             className={cn(
@@ -324,21 +333,25 @@ export function CopilotView({
                 content={message.content} 
                 role={message.role}
                 products={products}
+                isStreaming={message.isStreaming}
               />
-              <p className={cn(
-                "text-[10px] mt-2",
-                message.role === "user" 
-                  ? "text-[var(--chidi-accent-foreground)]/70" 
-                  : "text-[var(--chidi-text-muted)]"
-              )}>
-                {formatTimestamp(message.timestamp)}
-              </p>
+              {/* Only show timestamp when not streaming */}
+              {!message.isStreaming && (
+                <p className={cn(
+                  "text-[10px] mt-2",
+                  message.role === "user" 
+                    ? "text-[var(--chidi-accent-foreground)]/70" 
+                    : "text-[var(--chidi-text-muted)]"
+                )}>
+                  {formatTimestamp(message.timestamp)}
+                </p>
+              )}
             </div>
           </div>
         ))}
 
-        {/* Typing indicator */}
-        {isSending && (
+        {/* Typing indicator - show when sending and no content has arrived yet */}
+        {isSending && !messages.some(m => m.isStreaming && m.content.length > 0) && (
           <div className="flex justify-start">
             <div className="bg-white border border-[var(--chidi-border-subtle)] rounded-2xl px-4 py-3">
               <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 "use client"
 
+import ReactMarkdown from "react-markdown"
 import { Package, AlertTriangle, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { DisplayProduct } from "@/lib/types/product"
@@ -10,16 +11,19 @@ interface ProductItem {
   name: string
   sku?: string
   quantity?: number
+  stock?: number // alias for quantity from JSON
   price?: string
   description?: string
+  note?: string // alias for description from JSON
   image?: string
 }
 
-interface CategoryBlock {
+interface CategoryItem {
   category: string
-  totalValue?: string
-  productCount?: number
-  items: ProductItem[]
+  value?: string
+  detail?: string
+  count?: number
+  items?: ProductItem[]
 }
 
 interface MetricItem {
@@ -29,23 +33,26 @@ interface MetricItem {
   isPositive?: boolean
 }
 
-interface HighlightBlock {
+interface HighlightData {
   productName: string
   metric: string
   value: string
-  supportingText: string[]
+  supportingText?: string[]
   image?: string
 }
 
-interface ParsedContent {
-  type: "inventory" | "metrics" | "restock" | "highlight" | "numbered-products" | "product-list" | "text"
-  headerText?: string
-  footerText?: string
-  categories?: CategoryBlock[]
-  metrics?: MetricItem[]
-  listItems?: ProductItem[]
-  restockItems?: ProductItem[]
-  highlight?: HighlightBlock
+// Display block types that the LLM can produce
+type DisplayBlockType = "text" | "product_table" | "categories" | "metrics" | "restock" | "highlight"
+
+interface DisplayBlock {
+  type: DisplayBlockType
+  header?: string
+  data?: ProductItem[] | CategoryItem[] | MetricItem[] | HighlightData
+  content?: string // For text blocks
+}
+
+interface ParsedResponse {
+  blocks: DisplayBlock[]
 }
 
 // ============ PRODUCT MATCHING ============
@@ -77,318 +84,159 @@ function findProductByName(name: string, products: DisplayProduct[]): DisplayPro
   return match
 }
 
-// ============ PARSING FUNCTIONS ============
+// ============ STRUCTURED RESPONSE PARSER ============
 
 /**
- * Parse numbered product list format like:
- * **1. iPhone 15 Pro Max** (SKU: TG0001)
- * Price: ₦1,200,000 | Stock: 25 units
- * Description text here...
+ * Parse LLM response that may contain <display> tags.
+ * Falls back to plain text if no tags found.
+ * 
+ * Format: <display type="product_table" header="Optional header">JSON_DATA</display>
  */
-function parseNumberedProductList(content: string, products: DisplayProduct[]): { items: ProductItem[], headerText?: string } | null {
-  const lines = content.split('\n')
-  const items: ProductItem[] = []
-  let headerText: string | undefined
-  let currentProduct: ProductItem | null = null
+function parseStructuredResponse(content: string, products: DisplayProduct[]): ParsedResponse {
+  const blocks: DisplayBlock[] = []
+  const displayRegex = /<display\s+type="([^"]+)"(?:\s+header="([^"]*)")?\s*>([\s\S]*?)<\/display>/g
   
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-    
-    // Check for numbered product header: **1. Product Name** (SKU: XXX)
-    const numberedMatch = line.match(/^\*\*(\d+)\.\s*(.+?)\*\*\s*(?:\(SKU:\s*([^)]+)\))?/)
-    if (numberedMatch) {
-      // Save previous product if exists
-      if (currentProduct) {
-        items.push(currentProduct)
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = displayRegex.exec(content)) !== null) {
+    // Capture any plain text before this display block
+    const textBefore = content.slice(lastIndex, match.index).trim()
+    if (textBefore) {
+      blocks.push({ type: "text", content: textBefore })
+    }
+
+    // Parse the display block
+    const blockType = match[1] as DisplayBlockType
+    const header = match[2] || undefined
+    const jsonContent = match[3].trim()
+
+    try {
+      const data = JSON.parse(jsonContent)
+      
+      // Enrich product data with images from the products array
+      if (blockType === "product_table" || blockType === "restock") {
+        const items = data as ProductItem[]
+        for (const item of items) {
+          if (item.name && !item.image) {
+            const matched = findProductByName(item.name, products)
+            if (matched?.image) item.image = matched.image
+          }
+          // Normalize stock/quantity
+          if (item.stock !== undefined && item.quantity === undefined) {
+            item.quantity = item.stock
+          }
+          // Normalize note/description
+          if (item.note && !item.description) {
+            item.description = item.note
+          }
+        }
       }
       
-      const productName = numberedMatch[2].trim()
-      const matchedProduct = findProductByName(productName, products)
-      
-      currentProduct = {
-        name: productName,
-        sku: numberedMatch[3]?.trim(),
-        image: matchedProduct?.image
-      }
-      continue
-    }
-    
-    // Check for Price/Stock line: Price: ₦1,200,000 | Stock: 25 units
-    if (currentProduct) {
-      const priceStockMatch = line.match(/Price:\s*(₦?[\d,\.]+(?:[KMB])?)\s*\|\s*Stock:\s*(\d+)\s*units?/i)
-      if (priceStockMatch) {
-        currentProduct.price = priceStockMatch[1].trim()
-        currentProduct.quantity = parseInt(priceStockMatch[2])
-        continue
+      // Enrich category items with images
+      if (blockType === "categories") {
+        const categories = data as CategoryItem[]
+        for (const cat of categories) {
+          if (cat.items) {
+            for (const item of cat.items) {
+              if (item.name && !item.image) {
+                const matched = findProductByName(item.name, products)
+                if (matched?.image) item.image = matched.image
+              }
+            }
+          }
+        }
       }
       
-      // Check for just price line
-      const priceMatch = line.match(/^Price:\s*(₦?[\d,\.]+(?:[KMB])?)/i)
-      if (priceMatch) {
-        currentProduct.price = priceMatch[1].trim()
-        continue
+      // Enrich highlight with image
+      if (blockType === "highlight") {
+        const highlight = data as HighlightData
+        if (highlight.productName && !highlight.image) {
+          const matched = findProductByName(highlight.productName, products)
+          if (matched?.image) highlight.image = matched.image
+        }
       }
       
-      // Check for just stock line
-      const stockMatch = line.match(/^Stock:\s*(\d+)\s*units?/i)
-      if (stockMatch) {
-        currentProduct.quantity = parseInt(stockMatch[1])
-        continue
-      }
-      
-      // Otherwise it's a description line (not starting with special chars)
-      if (!line.startsWith('**') && !line.startsWith('-') && !line.startsWith('•')) {
-        currentProduct.description = line
-        continue
-      }
+      blocks.push({ type: blockType, header, data })
+    } catch {
+      // If JSON parsing fails, treat the whole thing as text
+      blocks.push({ type: "text", content: match[0] })
     }
-    
-    // First non-product line before any products is the header
-    if (!currentProduct && !headerText && !line.startsWith('**')) {
-      headerText = line
-    }
-  }
-  
-  // Don't forget the last product
-  if (currentProduct) {
-    items.push(currentProduct)
-  }
-  
-  return items.length > 0 ? { items, headerText } : null
-}
 
-function parseHighlightResponse(content: string, products: DisplayProduct[]): HighlightBlock | null {
-  // Match patterns like "**Phone Case iPhone 15 Pro** has your highest unit count at **200 units**"
-  const highlightMatch = content.match(/\*\*(.+?)\*\*\s+(?:has|is|was)\s+(?:your\s+)?(.+?)\s+(?:at|with|of)?\s*\*\*(.+?)\*\*/)
-  
-  if (highlightMatch) {
-    const productName = highlightMatch[1].trim()
-    const lines = content.split('\n').filter(l => l.trim())
-    const supportingText = lines.slice(1).map(l => l.trim()).filter(l => l.length > 0)
-    
-    const matchedProduct = findProductByName(productName, products)
-    
-    return {
-      productName,
-      metric: highlightMatch[2].trim(),
-      value: highlightMatch[3].trim(),
-      supportingText,
-      image: matchedProduct?.image
-    }
+    lastIndex = match.index + match[0].length
   }
-  
-  return null
-}
 
-function parseSimpleProductList(content: string, products: DisplayProduct[]): ProductItem[] | null {
-  const items: ProductItem[] = []
-  const lines = content.split('\n')
-  
-  for (const line of lines) {
-    const simpleMatch = line.match(/^[•·\-\*]\s*(.+?)(?:\s*-\s*(.+))?$/)
-    if (simpleMatch) {
-      const productName = simpleMatch[1].trim()
-      if (productName.includes('(') && productName.includes('products)')) continue
-      
-      const matchedProduct = findProductByName(productName, products)
-      items.push({
-        name: productName,
-        price: simpleMatch[2]?.trim(),
-        image: matchedProduct?.image,
-        quantity: matchedProduct?.stock
-      })
-    }
+  // Capture any remaining text after the last display block
+  const textAfter = content.slice(lastIndex).trim()
+  if (textAfter) {
+    blocks.push({ type: "text", content: textAfter })
   }
-  
-  return items.length > 0 ? items : null
-}
 
-function parseInventoryResponse(content: string, products: DisplayProduct[]): CategoryBlock[] | null {
-  const blocks: CategoryBlock[] = []
-  const lines = content.split('\n')
-  
-  let currentBlock: CategoryBlock | null = null
-  
-  for (const line of lines) {
-    const categoryMatch = line.match(/\*\*(.+?)\s*\((\d+)\s*products?\)\s*-\s*(.+?)(?:value)?\*\*/)
-    if (categoryMatch) {
-      if (currentBlock) blocks.push(currentBlock)
-      currentBlock = {
-        category: categoryMatch[1].trim(),
-        productCount: parseInt(categoryMatch[2]),
-        totalValue: categoryMatch[3].trim(),
-        items: []
-      }
-      continue
-    }
-    
-    const itemMatch = line.match(/[•·\-]\s*(.+?)\s*-\s*(\d+)\s*units?\s*(?:at\s*)?(.+?)(?:\s*each)?$/)
-    if (itemMatch && currentBlock) {
-      const productName = itemMatch[1].trim()
-      const matchedProduct = findProductByName(productName, products)
-      currentBlock.items.push({
-        name: productName,
-        quantity: parseInt(itemMatch[2]),
-        price: itemMatch[3].trim(),
-        image: matchedProduct?.image
-      })
-      continue
-    }
-    
-    const simpleItemMatch = line.match(/[•·\-]\s*(.+?)\s*\((\d+)\s*units?\)(?:\s*-\s*(.+))?/)
-    if (simpleItemMatch && currentBlock) {
-      const productName = simpleItemMatch[1].trim()
-      const matchedProduct = findProductByName(productName, products)
-      currentBlock.items.push({
-        name: productName,
-        quantity: parseInt(simpleItemMatch[2]),
-        description: simpleItemMatch[3]?.trim(),
-        image: matchedProduct?.image
-      })
-    }
+  // If no display blocks were found at all, return the whole thing as text
+  if (blocks.length === 0) {
+    blocks.push({ type: "text", content })
   }
-  
-  if (currentBlock) blocks.push(currentBlock)
-  
-  return blocks.length > 0 ? blocks : null
-}
 
-function parseRestockItems(content: string, products: DisplayProduct[]): ProductItem[] | null {
-  const items: ProductItem[] = []
-  const lines = content.split('\n')
-  
-  const hasRestockKeyword = /restock|low stock|out of stock|running low/i.test(content)
-  if (!hasRestockKeyword) return null
-  
-  for (const line of lines) {
-    const itemMatch = line.match(/[•·\-]\s*(.+?)\s*\((\d+)\s*units?\)\s*(?:-\s*(.+))?/)
-    if (itemMatch) {
-      const productName = itemMatch[1].trim()
-      const matchedProduct = findProductByName(productName, products)
-      items.push({
-        name: productName,
-        quantity: parseInt(itemMatch[2]),
-        description: itemMatch[3]?.trim(),
-        image: matchedProduct?.image
-      })
-    }
-  }
-  
-  return items.length > 0 ? items : null
-}
-
-function parseMetrics(content: string): MetricItem[] | null {
-  const metrics: MetricItem[] = []
-  const lines = content.split('\n')
-  
-  for (const line of lines) {
-    const metricMatch = line.match(/(.+?):\s*(₦?[\d,\.]+[KMB]?)\s*(\([+-]?\d+%?\))?/)
-    if (metricMatch) {
-      const change = metricMatch[3]?.replace(/[()]/g, '')
-      metrics.push({
-        label: metricMatch[1].trim(),
-        value: metricMatch[2].trim(),
-        change: change,
-        isPositive: change ? change.startsWith('+') || !change.startsWith('-') : undefined
-      })
-    }
-  }
-  
-  return metrics.length >= 2 ? metrics : null
-}
-
-function parseContent(content: string, products: DisplayProduct[]): ParsedContent {
-  const lines = content.split('\n').filter(l => l.trim())
-  let headerText: string | undefined
-  
-  if (lines.length > 0 && !lines[0].startsWith('**') && !lines[0].startsWith('•') && !lines[0].startsWith('-')) {
-    headerText = lines[0]
-  }
-  
-  // Check for numbered product list first (highest priority for this format)
-  const numberedProducts = parseNumberedProductList(content, products)
-  if (numberedProducts && numberedProducts.items.length > 0) {
-    return { 
-      type: "numbered-products", 
-      headerText: numberedProducts.headerText || headerText, 
-      listItems: numberedProducts.items 
-    }
-  }
-  
-  // Check for inventory breakdown
-  const categories = parseInventoryResponse(content, products)
-  if (categories && categories.length > 0) {
-    return { type: "inventory", headerText, categories }
-  }
-  
-  // Check for single product highlight
-  const highlight = parseHighlightResponse(content, products)
-  if (highlight) {
-    return { type: "highlight", highlight }
-  }
-  
-  // Check for restock recommendations
-  const restockItems = parseRestockItems(content, products)
-  if (restockItems && restockItems.length > 0) {
-    const restockHeader = lines.find(l => /restock|consider|recommend/i.test(l))
-    return { 
-      type: "restock", 
-      headerText: restockHeader || headerText, 
-      restockItems 
-    }
-  }
-  
-  // Check for simple product list
-  const listItems = parseSimpleProductList(content, products)
-  if (listItems && listItems.length > 0) {
-    return { type: "product-list", headerText, listItems }
-  }
-  
-  // Check for metrics
-  const metrics = parseMetrics(content)
-  if (metrics && metrics.length > 0) {
-    return { type: "metrics", headerText, metrics }
-  }
-  
-  // Default to text
-  return { type: "text" }
-}
-
-// ============ MARKDOWN RENDERING ============
-
-function renderMarkdownText(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g)
-  
-  return parts.map((part, idx) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return (
-        <strong key={idx} className="font-semibold">
-          {part.slice(2, -2)}
-        </strong>
-      )
-    }
-    return part
-  })
+  return { blocks }
 }
 
 // ============ RENDER COMPONENTS ============
 
-const CARD_MAX_WIDTH = "max-w-sm"
+const CARD_MAX_WIDTH = "max-w-lg"
 
-interface HighlightBlockProps {
-  highlight: HighlightBlock
+/**
+ * Markdown text renderer using react-markdown with Chidi's styles
+ */
+function MarkdownText({ content }: { content: string }) {
+  return (
+    <div className="prose prose-sm max-w-lg text-[var(--chidi-text-primary)] prose-strong:text-[var(--chidi-text-primary)] prose-strong:font-semibold">
+      <ReactMarkdown
+        components={{
+          p: ({ children }) => (
+            <p className="text-sm leading-relaxed mb-2 last:mb-0">{children}</p>
+          ),
+          strong: ({ children }) => (
+            <strong className="font-semibold">{children}</strong>
+          ),
+          ul: ({ children }) => (
+            <ul className="list-disc list-inside space-y-1 text-sm">{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol className="list-decimal list-inside space-y-1 text-sm">{children}</ol>
+          ),
+          li: ({ children }) => (
+            <li className="text-sm">{children}</li>
+          ),
+          h1: ({ children }) => (
+            <h1 className="text-lg font-semibold mb-2">{children}</h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-base font-semibold mb-2">{children}</h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-sm font-semibold mb-1">{children}</h3>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
-function HighlightBlockComponent({ highlight }: HighlightBlockProps) {
+interface HighlightBlockProps {
+  data: HighlightData
+}
+
+function HighlightBlockComponent({ data }: HighlightBlockProps) {
   return (
     <div className={cn("space-y-3 w-full", CARD_MAX_WIDTH)}>
       <div className="bg-white border border-[var(--chidi-border-subtle)] rounded-xl overflow-hidden">
-        {highlight.image && (
+        {data.image && (
           <div className="w-full h-40 bg-[var(--chidi-surface)]">
             <img 
-              src={highlight.image} 
-              alt={highlight.productName}
+              src={data.image} 
+              alt={data.productName}
               className="w-full h-full object-cover"
             />
           </div>
@@ -396,31 +244,31 @@ function HighlightBlockComponent({ highlight }: HighlightBlockProps) {
         
         <div className="p-4">
           <div className="flex items-start gap-3">
-            {!highlight.image && (
+            {!data.image && (
               <div className="w-12 h-12 rounded-xl bg-[var(--chidi-accent)]/5 flex items-center justify-center flex-shrink-0">
                 <Trophy className="w-6 h-6 text-[var(--chidi-accent)]" />
               </div>
             )}
             <div className="flex-1 min-w-0">
               <h4 className="font-semibold text-[var(--chidi-text-primary)] text-base">
-                {highlight.productName}
+                {data.productName}
               </h4>
               <p className="text-sm text-[var(--chidi-text-muted)] mt-0.5">
-                {highlight.metric}
+                {data.metric}
               </p>
               <p className="text-2xl font-bold text-[var(--chidi-text-primary)] mt-2">
-                {highlight.value}
+                {data.value}
               </p>
             </div>
           </div>
         </div>
       </div>
       
-      {highlight.supportingText.length > 0 && (
+      {data.supportingText && data.supportingText.length > 0 && (
         <div className="space-y-2 px-1">
-          {highlight.supportingText.map((text, idx) => (
+          {data.supportingText.map((text, idx) => (
             <p key={idx} className="text-sm text-[var(--chidi-text-secondary)] leading-relaxed">
-              {renderMarkdownText(text)}
+              {text}
             </p>
           ))}
         </div>
@@ -429,191 +277,179 @@ function HighlightBlockComponent({ highlight }: HighlightBlockProps) {
   )
 }
 
-interface NumberedProductListProps {
+interface ProductTableBlockProps {
   items: ProductItem[]
   headerText?: string
 }
 
-function NumberedProductList({ items, headerText }: NumberedProductListProps) {
+function ProductTableBlock({ items, headerText }: ProductTableBlockProps) {
   return (
-    <div className="space-y-3 w-full max-w-lg">
+    <div className={cn("space-y-3 w-full", CARD_MAX_WIDTH)}>
       {headerText && (
-        <p className="text-sm text-[var(--chidi-text-primary)] mb-2">
-          {renderMarkdownText(headerText)}
-        </p>
+        <MarkdownText content={headerText} />
       )}
       
       <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white">
         <div className="overflow-x-auto scrollbar-none">
-        <table className="w-full text-sm min-w-[400px]">
-          <thead>
-            <tr className="bg-[var(--chidi-surface)] border-b border-[var(--chidi-border-subtle)]">
-              <th className="text-left py-2.5 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
-              <th className="text-right py-2.5 px-3 font-medium text-[var(--chidi-text-muted)] w-20">Stock</th>
-              <th className="text-right py-2.5 px-3 font-medium text-[var(--chidi-text-muted)] w-28">Price</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
-            {items.map((item, idx) => (
-              <tr key={idx} className="hover:bg-[var(--chidi-surface)]/50">
-                <td className="py-3 px-3">
-                  <div className="flex items-center gap-3">
-                    {item.image ? (
-                      <img 
-                        src={item.image} 
-                        alt={item.name}
-                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                      />
+          <table className="w-full text-sm min-w-[400px]">
+            <thead>
+              <tr className="bg-[var(--chidi-surface)] border-b border-[var(--chidi-border-subtle)]">
+                <th className="text-left py-2.5 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
+                <th className="text-right py-2.5 px-3 font-medium text-[var(--chidi-text-muted)] w-20">Stock</th>
+                <th className="text-right py-2.5 px-3 font-medium text-[var(--chidi-text-muted)] w-28">Price</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
+              {items.map((item, idx) => (
+                <tr key={idx} className="hover:bg-[var(--chidi-surface)]/50">
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-3">
+                      {item.image ? (
+                        <img 
+                          src={item.image} 
+                          alt={item.name}
+                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-[var(--chidi-surface)] flex items-center justify-center flex-shrink-0">
+                          <Package className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-[var(--chidi-text-primary)] truncate">
+                          {item.name}
+                        </p>
+                        {item.sku && (
+                          <p className="text-xs text-[var(--chidi-text-muted)]">
+                            SKU: {item.sku}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    {item.quantity !== undefined ? (
+                      <span className="text-[var(--chidi-text-secondary)]">
+                        {item.quantity}
+                      </span>
                     ) : (
+                      <span className="text-[var(--chidi-text-muted)]">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    {item.price ? (
+                      <span className="font-medium text-[var(--chidi-text-primary)]">
+                        {item.price.startsWith('₦') ? item.price : `₦${item.price}`}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--chidi-text-muted)]">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface CategoriesBlockProps {
+  categories: CategoryItem[]
+  headerText?: string
+}
+
+function CategoriesBlock({ categories, headerText }: CategoriesBlockProps) {
+  return (
+    <div className={cn("space-y-4 w-full", CARD_MAX_WIDTH)}>
+      {headerText && (
+        <MarkdownText content={headerText} />
+      )}
+      
+      <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white">
+        <div className="overflow-x-auto scrollbar-none">
+          <table className="w-full text-sm min-w-[350px]">
+            <thead>
+              <tr className="bg-[var(--chidi-surface)] border-b border-[var(--chidi-border-subtle)]">
+                <th className="text-left py-2.5 px-3 font-medium text-[var(--chidi-text-muted)]">Category</th>
+                <th className="text-right py-2.5 px-3 font-medium text-[var(--chidi-text-muted)]">Value</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
+              {categories.map((cat, idx) => (
+                <tr key={idx} className="hover:bg-[var(--chidi-surface)]/50">
+                  <td className="py-3 px-3">
+                    <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-[var(--chidi-surface)] flex items-center justify-center flex-shrink-0">
                         <Package className="w-5 h-5 text-[var(--chidi-text-muted)]" />
                       </div>
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-medium text-[var(--chidi-text-primary)] truncate">
-                        {item.name}
-                      </p>
-                      {item.sku && (
-                        <p className="text-xs text-[var(--chidi-text-muted)]">
-                          SKU: {item.sku}
+                      <div className="min-w-0">
+                        <p className="font-medium text-[var(--chidi-text-primary)]">
+                          {cat.category}
                         </p>
-                      )}
+                        {cat.detail && (
+                          <p className="text-xs text-[var(--chidi-text-muted)] truncate">
+                            {cat.detail}
+                          </p>
+                        )}
+                        {cat.count !== undefined && (
+                          <p className="text-xs text-[var(--chidi-text-muted)]">
+                            {cat.count} items
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td className="py-3 px-3 text-right">
-                  {item.quantity !== undefined ? (
-                    <span className="text-[var(--chidi-text-secondary)]">
-                      {item.quantity}
-                    </span>
-                  ) : (
-                    <span className="text-[var(--chidi-text-muted)]">—</span>
-                  )}
-                </td>
-                <td className="py-3 px-3 text-right">
-                  {item.price ? (
-                    <span className="font-medium text-[var(--chidi-text-primary)]">
-                      {item.price.startsWith('₦') ? item.price : `₦${item.price}`}
-                    </span>
-                  ) : (
-                    <span className="text-[var(--chidi-text-muted)]">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    {cat.value ? (
+                      <span className="font-semibold text-[var(--chidi-text-primary)]">
+                        {cat.value}
+                      </span>
+                    ) : (
+                      <span className="text-[var(--chidi-text-muted)]">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   )
 }
 
-interface ProductListProps {
+interface RestockBlockProps {
   items: ProductItem[]
   headerText?: string
 }
 
-function ProductListTable({ items, headerText }: ProductListProps) {
+function RestockBlock({ items, headerText }: RestockBlockProps) {
   return (
-    <div className="space-y-2 w-full max-w-lg">
+    <div className={cn("space-y-2 w-full", CARD_MAX_WIDTH)}>
       {headerText && (
-        <p className="text-sm text-[var(--chidi-text-primary)] mb-3">
-          {renderMarkdownText(headerText)}
-        </p>
-      )}
-      
-      <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white">
-        <div className="overflow-x-auto scrollbar-none">
-        <table className="w-full text-sm min-w-[350px]">
-          <thead>
-            <tr className="bg-[var(--chidi-surface)] border-b border-[var(--chidi-border-subtle)]">
-              <th className="text-left py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
-              <th className="text-right py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Stock</th>
-              <th className="text-right py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Price</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
-            {items.map((item, idx) => (
-              <tr key={idx} className="hover:bg-[var(--chidi-surface)]/50">
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-2.5">
-                    {item.image ? (
-                      <img 
-                        src={item.image} 
-                        alt={item.name}
-                        className="w-8 h-8 rounded object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded bg-[var(--chidi-surface)] flex items-center justify-center flex-shrink-0">
-                        <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
-                      </div>
-                    )}
-                    <span className="text-[var(--chidi-text-primary)] line-clamp-1">
-                      {item.name}
-                    </span>
-                  </div>
-                </td>
-                <td className="py-2.5 px-3 text-right text-[var(--chidi-text-muted)]">
-                  {item.quantity !== undefined ? `${item.quantity}` : '—'}
-                </td>
-                <td className="py-2.5 px-3 text-right font-medium text-[var(--chidi-text-primary)]">
-                  {item.price || '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="w-4 h-4 text-[var(--chidi-warning)]" />
+          <p className="text-sm font-medium text-[var(--chidi-text-primary)]">
+            {headerText.replace(/\*\*/g, '')}
+          </p>
         </div>
-      </div>
-    </div>
-  )
-}
-
-interface InventoryBlockProps {
-  categories: CategoryBlock[]
-  headerText?: string
-}
-
-function InventoryBlock({ categories, headerText }: InventoryBlockProps) {
-  return (
-    <div className="space-y-4 w-full max-w-lg">
-      {headerText && (
-        <p className="text-sm text-[var(--chidi-text-primary)]">
-          {renderMarkdownText(headerText)}
-        </p>
       )}
       
-      {categories.map((block, idx) => (
-        <div 
-          key={idx}
-          className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white"
-        >
-          <div className="flex items-center justify-between px-3 py-2 bg-[var(--chidi-surface)] border-b border-[var(--chidi-border-subtle)]">
-            <div className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
-              <span className="font-medium text-sm text-[var(--chidi-text-primary)]">
-                {block.category}
-              </span>
-              {block.productCount && (
-                <span className="text-xs text-[var(--chidi-text-muted)]">
-                  ({block.productCount})
-                </span>
-              )}
-            </div>
-            {block.totalValue && (
-              <span className="text-sm font-semibold text-[var(--chidi-text-primary)]">
-                {block.totalValue}
-              </span>
-            )}
-          </div>
-          
-          <div className="overflow-x-auto scrollbar-none">
-          <table className="w-full text-sm min-w-[350px]">
+      <div className="border border-[var(--chidi-warning)]/30 rounded-lg overflow-hidden bg-white">
+        <div className="overflow-x-auto scrollbar-none">
+          <table className="w-full text-sm min-w-[300px]">
+            <thead>
+              <tr className="bg-[var(--chidi-warning)]/5 border-b border-[var(--chidi-warning)]/20">
+                <th className="text-left py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
+                <th className="text-right py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Stock</th>
+              </tr>
+            </thead>
             <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
-              {block.items.map((item, itemIdx) => (
-                <tr key={itemIdx} className="hover:bg-[var(--chidi-surface)]/50">
-                  <td className="py-2 px-3">
+              {items.map((item, idx) => (
+                <tr key={idx}>
+                  <td className="py-2.5 px-3">
                     <div className="flex items-center gap-2.5">
                       {item.image ? (
                         <img 
@@ -626,100 +462,36 @@ function InventoryBlock({ categories, headerText }: InventoryBlockProps) {
                           <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
                         </div>
                       )}
-                      <span className="text-[var(--chidi-text-primary)] line-clamp-1">
-                        {item.name}
-                      </span>
+                      <div className="min-w-0">
+                        <span className="text-[var(--chidi-text-primary)] line-clamp-1 block">
+                          {item.name}
+                        </span>
+                        {item.description && (
+                          <span className="text-xs text-[var(--chidi-text-muted)] line-clamp-1 block">
+                            {item.description}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className="py-2 px-3 text-right text-[var(--chidi-text-muted)] whitespace-nowrap">
-                    {item.quantity !== undefined ? `${item.quantity} units` : ''}
-                  </td>
-                  <td className="py-2 px-3 text-right font-medium text-[var(--chidi-text-primary)] whitespace-nowrap">
-                    {item.price || ''}
+                  <td className="py-2.5 px-3 text-right">
+                    {item.quantity !== undefined && (
+                      <span className={cn(
+                        "text-xs font-medium px-2 py-0.5 rounded-full inline-block",
+                        item.quantity <= 5 
+                          ? "bg-[var(--chidi-danger)]/10 text-[var(--chidi-danger)]"
+                          : item.quantity <= 20
+                          ? "bg-[var(--chidi-warning)]/10 text-[var(--chidi-warning)]"
+                          : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)]"
+                      )}>
+                        {item.quantity} units
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-interface RestockBlockProps {
-  items: ProductItem[]
-  headerText?: string
-}
-
-function RestockBlock({ items, headerText }: RestockBlockProps) {
-  return (
-    <div className="space-y-2 w-full max-w-lg">
-      {headerText && (
-        <div className="flex items-center gap-2 mb-3">
-          <AlertTriangle className="w-4 h-4 text-[var(--chidi-warning)]" />
-          <p className="text-sm font-medium text-[var(--chidi-text-primary)]">
-            {headerText.replace(/\*\*/g, '')}
-          </p>
-        </div>
-      )}
-      
-      <div className="border border-[var(--chidi-warning)]/30 rounded-lg overflow-hidden bg-white">
-        <div className="overflow-x-auto scrollbar-none">
-        <table className="w-full text-sm min-w-[300px]">
-          <thead>
-            <tr className="bg-[var(--chidi-warning)]/5 border-b border-[var(--chidi-warning)]/20">
-              <th className="text-left py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Product</th>
-              <th className="text-right py-2 px-3 font-medium text-[var(--chidi-text-muted)]">Stock</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
-            {items.map((item, idx) => (
-              <tr key={idx}>
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-2.5">
-                    {item.image ? (
-                      <img 
-                        src={item.image} 
-                        alt={item.name}
-                        className="w-8 h-8 rounded object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded bg-[var(--chidi-surface)] flex items-center justify-center flex-shrink-0">
-                        <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
-                      </div>
-                    )}
-                    <div className="min-w-0">
-                      <span className="text-[var(--chidi-text-primary)] line-clamp-1 block">
-                        {item.name}
-                      </span>
-                      {item.description && (
-                        <span className="text-xs text-[var(--chidi-text-muted)] line-clamp-1 block">
-                          {item.description}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-                <td className="py-2.5 px-3 text-right">
-                  {item.quantity !== undefined && (
-                    <span className={cn(
-                      "text-xs font-medium px-2 py-0.5 rounded-full inline-block",
-                      item.quantity <= 5 
-                        ? "bg-[var(--chidi-danger)]/10 text-[var(--chidi-danger)]"
-                        : item.quantity <= 20
-                        ? "bg-[var(--chidi-warning)]/10 text-[var(--chidi-warning)]"
-                        : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)]"
-                    )}>
-                      {item.quantity} units
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
         </div>
       </div>
     </div>
@@ -733,57 +505,41 @@ interface MetricsBlockProps {
 
 function MetricsBlock({ metrics, headerText }: MetricsBlockProps) {
   return (
-    <div className="space-y-2 w-full max-w-lg">
+    <div className={cn("space-y-2 w-full", CARD_MAX_WIDTH)}>
       {headerText && (
-        <p className="text-sm text-[var(--chidi-text-primary)] mb-3">
-          {renderMarkdownText(headerText)}
-        </p>
+        <MarkdownText content={headerText} />
       )}
       
       <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden bg-white">
         <div className="overflow-x-auto scrollbar-none">
-        <table className="w-full text-sm min-w-[280px]">
-          <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
-            {metrics.map((metric, idx) => (
-              <tr key={idx}>
-                <td className="py-2.5 px-3 text-[var(--chidi-text-muted)]">
-                  {metric.label}
-                </td>
-                <td className="py-2.5 px-3 text-right">
-                  <span className="font-semibold text-[var(--chidi-text-primary)]">
-                    {metric.value}
-                  </span>
-                  {metric.change && (
-                    <span className={cn(
-                      "text-xs font-medium ml-2",
-                      metric.isPositive 
-                        ? "text-[var(--chidi-success)]" 
-                        : "text-[var(--chidi-danger)]"
-                    )}>
-                      {metric.change}
+          <table className="w-full text-sm min-w-[280px]">
+            <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
+              {metrics.map((metric, idx) => (
+                <tr key={idx}>
+                  <td className="py-2.5 px-3 text-[var(--chidi-text-muted)]">
+                    {metric.label}
+                  </td>
+                  <td className="py-2.5 px-3 text-right">
+                    <span className="font-semibold text-[var(--chidi-text-primary)]">
+                      {metric.value}
                     </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    {metric.change && (
+                      <span className={cn(
+                        "text-xs font-medium ml-2",
+                        metric.isPositive 
+                          ? "text-[var(--chidi-success)]" 
+                          : "text-[var(--chidi-danger)]"
+                      )}>
+                        {metric.change}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
-  )
-}
-
-function TextBlock({ content }: { content: string }) {
-  const lines = content.split('\n').filter(l => l.trim())
-  
-  return (
-    <div className="space-y-2 max-w-lg">
-      {lines.map((line, idx) => (
-        <p key={idx} className="text-sm leading-relaxed text-[var(--chidi-text-primary)]">
-          {renderMarkdownText(line)}
-        </p>
-      ))}
     </div>
   )
 }
@@ -792,11 +548,40 @@ function TextBlock({ content }: { content: string }) {
 
 interface CopilotMessageContentProps {
   content: string
-  role: "user" | "assistant"
+  role: "user" | "assistant" | "system"
   products?: DisplayProduct[]
+  isStreaming?: boolean
 }
 
-export function CopilotMessageContent({ content, role, products = [] }: CopilotMessageContentProps) {
+/**
+ * Blinking cursor component for streaming indicator
+ */
+function StreamingCursor() {
+  return (
+    <span className="inline-block w-2 h-4 bg-[var(--chidi-text-primary)] ml-0.5 animate-pulse" />
+  )
+}
+
+/**
+ * Parse content for streaming, handling incomplete display tags gracefully.
+ * During streaming, incomplete tags are shown as plain text.
+ */
+function parseStreamingContent(content: string, products: DisplayProduct[], isStreaming: boolean): ParsedResponse {
+  // If streaming, check for incomplete display tags
+  if (isStreaming) {
+    // Check if there's an unclosed <display tag
+    const openTagMatch = content.match(/<display[^>]*>(?![\s\S]*<\/display>)/g)
+    if (openTagMatch) {
+      // There's an incomplete display tag - show everything as text for now
+      return { blocks: [{ type: "text", content }] }
+    }
+  }
+  
+  // Otherwise use normal parsing
+  return parseStructuredResponse(content, products)
+}
+
+export function CopilotMessageContent({ content, role, products = [], isStreaming = false }: CopilotMessageContentProps) {
   if (role === "user") {
     return (
       <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -805,57 +590,70 @@ export function CopilotMessageContent({ content, role, products = [] }: CopilotM
     )
   }
   
-  const parsed = parseContent(content, products)
+  const { blocks } = parseStreamingContent(content, products, isStreaming)
   
-  switch (parsed.type) {
-    case "highlight":
-      return (
-        <HighlightBlockComponent 
-          highlight={parsed.highlight!}
-        />
-      )
-    
-    case "numbered-products":
-      return (
-        <NumberedProductList 
-          items={parsed.listItems!}
-          headerText={parsed.headerText}
-        />
-      )
-    
-    case "product-list":
-      return (
-        <ProductListTable 
-          items={parsed.listItems!}
-          headerText={parsed.headerText}
-        />
-      )
-    
-    case "inventory":
-      return (
-        <InventoryBlock 
-          categories={parsed.categories!} 
-          headerText={parsed.headerText}
-        />
-      )
-    
-    case "restock":
-      return (
-        <RestockBlock 
-          items={parsed.restockItems!}
-          headerText={parsed.headerText}
-        />
-      )
-    
-    case "metrics":
-      return (
-        <MetricsBlock 
-          metrics={parsed.metrics!}
-          headerText={parsed.headerText}
-        />
-      )
-    
-    default:
-      return <TextBlock content={content} />
-  }
+  return (
+    <div className="space-y-4">
+      {blocks.map((block, idx) => {
+        const isLastBlock = idx === blocks.length - 1
+        
+        switch (block.type) {
+          case "highlight":
+            return (
+              <HighlightBlockComponent 
+                key={idx}
+                data={block.data as HighlightData}
+              />
+            )
+          
+          case "product_table":
+            return (
+              <ProductTableBlock 
+                key={idx}
+                items={block.data as ProductItem[]}
+                headerText={block.header}
+              />
+            )
+          
+          case "categories":
+            return (
+              <CategoriesBlock 
+                key={idx}
+                categories={block.data as CategoryItem[]}
+                headerText={block.header}
+              />
+            )
+          
+          case "restock":
+            return (
+              <RestockBlock 
+                key={idx}
+                items={block.data as ProductItem[]}
+                headerText={block.header}
+              />
+            )
+          
+          case "metrics":
+            return (
+              <MetricsBlock 
+                key={idx}
+                metrics={block.data as MetricItem[]}
+                headerText={block.header}
+              />
+            )
+          
+          default:
+            return (
+              <div key={idx}>
+                <MarkdownText content={block.content || ""} />
+                {/* Show streaming cursor at the end of the last text block */}
+                {isStreaming && isLastBlock && <StreamingCursor />}
+              </div>
+            )
+        }
+      })}
+      {/* Show cursor if streaming and there are no blocks yet */}
+      {isStreaming && blocks.length === 0 && <StreamingCursor />}
+    </div>
+  )
 }
