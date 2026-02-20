@@ -131,6 +131,7 @@ export interface ChatMessage {
   timestamp: Date
   isEdited: boolean
   isLoading?: boolean
+  isStreaming?: boolean
   error?: string
 }
 

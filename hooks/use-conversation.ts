@@ -2,8 +2,8 @@
  * useConversation Hook
  * Manages the current conversation state, messages, and AI interactions
  */
-import { useState, useCallback, useEffect } from 'react'
-import { conversationsAPI } from '@/lib/api/conversations'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { conversationsAPI, type StreamChunk } from '@/lib/api/conversations'
 import type {
   ConversationResponse,
   MessageResponse,
@@ -18,6 +18,7 @@ interface UseConversationState {
   messages: ChatMessage[]
   isLoading: boolean
   isSending: boolean
+  isStreaming: boolean
   error: string | null
 }
 
@@ -25,12 +26,17 @@ interface UseConversationActions {
   loadConversation: (conversationId: string) => Promise<void>
   createConversation: (request: CreateConversationRequest) => Promise<ConversationResponse | null>
   sendMessage: (content: string, conversationId?: string) => Promise<void>
+  /**
+   * Send a message with SSE streaming response.
+   * Shows tokens as they arrive from the AI.
+   */
+  sendMessageStreaming: (content: string, conversationId?: string) => Promise<void>
   /** 
    * Combined create + send for new conversations. 
    * Immediately shows the user message, creates conversation in background, then sends.
    * Returns the new conversation for sidebar updates.
    */
-  createAndSendMessage: (content: string) => Promise<ConversationResponse | null>
+  createAndSendMessage: (content: string, useStreaming?: boolean) => Promise<ConversationResponse | null>
   clearConversation: () => void
   clearError: () => void
 }
@@ -42,7 +48,11 @@ export function useConversation(initialConversationId?: string): UseConversation
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSending, setIsSending] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Track the streaming assistant message ID for updates
+  const streamingMessageIdRef = useRef<string | null>(null)
 
   /**
    * Load a conversation and its messages
@@ -149,7 +159,110 @@ export function useConversation(initialConversationId?: string): UseConversation
   }, [])
 
   /**
-   * Send a message to an existing conversation
+   * Internal helper to stream message via SSE
+   */
+  const sendMessageStreamingInternal = useCallback(async (
+    content: string,
+    convId: string,
+    tempUserMessageId: string
+  ): Promise<void> => {
+    const userId = typeof window !== 'undefined' 
+      ? localStorage.getItem('chidi_user_id') || 'user'
+      : 'user'
+
+    const request: SendMessageRequest = {
+      user_id: userId,
+      content,
+      context_limit: 10,
+    }
+
+    // Create placeholder assistant message for streaming
+    const assistantMessageId = `assistant_${Date.now()}`
+    streamingMessageIdRef.current = assistantMessageId
+    
+    // Confirm user message and add empty assistant message
+    setMessages(prev => {
+      const filtered = prev.filter(m => m.id !== tempUserMessageId)
+      const confirmedUserMessage: ChatMessage = {
+        id: `user_${Date.now()}`,
+        conversationId: convId,
+        role: 'user',
+        content,
+        timestamp: new Date(),
+        isEdited: false,
+        isLoading: false,
+      }
+      const assistantMessage: ChatMessage = {
+        id: assistantMessageId,
+        conversationId: convId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isEdited: false,
+        isLoading: false,
+        isStreaming: true,
+      }
+      return [...filtered, confirmedUserMessage, assistantMessage]
+    })
+
+    setIsStreaming(true)
+
+    return new Promise<void>((resolve, reject) => {
+      conversationsAPI.sendMessageStream(
+        convId,
+        request,
+        // onChunk
+        (chunk: StreamChunk) => {
+          if (chunk.type === 'token' && chunk.content) {
+            // Append token to the streaming message
+            setMessages(prev => prev.map(m => 
+              m.id === assistantMessageId
+                ? { ...m, content: m.content + chunk.content }
+                : m
+            ))
+          } else if (chunk.type === 'tool_call') {
+            // Could show tool call indicator in UI if desired
+            console.log(`🔧 Tool call: ${chunk.name} - ${chunk.status}`)
+          } else if (chunk.type === 'error') {
+            setError(chunk.message || 'Streaming error')
+            // Mark message as having error
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMessageId
+                ? { ...m, isStreaming: false, error: chunk.message }
+                : m
+            ))
+          }
+        },
+        // onDone
+        () => {
+          // Mark streaming as complete
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMessageId
+              ? { ...m, isStreaming: false }
+              : m
+          ))
+          streamingMessageIdRef.current = null
+          setIsStreaming(false)
+          resolve()
+        },
+        // onError
+        (error: Error) => {
+          setError(error.message)
+          setMessages(prev => prev.map(m =>
+            m.id === assistantMessageId
+              ? { ...m, isStreaming: false, error: error.message }
+              : m
+          ))
+          streamingMessageIdRef.current = null
+          setIsStreaming(false)
+          reject(error)
+        }
+      )
+    })
+  }, [])
+
+  /**
+   * Send a message to an existing conversation (non-streaming)
    * @param content - Message content
    * @param targetConversationId - Optional conversation ID (use when conversation state hasn't updated yet)
    */
@@ -184,11 +297,53 @@ export function useConversation(initialConversationId?: string): UseConversation
   }, [conversation, sendMessageInternal])
 
   /**
+   * Send a message with SSE streaming response
+   * @param content - Message content
+   * @param targetConversationId - Optional conversation ID
+   */
+  const sendMessageStreaming = useCallback(async (content: string, targetConversationId?: string) => {
+    const convId = targetConversationId || conversation?.id
+    if (!convId) {
+      setError('No active conversation')
+      return
+    }
+
+    setIsSending(true)
+    setError(null)
+
+    // Optimistically add user message to UI
+    const tempMessageId = `temp_${Date.now()}`
+    const tempUserMessage: ChatMessage = {
+      id: tempMessageId,
+      conversationId: convId,
+      role: 'user',
+      content,
+      timestamp: new Date(),
+      isEdited: false,
+      isLoading: false,
+    }
+    setMessages(prev => [...prev, tempUserMessage])
+
+    try {
+      await sendMessageStreamingInternal(content, convId, tempMessageId)
+    } catch (err) {
+      // Error already handled in internal function
+    } finally {
+      setIsSending(false)
+    }
+  }, [conversation, sendMessageStreamingInternal])
+
+  /**
    * Create a new conversation and send the first message in one optimistic flow.
    * Immediately shows the user message, creates conversation in background, then sends.
+   * @param content - Message content
+   * @param useStreaming - Whether to use SSE streaming (default: true)
    * @returns The new conversation for sidebar updates, or null on failure
    */
-  const createAndSendMessage = useCallback(async (content: string): Promise<ConversationResponse | null> => {
+  const createAndSendMessage = useCallback(async (
+    content: string,
+    useStreaming: boolean = true
+  ): Promise<ConversationResponse | null> => {
     // Immediately show sending state and user message (optimistic UI)
     setIsSending(true)
     setError(null)
@@ -222,8 +377,12 @@ export function useConversation(initialConversationId?: string): UseConversation
           : m
       ))
 
-      // Now send the message
-      await sendMessageInternal(content, newConversation.id, tempMessageId)
+      // Now send the message (streaming or non-streaming)
+      if (useStreaming) {
+        await sendMessageStreamingInternal(content, newConversation.id, tempMessageId)
+      } else {
+        await sendMessageInternal(content, newConversation.id, tempMessageId)
+      }
       
       return newConversation
     } catch (err) {
@@ -239,7 +398,7 @@ export function useConversation(initialConversationId?: string): UseConversation
     } finally {
       setIsSending(false)
     }
-  }, [sendMessageInternal])
+  }, [sendMessageInternal, sendMessageStreamingInternal])
 
   /**
    * Clear current conversation
@@ -272,10 +431,12 @@ export function useConversation(initialConversationId?: string): UseConversation
     messages,
     isLoading,
     isSending,
+    isStreaming,
     error,
     loadConversation,
     createConversation,
     sendMessage,
+    sendMessageStreaming,
     createAndSendMessage,
     clearConversation,
     clearError,
