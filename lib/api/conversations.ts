@@ -2,7 +2,7 @@
  * Conversations API service
  * Integrates with backend conversation endpoints
  */
-import { apiClient } from './client'
+import { apiClient, type StreamChunk } from './client'
 import type {
   ConversationResponse,
   MessageResponse,
@@ -15,6 +15,9 @@ import type {
   ChatConversation,
 } from '../types/conversation'
 import { toUIMessage, toUIConversation } from '../types/conversation'
+
+// Re-export StreamChunk for consumers
+export type { StreamChunk }
 
 // Re-export types for convenience
 export type {
@@ -216,6 +219,32 @@ export const conversationsAPI = {
     return apiClient.post<MessageResponse>(
       `/api/conversations/${conversationId}/messages`,
       request
+    )
+  },
+
+  /**
+   * Send a message and stream the AI response via SSE
+   * Uses: POST /api/conversations/{id}/messages/stream
+   * 
+   * @param conversationId - Conversation ID
+   * @param request - Message request
+   * @param onChunk - Callback for each SSE chunk
+   * @param onDone - Callback when stream completes
+   * @param onError - Callback for errors
+   */
+  async sendMessageStream(
+    conversationId: string,
+    request: SendMessageRequest,
+    onChunk: (chunk: StreamChunk) => void,
+    onDone: () => void,
+    onError: (error: Error) => void
+  ): Promise<void> {
+    return apiClient.streamRequest(
+      `/api/conversations/${conversationId}/messages/stream`,
+      request,
+      onChunk,
+      onDone,
+      onError
     )
   },
 }

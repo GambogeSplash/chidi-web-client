@@ -23,6 +23,19 @@ interface RequestConfig {
   token?: string
 }
 
+// SSE Stream chunk types
+export interface StreamChunk {
+  type: 'token' | 'tool_call' | 'tool_result' | 'done' | 'message_saved' | 'error'
+  content?: string
+  name?: string
+  status?: string
+  message?: string
+  message_id?: string
+  tool_calls?: string[]
+  cache_hit?: boolean
+  tokens?: { input?: number; output?: number }
+}
+
 class APIClient {
   private baseURL: string
   private defaultHeaders: HeadersInit
@@ -288,6 +301,110 @@ class APIClient {
         return this.createMockResponse(mockData)
       }
       throw error
+    }
+  }
+
+  /**
+   * Stream a POST request using Server-Sent Events (SSE).
+   * 
+   * @param endpoint - API endpoint to call
+   * @param body - Request body
+   * @param onChunk - Callback for each SSE chunk received
+   * @param onDone - Callback when stream completes
+   * @param onError - Callback for errors
+   */
+  async streamRequest(
+    endpoint: string,
+    body: any,
+    onChunk: (chunk: StreamChunk) => void,
+    onDone: () => void,
+    onError: (error: Error) => void
+  ): Promise<void> {
+    const url = `${this.baseURL}${endpoint}`
+    const authToken = this.getAuthToken()
+    
+    debugLog(`🌊 [STREAM] POST ${endpoint}`)
+
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+    }
+    
+    if (authToken) {
+      requestHeaders['Authorization'] = `Bearer ${authToken}`
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: requestHeaders,
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorData.message || errorMessage
+        } catch {
+          // Use default error message
+        }
+        throw new APIError(errorMessage, response.status)
+      }
+
+      if (!response.body) {
+        throw new Error('Response body is null')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) {
+          debugLog('🌊 [STREAM] Stream complete')
+          break
+        }
+
+        // Decode the chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true })
+        
+        // Process complete SSE events (separated by double newlines)
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || '' // Keep incomplete event in buffer
+        
+        for (const event of events) {
+          const lines = event.split('\n')
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+                debugLog('🌊 [STREAM] Chunk:', data.type)
+                onChunk(data as StreamChunk)
+              } catch (parseError) {
+                debugError('🌊 [STREAM] Failed to parse chunk:', line)
+              }
+            }
+          }
+        }
+      }
+
+      onDone()
+    } catch (error) {
+      debugError('🌊 [STREAM] Error:', error)
+      
+      if (error instanceof APIError) {
+        onError(error)
+      } else if (error instanceof TypeError && error.message.includes('fetch')) {
+        onError(new APIError(
+          'Unable to connect to the server. Please check your internet connection.',
+          0
+        ))
+      } else {
+        onError(error instanceof Error ? error : new Error(String(error)))
+      }
     }
   }
 }
