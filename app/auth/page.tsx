@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AuthScreen } from '@/components/auth/auth-screen'
+import { ResetPassword } from '@/components/auth/reset-password'
 import { authAPI, type User } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
 
@@ -11,6 +12,8 @@ function AuthPageContent() {
   const searchParams = useSearchParams()
   const [showVerified, setShowVerified] = useState(false)
   const [isProcessingCallback, setIsProcessingCallback] = useState(false)
+  const [resetPasswordToken, setResetPasswordToken] = useState<string | null>(null)
+  const [resetPasswordError, setResetPasswordError] = useState("")
 
   useEffect(() => {
     // Check for Supabase email verification callback
@@ -36,6 +39,16 @@ function AuthPageContent() {
           hasRefreshToken: !!refreshToken, 
           type 
         })
+
+        // Handle password recovery callback
+        if (accessToken && type === 'recovery') {
+          console.log('🔑 [AUTH-PAGE] Password recovery callback detected')
+          // Don't clear existing session - just show the reset password form
+          setResetPasswordToken(accessToken)
+          // Clear the hash from URL
+          window.history.replaceState(null, '', window.location.pathname)
+          return
+        }
 
         // Accept verification callbacks (type can be 'signup', 'email', or 'magiclink')
         if (accessToken) {
@@ -131,6 +144,24 @@ function AuthPageContent() {
           <p className="text-[var(--chidi-text-muted)]">Setting up your account...</p>
         </div>
       </div>
+    )
+  }
+
+  // Show password reset form if we have a recovery token
+  if (resetPasswordToken) {
+    return (
+      <ResetPassword
+        accessToken={resetPasswordToken}
+        onSuccess={() => {
+          setResetPasswordToken(null)
+          setShowVerified(false)
+          // After successful password reset, show sign in with success message
+          router.push('/auth?tab=signin')
+        }}
+        onError={(message) => {
+          setResetPasswordError(message)
+        }}
+      />
     )
   }
 

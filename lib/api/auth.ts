@@ -105,6 +105,21 @@ export interface ResendVerificationResponse {
   message: string
 }
 
+export interface ForgotPasswordResponse {
+  success: boolean
+  message: string
+}
+
+export interface ResetPasswordRequest {
+  access_token: string
+  new_password: string
+}
+
+export interface ResetPasswordResponse {
+  success: boolean
+  message: string
+}
+
 export const authAPI = {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     console.log(' [AUTH] Attempting login for:', credentials.email)
@@ -189,6 +204,35 @@ export const authAPI = {
       return response
     } catch (error) {
       console.error('❌ [AUTH] Failed to process magic link callback:', error)
+      throw error
+    }
+  },
+
+  async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+    console.log('🔑 [AUTH] Requesting password reset for:', email)
+    
+    try {
+      const response = await apiClient.post<ForgotPasswordResponse>('/auth/forgot-password', { email })
+      console.log('✅ [AUTH] Password reset email sent:', response)
+      return response
+    } catch (error) {
+      console.error('❌ [AUTH] Failed to send password reset:', error)
+      throw error
+    }
+  },
+
+  async resetPassword(accessToken: string, newPassword: string): Promise<ResetPasswordResponse> {
+    console.log('🔑 [AUTH] Resetting password')
+    
+    try {
+      const response = await apiClient.post<ResetPasswordResponse>('/auth/reset-password', {
+        access_token: accessToken,
+        new_password: newPassword
+      })
+      console.log('✅ [AUTH] Password reset successful:', response)
+      return response
+    } catch (error) {
+      console.error('❌ [AUTH] Failed to reset password:', error)
       throw error
     }
   },

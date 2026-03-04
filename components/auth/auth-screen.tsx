@@ -11,6 +11,7 @@ import { authAPI, type User as UserType } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { EmailVerificationPending } from "./email-verification-pending"
 import { MagicLinkPending } from "./magic-link-pending"
+import { ForgotPassword } from "./forgot-password"
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserType, isNewUser?: boolean) => void
@@ -115,6 +116,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
   const [pendingMagicLinkEmail, setPendingMagicLinkEmail] = useState<string | null>(null)
   const [showVerifiedMessage, setShowVerifiedMessage] = useState(showVerified)
   const [isSendingMagicLink, setIsSendingMagicLink] = useState(false)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   // Update tab when URL changes
   useEffect(() => {
@@ -328,6 +330,18 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
     )
   }
 
+  // Show forgot password screen
+  if (showForgotPassword) {
+    return (
+      <ForgotPassword
+        onBackToSignIn={() => {
+          setShowForgotPassword(false)
+          setActiveTab('signin')
+        }}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -502,9 +516,18 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="signin-password" className="text-[var(--chidi-text-primary)] text-sm font-medium">
-                  Password
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="signin-password" className="text-[var(--chidi-text-primary)] text-sm font-medium">
+                    Password
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-xs text-[var(--chidi-accent)] hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
                   <Input
                     id="signin-password"
