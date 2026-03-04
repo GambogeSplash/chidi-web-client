@@ -9,6 +9,7 @@ import { useConversationList } from "@/hooks/use-conversation-list"
 import { conversationsAPI } from "@/lib/api/conversations"
 import { CopilotHistoryPanel } from "./copilot-history-panel"
 import { CopilotMessageContent } from "./copilot-blocks"
+import Image from "next/image"
 import type { ConversationResponse, ChatMessage } from "@/lib/types/conversation"
 import type { DisplayProduct } from "@/lib/types/product"
 import { cn } from "@/lib/utils"
@@ -225,9 +226,13 @@ export function CopilotView({
 
         {/* Centered content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 min-h-0 overflow-auto">
-          <h1 className="text-3xl font-semibold text-[var(--chidi-text-primary)] mb-2">
-            Chidi
-          </h1>
+          <Image
+            src="/logo.png"
+            alt="Chidi"
+            width={64}
+            height={64}
+            className="mb-3"
+          />
           <p className="text-sm text-[var(--chidi-text-secondary)] text-center mb-8 max-w-xs">
             Your AI business assistant for inventory, orders, and customers.
           </p>

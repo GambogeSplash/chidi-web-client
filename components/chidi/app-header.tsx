@@ -2,6 +2,7 @@
 
 import { Settings } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { NotificationDropdown } from "./notification-dropdown"
 
@@ -47,9 +48,12 @@ export function AppHeader({
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-[var(--chidi-border-subtle)] safe-area-top">
       <div className="flex items-center justify-between h-14 px-4 max-w-lg mx-auto">
-        <h1 className="text-xl font-semibold tracking-tight text-[var(--chidi-text-primary)]">
-          chidi
-        </h1>
+        <Image
+          src="/logo.png"
+          alt="Chidi"
+          width={36}
+          height={36}
+        />
         
         <div className="flex items-center gap-1">
           {/* Notification Dropdown */}

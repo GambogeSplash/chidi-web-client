@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { authAPI } from '@/lib/api'
 import { Loader2, MessageCircle, Bot, Package, CreditCard, Bell, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 // Activity ticker messages - updated per user feedback
 const ACTIVITY_MESSAGES = [
@@ -162,13 +163,20 @@ export default function HomePage() {
         <main className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 py-8">
           {/* Hero Section */}
           <div className="text-center mb-8 max-w-md">
-            {/* Brand */}
-            <h1 
-              className="text-6xl sm:text-7xl font-bold text-[var(--chidi-text-primary)] tracking-tight mb-6 animate-fade-scale-in"
+            {/* Brand Logo */}
+            <div 
+              className="mb-6 animate-fade-scale-in"
               style={{ animationDelay: '0ms' }}
             >
-              Chidi
-            </h1>
+              <Image
+                src="/logo.png"
+                alt="Chidi"
+                width={150}
+                height={150}
+                className="mx-auto"
+                priority
+              />
+            </div>
             
             {/* Statement */}
             <p 

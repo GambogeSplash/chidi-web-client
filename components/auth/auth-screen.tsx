@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Loader2, Eye, EyeOff, Check, X } from "lucide-react"
 import { authAPI, type User as UserType } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 import { EmailVerificationPending } from "./email-verification-pending"
 import { MagicLinkPending } from "./magic-link-pending"
 import { ForgotPassword } from "./forgot-password"
@@ -347,9 +348,14 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
       <div className="w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8 animate-in fade-in duration-500">
-          <h1 className="text-3xl font-bold text-[var(--chidi-text-primary)] tracking-tight mb-2">
-            Chidi
-          </h1>
+          <Image
+            src="/logo.png"
+            alt="Chidi"
+            width={80}
+            height={80}
+            className="mx-auto mb-3"
+            priority
+          />
           <p className="text-[var(--chidi-text-secondary)] text-sm">
             Your AI business assistant for WhatsApp & Instagram
           </p>
