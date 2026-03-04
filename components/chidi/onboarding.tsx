@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,6 +8,8 @@ import { Store, MessageCircle, BarChart3, ArrowRight, Check, Clock, Loader2 } fr
 import type { User } from "@/lib/api"
 import { authAPI } from "@/lib/api"
 import { cn } from "@/lib/utils"
+
+const PLACEHOLDER_NAME = "Chidi User"
 
 interface OnboardingProps {
   user: User
@@ -51,17 +53,50 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   const [step, setStep] = useState(1)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Check if user needs to set their name (magic link users have placeholder name)
+  const needsNameUpdate = user.name === PLACEHOLDER_NAME || 
+    (typeof window !== 'undefined' && localStorage.getItem('chidi_needs_name_update') === 'true')
+  
   const [userData, setUserData] = useState({
+    name: user.name === PLACEHOLDER_NAME ? "" : user.name,  // Empty if placeholder, otherwise prefill
     businessName: "",
     phone: "",
     categories: [] as string[],
     whatsappNumber: "",
     instagramHandle: "",
   })
+  const [nameError, setNameError] = useState("")
+  
+  // Clear the needs_name_update flag when component unmounts or user completes onboarding
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('chidi_needs_name_update')
+      }
+    }
+  }, [])
 
   const totalSteps = 4
 
   const handleNext = async () => {
+    // Validate name if user needs to update it (step 2)
+    if (step === 2 && needsNameUpdate) {
+      if (!userData.name.trim()) {
+        setNameError("Please enter your name")
+        return
+      }
+      if (userData.name.trim().length < 2) {
+        setNameError("Name must be at least 2 characters")
+        return
+      }
+      if (userData.name.trim() === PLACEHOLDER_NAME) {
+        setNameError("Please enter your actual name")
+        return
+      }
+      setNameError("")
+    }
+    
     if (step < totalSteps) {
       setStep(step + 1)
     } else {
@@ -69,6 +104,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
       setIsLoading(true)
       try {
         const response = await authAPI.completeOnboarding({
+          name: needsNameUpdate ? userData.name.trim() : undefined,  // Only send name if it needs updating
           business_name: userData.businessName,
           business_industry: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
           phone: userData.phone,
@@ -79,10 +115,13 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         
         // Call the parent completion handler with the API response
         // This will redirect directly to the dashboard
+        // Use updated name if user needed to set it, otherwise use original name
+        const finalName = needsNameUpdate ? userData.name.trim() : user.name
         onComplete({
           ...response.user,
+          name: finalName,
           businessName: userData.businessName,
-          ownerName: user.name,
+          ownerName: finalName,
           business_id: response.business_id,
           workspace_id: response.workspace_id,
           inventory_id: response.inventory_id,
@@ -133,13 +172,18 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
 
   // Step 1: Welcome Screen
   if (step === 1) {
+    // Use generic greeting if user has placeholder name
+    const welcomeTitle = needsNameUpdate 
+      ? "Welcome to Chidi!" 
+      : `Welcome to Chidi, ${user.name}!`
+    
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
           <OnboardingHeader 
-            title={`Welcome to Chidi, ${user.name}!`}
+            title={welcomeTitle}
             subtitle="Set up your AI business assistant in just a few steps"
           />
 
@@ -197,20 +241,49 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     )
   }
 
-  // Step 2: Business Details
+  // Step 2: Business Details (and Name for magic link users)
   if (step === 2) {
+    // Determine if form is valid to proceed
+    const isStep2Valid = userData.businessName && userData.phone && 
+      (!needsNameUpdate || (userData.name.trim().length >= 2 && userData.name.trim() !== PLACEHOLDER_NAME))
+    
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
           <OnboardingHeader 
-            title="Tell us about your business"
-            subtitle="This helps Chidi personalize your experience"
+            title={needsNameUpdate ? "Let's get to know you" : "Tell us about your business"}
+            subtitle={needsNameUpdate ? "First, tell us your name, then about your business" : "This helps Chidi personalize your experience"}
           />
 
           {/* Form */}
           <div className="space-y-5">
+            {/* Name field - shown for magic link users who need to set their name */}
+            {needsNameUpdate && (
+              <div className="space-y-2">
+                <Label htmlFor="userName" className="text-[var(--chidi-text-primary)] text-sm font-medium">
+                  Your Name <span className="text-[var(--chidi-danger)]">*</span>
+                </Label>
+                <Input
+                  id="userName"
+                  placeholder="e.g., Ciroma Chukwuma"
+                  value={userData.name}
+                  onChange={(e) => {
+                    handleInputChange("name", e.target.value)
+                    setNameError("")  // Clear error when user types
+                  }}
+                  className={cn(
+                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12",
+                    nameError && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
+                  )}
+                />
+                {nameError && (
+                  <p className="text-xs text-[var(--chidi-danger)] mt-1">{nameError}</p>
+                )}
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="businessName" className="text-[var(--chidi-text-primary)] text-sm font-medium">
                 Business Name <span className="text-[var(--chidi-danger)]">*</span>
@@ -248,7 +321,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
               <Button
                 onClick={handleNext}
                 className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
-                disabled={!userData.businessName || !userData.phone}
+                disabled={!isStep2Valid}
               >
                 Continue
                 <ArrowRight className="w-4 h-4 ml-2" />

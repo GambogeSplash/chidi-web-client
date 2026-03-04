@@ -39,7 +39,7 @@ function AuthPageContent() {
 
         // Accept verification callbacks (type can be 'signup', 'email', or 'magiclink')
         if (accessToken) {
-          console.log('✅ [AUTH-PAGE] Email verification callback detected, type:', type)
+          console.log('✅ [AUTH-PAGE] Auth callback detected, type:', type)
           setIsProcessingCallback(true)
 
           try {
@@ -47,21 +47,48 @@ function AuthPageContent() {
             authAPI.clearAllAuthData()
             console.log('🧹 [AUTH-PAGE] Cleared old auth data')
 
-            // 2. Store the new tokens
+            // 2. Store the new tokens temporarily
             localStorage.setItem('chidi_auth_token', accessToken)
             if (refreshToken) {
               localStorage.setItem('chidi_refresh_token', refreshToken)
             }
             console.log('💾 [AUTH-PAGE] Stored new tokens')
 
-            // 3. Clear the hash from URL
+            // 3. For magic link users, we need to call the backend to create/get user
+            if (type === 'magiclink') {
+              console.log('🔗 [AUTH-PAGE] Processing magic link callback...')
+              
+              // Decode the JWT to get user info
+              const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]))
+              const authProviderId = tokenPayload.sub
+              const email = tokenPayload.email
+              
+              console.log('🔍 [AUTH-PAGE] Magic link user:', { authProviderId, email })
+              
+              // Call backend to create/get user record
+              const callbackResponse = await authAPI.processMagicLinkCallback({
+                auth_provider_id: authProviderId,
+                email,
+                access_token: accessToken,
+                refresh_token: refreshToken || ''
+              })
+              
+              console.log('✅ [AUTH-PAGE] Magic link callback processed:', callbackResponse)
+              
+              // Store the needs_name_update flag for onboarding
+              if (callbackResponse.needs_name_update) {
+                localStorage.setItem('chidi_needs_name_update', 'true')
+              }
+            }
+
+            // 4. Clear the hash from URL
             window.history.replaceState(null, '', window.location.pathname)
 
-            // 4. Redirect to onboarding (newly verified users need to complete onboarding)
+            // 5. Redirect to onboarding
             console.log('🚀 [AUTH-PAGE] Redirecting to onboarding...')
             router.push('/onboarding')
           } catch (error) {
-            console.error('❌ [AUTH-PAGE] Error processing verification callback:', error)
+            console.error('❌ [AUTH-PAGE] Error processing auth callback:', error)
             setIsProcessingCallback(false)
           }
         }
@@ -101,7 +128,7 @@ function AuthPageContent() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
-          <p className="text-[var(--chidi-text-muted)]">Verifying your email...</p>
+          <p className="text-[var(--chidi-text-muted)]">Setting up your account...</p>
         </div>
       </div>
     )

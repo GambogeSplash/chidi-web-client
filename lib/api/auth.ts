@@ -71,6 +71,28 @@ export interface MagicLinkRequest {
   email: string
 }
 
+export interface MagicLinkResponse {
+  success: boolean
+  message: string
+}
+
+export interface MagicLinkCallbackRequest {
+  auth_provider_id: string
+  email: string
+  access_token: string
+  refresh_token: string
+}
+
+export interface MagicLinkCallbackResponse {
+  user_id: string
+  email: string
+  name: string
+  is_new_user: boolean
+  needs_name_update: boolean
+  access_token: string
+  refresh_token: string
+}
+
 export interface SignupResponse {
   user_id: string
   email: string
@@ -137,8 +159,38 @@ export const authAPI = {
     }
   },
 
-  async sendMagicLink(email: string): Promise<{ success: boolean }> {
-    return apiClient.post('/auth/magic-link', { email })
+  async sendMagicLink(email: string): Promise<MagicLinkResponse> {
+    console.log('🔗 [AUTH] Sending magic link to:', email)
+    
+    try {
+      const response = await apiClient.post<MagicLinkResponse>('/auth/magic-link', { email })
+      console.log('✅ [AUTH] Magic link sent:', response)
+      return response
+    } catch (error) {
+      console.error('❌ [AUTH] Failed to send magic link:', error)
+      throw error
+    }
+  },
+
+  async processMagicLinkCallback(callbackData: MagicLinkCallbackRequest): Promise<MagicLinkCallbackResponse> {
+    console.log('🔗 [AUTH] Processing magic link callback for:', callbackData.email)
+    
+    try {
+      const response = await apiClient.post<MagicLinkCallbackResponse>('/auth/magic-link/callback', callbackData)
+      console.log('✅ [AUTH] Magic link callback processed:', response)
+      
+      // Store tokens
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('chidi_auth_token', response.access_token)
+        localStorage.setItem('chidi_refresh_token', response.refresh_token)
+        console.log('✅ [AUTH] Tokens stored from magic link callback')
+      }
+      
+      return response
+    } catch (error) {
+      console.error('❌ [AUTH] Failed to process magic link callback:', error)
+      throw error
+    }
   },
 
   async resendVerification(email: string): Promise<ResendVerificationResponse> {
@@ -243,6 +295,7 @@ export const authAPI = {
 
   // Complete onboarding by creating business profile
   async completeOnboarding(onboardingData: {
+    name?: string  // User's name (required for magic link users)
     business_name: string
     business_industry?: string
     phone?: string

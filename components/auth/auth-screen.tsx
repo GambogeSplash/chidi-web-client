@@ -10,6 +10,7 @@ import { Loader2, Eye, EyeOff, Check, X } from "lucide-react"
 import { authAPI, type User as UserType } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { EmailVerificationPending } from "./email-verification-pending"
+import { MagicLinkPending } from "./magic-link-pending"
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserType, isNewUser?: boolean) => void
@@ -111,7 +112,9 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [passwordValue, setPasswordValue] = useState("")
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null)
+  const [pendingMagicLinkEmail, setPendingMagicLinkEmail] = useState<string | null>(null)
   const [showVerifiedMessage, setShowVerifiedMessage] = useState(showVerified)
+  const [isSendingMagicLink, setIsSendingMagicLink] = useState(false)
 
   // Update tab when URL changes
   useEffect(() => {
@@ -196,6 +199,44 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
     }
   }
 
+  const handleSendMagicLink = async () => {
+    setApiError("")
+    setFormErrors({})
+
+    // Get email from the form
+    const form = signInFormRef.current
+    if (!form) return
+
+    const formData = new FormData(form)
+    const email = (formData.get("email") as string) || ""
+
+    // Validate email only
+    if (!email.trim()) {
+      setFormErrors({ email: "Email is required" })
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setFormErrors({ email: "Please enter a valid email address" })
+      return
+    }
+
+    setIsSendingMagicLink(true)
+
+    try {
+      await authAPI.sendMagicLink(email.trim())
+      setPendingMagicLinkEmail(email.trim())
+    } catch (error: any) {
+      console.error('🚨 [AUTH-SCREEN] Magic link error:', error)
+      let errorMessage = 'Failed to send magic link. Please try again.'
+      if (error.message) {
+        errorMessage = error.message
+      }
+      setApiError(errorMessage)
+    } finally {
+      setIsSendingMagicLink(false)
+    }
+  }
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setApiError("")
@@ -268,6 +309,19 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
         email={pendingVerificationEmail}
         onBackToSignIn={() => {
           setPendingVerificationEmail(null)
+          setActiveTab('signin')
+        }}
+      />
+    )
+  }
+
+  // Show magic link pending screen if email is set
+  if (pendingMagicLinkEmail) {
+    return (
+      <MagicLinkPending
+        email={pendingMagicLinkEmail}
+        onBackToSignIn={() => {
+          setPendingMagicLinkEmail(null)
           setActiveTab('signin')
         }}
       />
@@ -481,7 +535,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
               <Button
                 type="submit"
                 className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
-                disabled={isLoading}
+                disabled={isLoading || isSendingMagicLink}
               >
                 {isLoading ? (
                   <>
@@ -490,6 +544,32 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
                   </>
                 ) : (
                   'Sign In'
+                )}
+              </Button>
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[var(--chidi-border-default)]" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-white text-[var(--chidi-text-muted)]">or</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSendMagicLink}
+                className="w-full border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] h-12 font-medium transition-all duration-200 rounded-xl"
+                disabled={isLoading || isSendingMagicLink}
+              >
+                {isSendingMagicLink ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending magic link...
+                  </>
+                ) : (
+                  'Sign in with magic link'
                 )}
               </Button>
             </form>
