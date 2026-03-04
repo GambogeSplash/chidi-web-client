@@ -6,12 +6,14 @@ import { Onboarding } from '@/components/chidi/onboarding'
 import { authAPI } from '@/lib/api'
 import type { User } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
+import { EmailVerificationPending } from '@/components/auth/email-verification-pending'
 
 export default function OnboardingPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [needsVerification, setNeedsVerification] = useState(false)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -22,6 +24,16 @@ export default function OnboardingPage() {
         }
 
         const userData = await authAPI.getMe()
+        
+        // Check if email is verified
+        if (userData.email_verified === false) {
+          console.log('📧 [ONBOARDING] Email not verified, showing verification screen')
+          setNeedsVerification(true)
+          setUser(userData)
+          setIsLoading(false)
+          return
+        }
+        
         setUser(userData)
       } catch (err: any) {
         setError(err.message || 'Failed to load user data')
@@ -77,6 +89,19 @@ export default function OnboardingPage() {
           </button>
         </div>
       </div>
+    )
+  }
+
+  // Show verification pending screen if email not verified
+  if (needsVerification && user) {
+    return (
+      <EmailVerificationPending
+        email={user.email}
+        onBackToSignIn={() => {
+          authAPI.clearAllAuthData()
+          router.push('/auth?tab=signin')
+        }}
+      />
     )
   }
 

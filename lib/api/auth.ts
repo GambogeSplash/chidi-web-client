@@ -25,6 +25,7 @@ export interface User {
   category?: string
   createdAt: string
   profile?: BusinessProfile
+  email_verified?: boolean
 }
 
 // Backend returns CompleteUserResponse from /auth/me
@@ -70,6 +71,18 @@ export interface MagicLinkRequest {
   email: string
 }
 
+export interface SignupResponse {
+  user_id: string
+  email: string
+  needs_verification: boolean
+  message: string
+}
+
+export interface ResendVerificationResponse {
+  success: boolean
+  message: string
+}
+
 export const authAPI = {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
     console.log(' [AUTH] Attempting login for:', credentials.email)
@@ -102,39 +115,22 @@ export const authAPI = {
     }
   },
 
-  async signup(userData: SignupRequest): Promise<User> {
+  async signup(userData: SignupRequest): Promise<SignupResponse> {
     console.log(' [AUTH] Attempting signup for:', userData.email)
     
     try {
-      const response = await apiClient.post<User>('/auth/signup', userData)
+      const response = await apiClient.post<SignupResponse>('/auth/signup', userData)
       
       console.log(' [AUTH] Signup API response:', response)
       console.log(' [AUTH] Response type:', typeof response)
       console.log(' [AUTH] Response keys:', Object.keys(response || {}))
       
-      if (response && response.email) {
-        console.log(' [AUTH] Signup successful for user:', response.email)
-        console.log(' [AUTH] User created without business context - onboarding needed')
-      } else {
-        console.warn(' [AUTH] Warning: Response missing email property')
-        console.log(' [AUTH] Full response:', JSON.stringify(response, null, 2))
+      if (response && response.needs_verification) {
+        console.log(' [AUTH] Signup successful, verification email sent to:', response.email)
+        console.log(' [AUTH] User must verify email before signing in')
       }
       
-      // Auto-signin after successful signup to get tokens
-      console.log(' [AUTH] Signup successful, auto-signing in to get tokens...')
-      
-      try {
-        const signinResponse = await this.login({
-          email: userData.email,
-          password: userData.password
-        })
-        console.log(' [AUTH] Auto-signin successful, tokens stored')
-        return response // Return the original user object, not the signin response
-      } catch (signinError) {
-        console.error(' [AUTH] Auto-signin failed after signup:', signinError)
-        console.log(' [AUTH] User created but not signed in - manual signin required')
-        return response
-      }
+      return response
     } catch (error) {
       console.error(' [AUTH] Signup failed:', error)
       throw error
@@ -143,6 +139,19 @@ export const authAPI = {
 
   async sendMagicLink(email: string): Promise<{ success: boolean }> {
     return apiClient.post('/auth/magic-link', { email })
+  },
+
+  async resendVerification(email: string): Promise<ResendVerificationResponse> {
+    console.log(' [AUTH] Resending verification email to:', email)
+    
+    try {
+      const response = await apiClient.post<ResendVerificationResponse>('/auth/resend-verification', { email })
+      console.log(' [AUTH] Resend verification response:', response)
+      return response
+    } catch (error) {
+      console.error(' [AUTH] Resend verification failed:', error)
+      throw error
+    }
   },
 
   async getMe(): Promise<User> {
@@ -166,6 +175,7 @@ export const authAPI = {
         businessSlug: response.businessSlug,  // From root level
         createdAt: (response.user as any).created_at || (response.user as any).createdAt || new Date().toISOString(),
         profile: response.profile,  // Business profile data
+        email_verified: (response.user as any).email_verified,  // Email verification status
       }
       
       console.log('✅ [AUTH] Flattened user:', user)

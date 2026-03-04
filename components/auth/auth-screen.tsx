@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label"
 import { Loader2, Eye, EyeOff, Check, X } from "lucide-react"
 import { authAPI, type User as UserType } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { EmailVerificationPending } from "./email-verification-pending"
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserType, isNewUser?: boolean) => void
+  showVerified?: boolean
 }
 
 interface FormErrors {
@@ -98,7 +100,7 @@ function PasswordRequirements({ password = "" }: { password: string }) {
   )
 }
 
-export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
+export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenProps) {
   const searchParams = useSearchParams()
   const initialTab = searchParams.get('tab') === 'signin' ? 'signin' : 'signup'
   
@@ -108,12 +110,19 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [formErrors, setFormErrors] = useState<FormErrors>({})
   const [passwordValue, setPasswordValue] = useState("")
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null)
+  const [showVerifiedMessage, setShowVerifiedMessage] = useState(showVerified)
 
   // Update tab when URL changes
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab === 'signin' || tab === 'signup') {
       setActiveTab(tab)
+    }
+    // Check for verified param
+    if (searchParams.get('verified') === 'true') {
+      setShowVerifiedMessage(true)
+      setActiveTab('signin')
     }
   }, [searchParams])
 
@@ -160,10 +169,20 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       setIsLoading(false)
       console.error('🚨 [AUTH-SCREEN] Login error:', error)
       
+      // Get email from form for potential verification redirect
+      const form = signInFormRef.current
+      const formData = form ? new FormData(form) : null
+      const email = formData ? (formData.get("email") as string) || "" : ""
+      
       // Provide user-friendly error messages based on error type
       let errorMessage = 'Login failed. Please try again.'
       
-      if (error.status === 401) {
+      if (error.status === 403 && error.message?.includes('verify')) {
+        // Email not verified - show verification pending screen
+        console.log('📧 [AUTH-SCREEN] Email not verified, showing verification screen')
+        setPendingVerificationEmail(email.trim())
+        return
+      } else if (error.status === 401) {
         errorMessage = 'Invalid email or password. Please check your credentials.'
       } else if (error.status === 404) {
         errorMessage = 'Account not found. Please sign up first.'
@@ -214,7 +233,15 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       console.log('🔍 [DEBUG] Signup successful:', response)
       
       setIsLoading(false)
-      onAuthSuccess(response, true)
+      
+      // Check if email verification is required
+      if (response.needs_verification) {
+        console.log('📧 [AUTH-SCREEN] Email verification required, showing pending screen')
+        setPendingVerificationEmail(response.email)
+      } else {
+        // Fallback for backwards compatibility (shouldn't happen with new backend)
+        onAuthSuccess(response as unknown as UserType, true)
+      }
     } catch (error: any) {
       console.error('🚨 [DEBUG] Signup API error:', error)
       setIsLoading(false)
@@ -234,6 +261,19 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     }
   }
 
+  // Show verification pending screen if email is set
+  if (pendingVerificationEmail) {
+    return (
+      <EmailVerificationPending
+        email={pendingVerificationEmail}
+        onBackToSignIn={() => {
+          setPendingVerificationEmail(null)
+          setActiveTab('signin')
+        }}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -246,6 +286,14 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
             Your AI business assistant for WhatsApp & Instagram
           </p>
         </div>
+
+        {/* Email verified success message */}
+        {showVerifiedMessage && (
+          <div className="flex items-center gap-2 text-sm text-[var(--chidi-success)] bg-[var(--chidi-success)]/5 px-4 py-3 rounded-lg mb-6 animate-in fade-in duration-300">
+            <Check className="w-4 h-4" />
+            <span>Email verified successfully! Please sign in to continue.</span>
+          </div>
+        )}
 
         {/* Tab Switcher */}
         <div className="flex bg-[var(--chidi-surface)] rounded-xl p-1 mb-6 animate-in slide-in-from-bottom-4 duration-500 delay-100">
