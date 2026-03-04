@@ -44,6 +44,24 @@ export default function HomePage() {
   const [activityKey, setActivityKey] = useState(0)
 
   useEffect(() => {
+    // FIRST: Check for Supabase auth callback in URL hash
+    // This MUST happen before any localStorage checks to handle new sessions correctly
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash
+      const params = new URLSearchParams(hash.substring(1))
+      
+      // Check if this is an auth callback (has access_token or error)
+      const hasAccessToken = params.has('access_token')
+      const hasError = params.has('error')
+      
+      if (hasAccessToken || hasError) {
+        console.log('🔀 [HOME] Auth callback detected, redirecting to /auth with hash')
+        // Redirect to /auth page with the hash preserved for proper handling
+        router.replace('/auth' + hash)
+        return
+      }
+    }
+
     const checkAuthAndRedirect = async () => {
       try {
         const isAuth = authAPI.isAuthenticated()

@@ -14,11 +14,10 @@ function AuthPageContent() {
   const [isProcessingCallback, setIsProcessingCallback] = useState(false)
   const [resetPasswordToken, setResetPasswordToken] = useState<string | null>(null)
   const [resetPasswordError, setResetPasswordError] = useState("")
+  const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check for Supabase email verification callback
-    // Supabase redirects with tokens in URL hash after email verification
-    const handleVerificationCallback = async () => {
+    const handleAuthCallback = async () => {
       // Check for verified=true param (user already processed, just showing success)
       if (searchParams.get('verified') === 'true') {
         console.log('✅ [AUTH-PAGE] Email verified via query param')
@@ -26,10 +25,25 @@ function AuthPageContent() {
         return
       }
 
-      // Check for tokens in URL hash (Supabase's default behavior)
+      // Check for tokens or errors in URL hash (Supabase's default behavior)
       if (typeof window !== 'undefined' && window.location.hash) {
         const hash = window.location.hash.substring(1)
         const params = new URLSearchParams(hash)
+        
+        // Check for errors first
+        const error = params.get('error')
+        const errorDescription = params.get('error_description')
+        
+        if (error) {
+          console.log('❌ [AUTH-PAGE] Auth error in hash:', error, errorDescription)
+          // Clear the hash from URL
+          window.history.replaceState(null, '', window.location.pathname)
+          // Show user-friendly error message
+          const friendlyError = errorDescription?.replace(/\+/g, ' ') || 'Authentication failed. Please try again.'
+          setAuthError(friendlyError)
+          return
+        }
+        
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         const type = params.get('type')
@@ -43,14 +57,13 @@ function AuthPageContent() {
         // Handle password recovery callback
         if (accessToken && type === 'recovery') {
           console.log('🔑 [AUTH-PAGE] Password recovery callback detected')
-          // Don't clear existing session - just show the reset password form
           setResetPasswordToken(accessToken)
           // Clear the hash from URL
           window.history.replaceState(null, '', window.location.pathname)
           return
         }
 
-        // Accept verification callbacks (type can be 'signup', 'email', or 'magiclink')
+        // Handle auth callbacks (signup verification, magiclink, etc.)
         if (accessToken) {
           console.log('✅ [AUTH-PAGE] Auth callback detected, type:', type)
           setIsProcessingCallback(true)
@@ -60,14 +73,14 @@ function AuthPageContent() {
             authAPI.clearAllAuthData()
             console.log('🧹 [AUTH-PAGE] Cleared old auth data')
 
-            // 2. Store the new tokens temporarily
+            // 2. Store the new tokens
             localStorage.setItem('chidi_auth_token', accessToken)
             if (refreshToken) {
               localStorage.setItem('chidi_refresh_token', refreshToken)
             }
             console.log('💾 [AUTH-PAGE] Stored new tokens')
 
-            // 3. For magic link users, we need to call the backend to create/get user
+            // 3. For magic link users, call backend to create/get user record
             if (type === 'magiclink') {
               console.log('🔗 [AUTH-PAGE] Processing magic link callback...')
               
@@ -97,18 +110,38 @@ function AuthPageContent() {
             // 4. Clear the hash from URL
             window.history.replaceState(null, '', window.location.pathname)
 
-            // 5. Redirect to onboarding
-            console.log('🚀 [AUTH-PAGE] Redirecting to onboarding...')
-            router.push('/onboarding')
+            // 5. Fetch user data to determine redirect destination
+            console.log('👤 [AUTH-PAGE] Fetching user data to determine redirect...')
+            try {
+              const user = await authAPI.getMe()
+              console.log('✅ [AUTH-PAGE] User data fetched:', { 
+                email: user.email, 
+                businessName: user.businessName,
+                businessSlug: user.businessSlug 
+              })
+              
+              // Redirect based on onboarding status
+              if (user.businessSlug) {
+                console.log('🚀 [AUTH-PAGE] Redirecting to dashboard:', `/dashboard/${user.businessSlug}`)
+                router.push(`/dashboard/${user.businessSlug}`)
+              } else {
+                console.log('🚀 [AUTH-PAGE] Redirecting to onboarding (no business set up)')
+                router.push('/onboarding')
+              }
+            } catch (userError) {
+              console.error('❌ [AUTH-PAGE] Failed to fetch user, redirecting to onboarding:', userError)
+              router.push('/onboarding')
+            }
           } catch (error) {
             console.error('❌ [AUTH-PAGE] Error processing auth callback:', error)
             setIsProcessingCallback(false)
+            setAuthError('Failed to process authentication. Please try again.')
           }
         }
       }
     }
 
-    handleVerificationCallback()
+    handleAuthCallback()
   }, [searchParams, router])
 
   const handleAuthSuccess = (user: User, isNewUser?: boolean) => {
@@ -116,23 +149,20 @@ function AuthPageContent() {
       userId: user.id,
       email: user.email,
       isNewUser,
-      hasBusinessName: !!user.businessName
+      businessName: user.businessName,
+      businessSlug: user.businessSlug
     })
     
-    console.log('🔍 [AUTH-PAGE] Debug - user.businessName:', user.businessName)
-    console.log('🔍 [AUTH-PAGE] Debug - isNewUser:', isNewUser)
-    console.log('🔍 [AUTH-PAGE] Debug - !user.businessName:', !user.businessName)
-    console.log('🔍 [AUTH-PAGE] Debug - condition result:', isNewUser || !user.businessName)
-    
-    // Check if user needs onboarding
+    // Check if user needs onboarding or can go to dashboard
     if (isNewUser || !user.businessName) {
       console.log('📝 [AUTH-PAGE] Redirecting to onboarding')
-      console.log('🔍 [AUTH-PAGE] About to call router.push("/onboarding")')
       router.push('/onboarding')
-      console.log('🔍 [AUTH-PAGE] router.push("/onboarding") called')
+    } else if (user.businessSlug) {
+      console.log('🚀 [AUTH-PAGE] Redirecting to dashboard:', `/dashboard/${user.businessSlug}`)
+      router.push(`/dashboard/${user.businessSlug}`)
     } else {
-      console.log('🏠 [AUTH-PAGE] Redirecting to home (will route to dashboard)')
-      router.push('/')
+      console.log('📝 [AUTH-PAGE] No businessSlug, redirecting to onboarding')
+      router.push('/onboarding')
     }
   }
 
@@ -162,6 +192,36 @@ function AuthPageContent() {
           setResetPasswordError(message)
         }}
       />
+    )
+  }
+
+  // Show auth error if one occurred (e.g., expired link)
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="w-16 h-16 bg-[var(--chidi-danger)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-[var(--chidi-danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-[var(--chidi-text-primary)] mb-2">
+            Link Expired or Invalid
+          </h1>
+          <p className="text-[var(--chidi-text-secondary)] mb-8">
+            {authError}
+          </p>
+          <button
+            onClick={() => {
+              setAuthError(null)
+              router.push('/auth?tab=signin')
+            }}
+            className="w-full py-3 px-4 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] font-medium rounded-xl transition-colors"
+          >
+            Back to Sign In
+          </button>
+        </div>
+      </div>
     )
   }
 
