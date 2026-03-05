@@ -1,7 +1,8 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback } from "react"
-import { Send, History, Loader2 } from "lucide-react"
+import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown } from "lucide-react"
+import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useConversation } from "@/hooks/use-conversation"
@@ -21,11 +22,58 @@ interface CopilotViewProps {
   products?: DisplayProduct[]
 }
 
-const PROMPT_CHIPS = [
-  "What sold best this week?",
-  "What should I restock?",
-  "Any customers to follow up with?",
-  "Show me today's summary",
+interface PromptCategory {
+  id: string
+  label: string
+  icon: LucideIcon
+  prompts: string[]
+}
+
+const PROMPT_CATEGORIES: PromptCategory[] = [
+  {
+    id: "inventory",
+    label: "Review my inventory",
+    icon: Package,
+    prompts: [
+      "What should I restock soon?",
+      "How much is my total inventory worth?",
+      "Am I overstocked on anything?",
+      "Show me everything in a category",
+    ],
+  },
+  {
+    id: "strategy",
+    label: "Help with pricing",
+    icon: TrendingUp,
+    prompts: [
+      "What's my highest-margin product?",
+      "Is my inventory mix balanced?",
+      "Help me think about pricing",
+      "What would you focus on if this was your shop?",
+    ],
+  },
+  {
+    id: "customers",
+    label: "Understand my customers",
+    icon: MessageCircle,
+    prompts: [
+      "What are customers asking about on WhatsApp?",
+      "Any repeat customers I should know about?",
+      "What product questions come up most?",
+      "Help me draft a reply about our return policy",
+    ],
+  },
+  {
+    id: "memory",
+    label: "What have you learned?",
+    icon: Brain,
+    prompts: [
+      "What patterns have you noticed in my business?",
+      "What have you learned about my business so far?",
+      "What did we last discuss?",
+      "Any new insights since I was last here?",
+    ],
+  },
 ]
 
 // Loading messages that rotate while waiting for AI response
@@ -58,6 +106,7 @@ export function CopilotView({
   const [inputValue, setInputValue] = useState("")
   const [showHistory, setShowHistory] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0])
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const messageIndexRef = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -229,25 +278,59 @@ export function CopilotView({
           <Image
             src="/logo.png"
             alt="Chidi"
-            width={64}
-            height={64}
-            className="mb-3"
+            width={88}
+            height={88}
+            className="mb-2 drop-shadow-md mix-blend-multiply"
           />
-          <p className="text-sm text-[var(--chidi-text-secondary)] text-center mb-8 max-w-xs">
-            Your AI business assistant for inventory, orders, and customers.
+          <p className="text-base font-medium text-[var(--chidi-text-primary)] text-center mb-6 leading-relaxed tracking-wide">
+            Your business companion<br />that learns and grows with you.
           </p>
 
-          {/* Prompt chips */}
-          <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
-            {PROMPT_CHIPS.map((prompt) => (
-              <button
-                key={prompt}
-                onClick={() => handlePromptChipClick(prompt)}
-                className="px-4 py-3 bg-white border border-[var(--chidi-border-subtle)] rounded-xl text-sm text-[var(--chidi-text-primary)] text-left hover:border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface-elevated)] transition-colors"
-              >
-                {prompt}
-              </button>
-            ))}
+          {/* Prompt categories */}
+          <div className="w-full max-w-sm flex flex-col gap-1">
+            {PROMPT_CATEGORIES.map((category) => {
+              const Icon = category.icon
+              const isExpanded = expandedCategory === category.id
+              return (
+                <div key={category.id} className="flex flex-col">
+                  <button
+                    onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
+                    className="flex items-center gap-2 px-2 py-2 rounded-lg text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors group"
+                  >
+                    <Icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm flex-1 text-left">
+                      {category.label}
+                    </span>
+                    <ChevronDown 
+                      className={cn(
+                        "w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-all duration-200",
+                        isExpanded && "rotate-180"
+                      )} 
+                    />
+                  </button>
+                  <div
+                    className={cn(
+                      "grid transition-all duration-200 ease-out",
+                      isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                    )}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="flex flex-col gap-0.5 pt-1 ml-6">
+                        {category.prompts.map((prompt) => (
+                          <button
+                            key={prompt}
+                            onClick={() => handlePromptChipClick(prompt)}
+                            className="text-sm text-[var(--chidi-text-secondary)] text-left py-1.5 px-2 rounded-lg hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 

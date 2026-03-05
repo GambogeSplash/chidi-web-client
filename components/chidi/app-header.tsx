@@ -51,8 +51,8 @@ export function AppHeader({
         <Image
           src="/logo.png"
           alt="Chidi"
-          width={36}
-          height={36}
+          width={48}
+          height={48}
         />
         
         <div className="flex items-center gap-1">
