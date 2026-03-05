@@ -278,11 +278,11 @@ export function CopilotView({
           <Image
             src="/logo.png"
             alt="Chidi"
-            width={88}
-            height={88}
+            width={200}
+            height={200}
             className="mb-2 drop-shadow-md mix-blend-multiply"
           />
-          <p className="text-base font-medium text-[var(--chidi-text-primary)] text-center mb-6 leading-relaxed tracking-wide">
+          <p className="text-lg font-medium text-[var(--chidi-text-primary)] text-center mb-6 leading-relaxed tracking-wide">
             Your business companion<br />that learns and grows with you.
           </p>
 
@@ -298,7 +298,7 @@ export function CopilotView({
                     className="flex items-center gap-2 px-2 py-2 rounded-lg text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors group"
                   >
                     <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm flex-1 text-left">
+                    <span className="text-base flex-1 text-left">
                       {category.label}
                     </span>
                     <ChevronDown 
@@ -320,7 +320,7 @@ export function CopilotView({
                           <button
                             key={prompt}
                             onClick={() => handlePromptChipClick(prompt)}
-                            className="text-sm text-[var(--chidi-text-secondary)] text-left py-1.5 px-2 rounded-lg hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors"
+                            className="text-base text-[var(--chidi-text-secondary)] text-left py-1.5 px-2 rounded-lg hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors"
                           >
                             {prompt}
                           </button>
