@@ -351,12 +351,12 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
           <Image
             src="/logo.png"
             alt="Chidi"
-            width={80}
-            height={80}
+            width={200}
+            height={200}
             className="mx-auto mb-3"
             priority
           />
-          <p className="text-[var(--chidi-text-secondary)] text-sm">
+          <p className="text-base font-medium text-[var(--chidi-text-primary)] tracking-wide">
             Your AI business assistant for WhatsApp & Instagram
           </p>
         </div>
