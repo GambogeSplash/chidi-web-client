@@ -45,7 +45,7 @@ import {
   getChannelInfo,
   formatCustomerId,
 } from "@/lib/api/messaging"
-import { WhatsAppChat } from "./whatsapp-chat"
+import { ChannelChat } from "./channel-chat"
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/channel-icons"
 import { cn } from "@/lib/utils"
 
@@ -416,10 +416,10 @@ export function InboxView() {
   // Show chat view if conversation is selected
   if (selectedConversation) {
     return (
-      <WhatsAppChat 
-        conversation={selectedConversation as any}
+      <ChannelChat 
+        conversation={selectedConversation}
         onBack={handleBackToList}
-        onConversationUpdate={(updated: any) => {
+        onConversationUpdate={(updated) => {
           setSelectedConversation(updated)
           setConversations(prev => 
             prev.map(c => c.id === updated.id ? updated : c)
