@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback } from "react"
-import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown } from "lucide-react"
+import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -282,8 +282,8 @@ export function CopilotView({
             height={200}
             className="mb-2 drop-shadow-md mix-blend-multiply"
           />
-          <p className="text-lg font-medium text-[var(--chidi-text-primary)] text-center mb-6 leading-relaxed tracking-wide">
-            Your business companion<br />that learns and grows with you.
+          <p className="text-2xl font-semibold text-[var(--chidi-text-primary)] text-center mb-6">
+            How can I help today?
           </p>
 
           {/* Prompt categories */}
@@ -384,8 +384,16 @@ export function CopilotView({
   // Conversation state
   return (
     <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
-      {/* History button - top right corner */}
-      <div className="absolute top-4 right-4 z-10">
+      {/* Top right controls */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleNewConversation}
+          className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/80 backdrop-blur-sm rounded-full shadow-sm"
+        >
+          <Plus className="w-5 h-5" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
