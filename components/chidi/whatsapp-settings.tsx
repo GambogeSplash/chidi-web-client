@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { 
-  MessageCircle, 
   Wifi, 
   Bot, 
   Clock, 
@@ -25,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { WhatsAppIcon } from '@/components/ui/channel-icons'
 import { 
   whatsappAPI, 
   type WhatsAppStatus
@@ -150,8 +150,8 @@ export function WhatsAppSettings() {
           className="w-full flex items-center justify-between p-3 rounded-lg border border-[var(--chidi-border-subtle)] hover:bg-[var(--chidi-surface)] transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
-              <MessageCircle className="w-5 h-5 text-green-600" />
+            <div className="w-10 h-10 rounded-full bg-[#25D366]/10 flex items-center justify-center">
+              <WhatsAppIcon size={20} className="text-[#25D366]" />
             </div>
             <div className="text-left">
               <p className="font-medium text-sm text-[var(--chidi-text-primary)]">WhatsApp</p>
@@ -159,7 +159,7 @@ export function WhatsAppSettings() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
+            <span className="text-xs font-medium text-[#25D366] bg-[#25D366]/10 px-2 py-1 rounded">
               Connect
             </span>
             <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
@@ -223,10 +223,10 @@ export function WhatsAppSettings() {
       )}
 
       {/* Connection status row */}
-      <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-100">
+      <div className="flex items-center justify-between p-3 rounded-lg bg-[#25D366]/10 border border-[#25D366]/20">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-            <Wifi className="w-5 h-5 text-green-600" />
+          <div className="w-10 h-10 rounded-full bg-[#25D366]/20 flex items-center justify-center">
+            <WhatsAppIcon size={20} className="text-[#25D366]" />
           </div>
           <div>
             <p className="font-medium text-sm text-[var(--chidi-text-primary)]">WhatsApp</p>
@@ -234,8 +234,8 @@ export function WhatsAppSettings() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-green-600" />
-          <span className="text-xs font-medium text-green-600">Connected</span>
+          <CheckCircle2 className="w-4 h-4 text-[#25D366]" />
+          <span className="text-xs font-medium text-[#25D366]">Connected</span>
         </div>
       </div>
 

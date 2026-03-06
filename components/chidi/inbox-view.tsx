@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { 
   MessageSquare, 
   User, 
@@ -11,12 +11,14 @@ import {
   Search,
   RefreshCw,
   MessageCircle,
-  ChevronRight
+  ChevronRight,
+  Send
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Select,
   SelectContent,
@@ -35,60 +37,88 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { 
-  whatsappAPI, 
-  type WhatsAppConversation, 
-  type WhatsAppConversationStatus,
-  type WhatsAppStatus
-} from "@/lib/api/whatsapp"
+  messagingAPI, 
+  type ChannelConversation, 
+  type ConversationStatus,
+  type ChannelType,
+  type ConnectionListResponse,
+  getChannelInfo,
+  formatCustomerId,
+} from "@/lib/api/messaging"
 import { WhatsAppChat } from "./whatsapp-chat"
+import { WhatsAppIcon, TelegramIcon } from "@/components/ui/channel-icons"
 import { cn } from "@/lib/utils"
 
 export function InboxView() {
-  const [conversations, setConversations] = useState<WhatsAppConversation[]>([])
+  const [conversations, setConversations] = useState<ChannelConversation[]>([])
   const [loading, setLoading] = useState(true)
   const [needsHumanCount, setNeedsHumanCount] = useState(0)
-  const [selectedConversation, setSelectedConversation] = useState<WhatsAppConversation | null>(null)
+  const [selectedConversation, setSelectedConversation] = useState<ChannelConversation | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [channelFilter, setChannelFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   
-  // WhatsApp connection state
-  const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus | null>(null)
+  // Connection state
+  const [connections, setConnections] = useState<ConnectionListResponse | null>(null)
   const [checkingConnection, setCheckingConnection] = useState(true)
+  const [showChannelPicker, setShowChannelPicker] = useState(false)
   const [showConnectDialog, setShowConnectDialog] = useState(false)
+  const [connectChannelType, setConnectChannelType] = useState<ChannelType | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [botToken, setBotToken] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
 
+  // Available channels configuration
+  const availableChannels: { type: ChannelType; name: string; icon: React.ReactNode; color: string; description: string }[] = [
+    { type: 'WHATSAPP', name: 'WhatsApp', icon: <WhatsAppIcon size={24} className="text-[#25D366]" />, color: '#25D366', description: 'Connect via Twilio' },
+    { type: 'TELEGRAM', name: 'Telegram', icon: <TelegramIcon size={24} className="text-[#0088CC]" />, color: '#0088CC', description: 'Connect your bot' },
+  ]
+
+  const hasAnyConnection = connections && connections.total > 0
+
   useEffect(() => {
-    checkWhatsAppConnection()
+    checkConnections()
   }, [])
 
   useEffect(() => {
-    if (whatsappStatus?.connected) {
+    if (hasAnyConnection) {
       loadConversations()
     }
-  }, [statusFilter, whatsappStatus?.connected])
+  }, [statusFilter, channelFilter, hasAnyConnection])
 
-  const checkWhatsAppConnection = async () => {
+  const checkConnections = async () => {
     try {
       setCheckingConnection(true)
-      const status = await whatsappAPI.getStatus()
-      setWhatsappStatus(status)
-      if (status.connected) {
+      const data = await messagingAPI.getConnections()
+      setConnections(data)
+      if (data.total > 0) {
         setLoading(true)
       }
     } catch (err) {
-      console.error("Failed to check WhatsApp status:", err)
-      // Assume not connected if we can't check
-      setWhatsappStatus({ connected: false, ai_enabled: false, after_hours_only: false })
+      console.error("Failed to check connections:", err)
+      setConnections({ connections: [], total: 0 })
     } finally {
       setCheckingConnection(false)
     }
   }
 
+  const handleSelectChannel = (channelType: ChannelType) => {
+    setConnectChannelType(channelType)
+    setShowChannelPicker(false)
+    setShowConnectDialog(true)
+    setConnectError(null)
+  }
+
   const handleConnect = async () => {
-    if (!phoneNumber) {
+    if (!connectChannelType) return
+    
+    if (connectChannelType === 'WHATSAPP' && !phoneNumber) {
       setConnectError('Please enter your WhatsApp number')
+      return
+    }
+    if (connectChannelType === 'TELEGRAM' && !botToken) {
+      setConnectError('Please enter your Telegram bot token')
       return
     }
 
@@ -96,29 +126,45 @@ export function InboxView() {
       setConnecting(true)
       setConnectError(null)
       
-      await whatsappAPI.connect({
-        twilio_phone_number: phoneNumber,
-        ai_enabled: true,
-        after_hours_only: false,
-      })
+      if (connectChannelType === 'WHATSAPP') {
+        await messagingAPI.connectWhatsApp({
+          phone_number: phoneNumber,
+        })
+      } else if (connectChannelType === 'TELEGRAM') {
+        await messagingAPI.connectTelegram(botToken)
+      }
       
-      const status = await whatsappAPI.getStatus()
-      setWhatsappStatus(status)
+      const data = await messagingAPI.getConnections()
+      setConnections(data)
       setShowConnectDialog(false)
+      setConnectChannelType(null)
       setPhoneNumber('')
+      setBotToken('')
     } catch (err: any) {
-      console.error('Failed to connect WhatsApp:', err)
-      setConnectError(err.response?.data?.detail || 'Failed to connect WhatsApp')
+      console.error('Failed to connect channel:', err)
+      setConnectError(err.response?.data?.detail || `Failed to connect ${connectChannelType}`)
     } finally {
       setConnecting(false)
     }
   }
 
+  const handleCloseConnectDialog = () => {
+    setShowConnectDialog(false)
+    setConnectChannelType(null)
+    setConnectError(null)
+    setPhoneNumber('')
+    setBotToken('')
+  }
+
   const loadConversations = async () => {
     try {
       setLoading(true)
-      const filter = statusFilter !== "all" ? statusFilter as WhatsAppConversationStatus : undefined
-      const data = await whatsappAPI.getConversations(filter)
+      const filter = statusFilter !== "all" ? statusFilter as ConversationStatus : undefined
+      const channel = channelFilter !== "all" ? channelFilter as ChannelType : undefined
+      const data = await messagingAPI.getConversations({
+        status: filter,
+        channelType: channel,
+      })
       setConversations(data.conversations)
       setNeedsHumanCount(data.needs_human_count)
     } catch (err) {
@@ -128,7 +174,7 @@ export function InboxView() {
     }
   }
 
-  const handleConversationClick = (conversation: WhatsAppConversation) => {
+  const handleConversationClick = (conversation: ChannelConversation) => {
     setSelectedConversation(conversation)
   }
 
@@ -137,7 +183,7 @@ export function InboxView() {
     loadConversations()
   }
 
-  const getStatusBadge = (status: WhatsAppConversationStatus) => {
+  const getStatusBadge = (status: ConversationStatus) => {
     switch (status) {
       case "NEEDS_HUMAN":
         return (
@@ -163,8 +209,25 @@ export function InboxView() {
     }
   }
 
-  const formatPhoneNumber = (phone: string) => {
-    return phone.replace("whatsapp:", "")
+  const getChannelBadge = (channelType?: ChannelType) => {
+    if (!channelType) return null
+    const info = getChannelInfo(channelType)
+    
+    const IconComponent = channelType === 'WHATSAPP' 
+      ? <WhatsAppIcon size={10} className="mr-0.5" style={{ color: info.color }} />
+      : channelType === 'TELEGRAM'
+      ? <TelegramIcon size={10} className="mr-0.5" style={{ color: info.color }} />
+      : null
+    
+    return (
+      <span 
+        className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full"
+        style={{ backgroundColor: `${info.color}20`, color: info.color }}
+      >
+        {IconComponent}
+        {info.name}
+      </span>
+    )
   }
 
   const formatTime = (dateString: string) => {
@@ -184,10 +247,10 @@ export function InboxView() {
 
   const filteredConversations = conversations.filter(conv => {
     if (!searchQuery) return true
-    const phone = formatPhoneNumber(conv.customer_phone).toLowerCase()
+    const customerId = formatCustomerId(conv.customer_id, conv.channel_type).toLowerCase()
     const name = (conv.customer_name || "").toLowerCase()
     const query = searchQuery.toLowerCase()
-    return phone.includes(query) || name.includes(query)
+    return customerId.includes(query) || name.includes(query)
   })
 
   // Show loading state while checking connection
@@ -199,8 +262,8 @@ export function InboxView() {
     )
   }
 
-  // Show connect WhatsApp state if not connected
-  if (!whatsappStatus?.connected) {
+  // Show connect channel state if no connections
+  if (!hasAnyConnection) {
     return (
       <div className="flex-1 flex flex-col bg-white">
         {/* Header section */}
@@ -209,39 +272,82 @@ export function InboxView() {
           <p className="text-xs text-[var(--chidi-text-muted)]">0 conversations</p>
         </div>
 
-        {/* Connect WhatsApp CTA */}
+        {/* Connect Channel CTA */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-          <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-6">
-            <MessageCircle className="w-10 h-10 text-green-600" />
+          <div className="w-20 h-20 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center mb-6">
+            <MessageCircle className="w-10 h-10 text-[var(--chidi-accent)]" />
           </div>
           
           <h3 className="text-xl font-semibold text-[var(--chidi-text-primary)] mb-2 text-center">
-            Connect WhatsApp
+            Connect a Messaging Channel
           </h3>
           <p className="text-sm text-[var(--chidi-text-muted)] text-center mb-8 max-w-xs">
-            Connect your WhatsApp Business number to start receiving and managing customer messages.
+            Connect a messaging platform to start receiving and managing customer messages.
           </p>
 
           <Button
-            onClick={() => setShowConnectDialog(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 h-11 rounded-xl font-medium"
+            onClick={() => setShowChannelPicker(true)}
+            className="bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-white px-6 h-11 rounded-xl font-medium"
           >
             <MessageCircle className="w-4 h-4 mr-2" />
-            Connect WhatsApp
+            Connect Channel
           </Button>
 
           <p className="text-xs text-[var(--chidi-text-muted)] mt-4 text-center max-w-xs">
-            You can also connect WhatsApp later from Settings → Integrations
+            You can also connect channels later from Settings
           </p>
         </div>
 
-        {/* Connect Dialog */}
-        <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
+        {/* Channel Picker Dialog */}
+        <Dialog open={showChannelPicker} onOpenChange={setShowChannelPicker}>
+          <DialogContent className="bg-white border-[var(--chidi-border-subtle)] sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-[var(--chidi-text-primary)]">
+                Select a Channel
+              </DialogTitle>
+              <DialogDescription className="text-[var(--chidi-text-secondary)]">
+                Choose a messaging platform to connect
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4 space-y-2">
+              {availableChannels.map((channel) => (
+                <button
+                  key={channel.type}
+                  onClick={() => handleSelectChannel(channel.type)}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface)] transition-colors text-left"
+                >
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                    style={{ backgroundColor: `${channel.color}15` }}
+                  >
+                    {channel.icon}
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-medium text-[var(--chidi-text-primary)]">{channel.name}</div>
+                    <div className="text-sm text-[var(--chidi-text-muted)]">{channel.description}</div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+                </button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Connect Form Dialog */}
+        <Dialog open={showConnectDialog} onOpenChange={handleCloseConnectDialog}>
           <DialogContent className="bg-white border-[var(--chidi-border-subtle)]">
             <DialogHeader>
-              <DialogTitle className="text-[var(--chidi-text-primary)]">Connect WhatsApp</DialogTitle>
+              <DialogTitle className="text-[var(--chidi-text-primary)]">
+                Connect {connectChannelType === 'WHATSAPP' ? 'WhatsApp' : connectChannelType === 'TELEGRAM' ? 'Telegram' : ''}
+              </DialogTitle>
               <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                Enter your WhatsApp Business phone number to start receiving messages.
+                {connectChannelType === 'WHATSAPP' 
+                  ? 'Enter your WhatsApp Business phone number to start receiving messages.'
+                  : connectChannelType === 'TELEGRAM'
+                  ? 'Enter your Telegram bot token to start receiving messages.'
+                  : ''
+                }
               </DialogDescription>
             </DialogHeader>
             
@@ -253,32 +359,49 @@ export function InboxView() {
             )}
 
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="phoneNumber" className="text-[var(--chidi-text-primary)]">WhatsApp Number</Label>
-                <Input
-                  id="phoneNumber"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+1234567890"
-                  className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] h-11"
-                />
-                <p className="text-xs text-[var(--chidi-text-muted)]">
-                  Your Twilio WhatsApp-enabled phone number (with country code)
-                </p>
-              </div>
+              {connectChannelType === 'WHATSAPP' && (
+                <div className="space-y-2">
+                  <Label htmlFor="phoneNumber" className="text-[var(--chidi-text-primary)]">WhatsApp Number</Label>
+                  <Input
+                    id="phoneNumber"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+1234567890"
+                    className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] h-11"
+                  />
+                  <p className="text-xs text-[var(--chidi-text-muted)]">
+                    Your Twilio WhatsApp-enabled phone number (with country code)
+                  </p>
+                </div>
+              )}
+              {connectChannelType === 'TELEGRAM' && (
+                <div className="space-y-2">
+                  <Label htmlFor="botToken" className="text-[var(--chidi-text-primary)]">Bot Token</Label>
+                  <Input
+                    id="botToken"
+                    value={botToken}
+                    onChange={(e) => setBotToken(e.target.value)}
+                    placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                    className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] h-11 font-mono text-sm"
+                  />
+                  <p className="text-xs text-[var(--chidi-text-muted)]">
+                    Get this from @BotFather on Telegram
+                  </p>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button 
                 variant="outline" 
-                onClick={() => setShowConnectDialog(false)}
+                onClick={handleCloseConnectDialog}
                 className="border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)]"
               >
                 Cancel
               </Button>
               <Button 
                 onClick={handleConnect}
-                disabled={connecting || !phoneNumber}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={connecting || (connectChannelType === 'WHATSAPP' ? !phoneNumber : connectChannelType === 'TELEGRAM' ? !botToken : true)}
+                className="bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-white"
               >
                 {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Connect
@@ -294,9 +417,9 @@ export function InboxView() {
   if (selectedConversation) {
     return (
       <WhatsAppChat 
-        conversation={selectedConversation} 
+        conversation={selectedConversation as any}
         onBack={handleBackToList}
-        onConversationUpdate={(updated) => {
+        onConversationUpdate={(updated: any) => {
           setSelectedConversation(updated)
           setConversations(prev => 
             prev.map(c => c.id === updated.id ? updated : c)
@@ -305,6 +428,9 @@ export function InboxView() {
       />
     )
   }
+
+  // Get connected channel types for tabs
+  const connectedChannels = connections?.connections.map(c => c.channel_type) || []
 
   return (
     <div className="flex-1 flex flex-col bg-white">
@@ -330,6 +456,29 @@ export function InboxView() {
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
           </Button>
         </div>
+
+        {/* Channel filter tabs */}
+        {connectedChannels.length > 1 && (
+          <Tabs value={channelFilter} onValueChange={setChannelFilter} className="mb-3">
+            <TabsList className="h-8 bg-[var(--chidi-surface)] p-0.5">
+              <TabsTrigger value="all" className="h-7 text-xs px-3 data-[state=active]:bg-white">
+                All
+              </TabsTrigger>
+              {connectedChannels.map(channel => {
+                const info = getChannelInfo(channel)
+                return (
+                  <TabsTrigger 
+                    key={channel} 
+                    value={channel} 
+                    className="h-7 text-xs px-3 data-[state=active]:bg-white"
+                  >
+                    {info.icon} {info.name}
+                  </TabsTrigger>
+                )
+              })}
+            </TabsList>
+          </Tabs>
+        )}
 
         {/* Search and filter */}
         <div className="flex gap-2">
@@ -399,7 +548,7 @@ export function InboxView() {
                     <div className="flex items-center justify-between mb-0.5">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="font-medium text-sm text-[var(--chidi-text-primary)] truncate">
-                          {conversation.customer_name || formatPhoneNumber(conversation.customer_phone)}
+                          {conversation.customer_name || formatCustomerId(conversation.customer_id, conversation.channel_type)}
                         </span>
                         {conversation.unread_count > 0 && (
                           <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] text-[10px] font-medium flex items-center justify-center">
@@ -415,11 +564,12 @@ export function InboxView() {
                     
                     {conversation.customer_name && (
                       <p className="text-xs text-[var(--chidi-text-muted)] truncate mb-1">
-                        {formatPhoneNumber(conversation.customer_phone)}
+                        {formatCustomerId(conversation.customer_id, conversation.channel_type)}
                       </p>
                     )}
                     
                     <div className="flex items-center gap-2">
+                      {getChannelBadge(conversation.channel_type)}
                       {getStatusBadge(conversation.status)}
                       {conversation.last_intent && conversation.last_intent !== "UNKNOWN" && (
                         <span className="text-[10px] text-[var(--chidi-text-muted)]">

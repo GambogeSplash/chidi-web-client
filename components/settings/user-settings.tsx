@@ -31,6 +31,7 @@ import {
   Brain
 } from "lucide-react"
 import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
+import { TelegramSettings } from "@/components/chidi/telegram-settings"
 import { CategorySettings } from "@/components/settings/category-settings"
 import { PolicySettings } from "@/components/settings/policy-settings"
 import { MemorySettings } from "@/components/settings/memory-settings"
@@ -452,6 +453,11 @@ export function UserSettings({ onClose }: UserSettingsProps) {
             {/* WhatsApp */}
             <div className="p-4">
               <WhatsAppSettings />
+            </div>
+
+            {/* Telegram */}
+            <div className="p-4">
+              <TelegramSettings />
             </div>
             
             {/* Instagram - Coming Soon */}
