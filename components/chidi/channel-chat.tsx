@@ -24,7 +24,9 @@ import {
   getChannelInfo,
   formatCustomerId,
 } from '@/lib/api/messaging'
+import { ordersAPI, type Order } from '@/lib/api/orders'
 import { WhatsAppIcon, TelegramIcon } from '@/components/ui/channel-icons'
+import { OrderVerificationWidget } from '@/components/chidi/order-verification-widget'
 
 interface ChannelChatProps {
   conversation: ChannelConversation
@@ -38,11 +40,13 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
   const [sending, setSending] = useState(false)
   const [resolving, setResolving] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [pendingOrder, setPendingOrder] = useState<Order | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadMessages()
     markAsRead()
+    loadPendingOrder()
   }, [conversation.id])
 
   useEffect(() => {
@@ -74,6 +78,32 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
     } catch (err) {
       console.error('Failed to mark as read:', err)
     }
+  }
+
+  const loadPendingOrder = async () => {
+    try {
+      const order = await ordersAPI.getOrderByConversation(
+        conversation.id,
+        'PENDING_PAYMENT'
+      )
+      setPendingOrder(order)
+    } catch (err) {
+      console.error('Failed to load pending order:', err)
+      setPendingOrder(null)
+    }
+  }
+
+  const handleConfirmOrder = async () => {
+    if (!pendingOrder) return
+    await ordersAPI.confirmOrder(pendingOrder.id)
+    setPendingOrder(null)
+    loadMessages()
+  }
+
+  const handleRejectOrder = async (reason?: string) => {
+    if (!pendingOrder) return
+    await ordersAPI.rejectOrder(pendingOrder.id, reason)
+    loadMessages()
   }
 
   const handleSendReply = async () => {
@@ -341,13 +371,28 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Order Verification Widget */}
+      {conversation.status === 'NEEDS_HUMAN' && pendingOrder && (
+        <div className="px-4 pt-3">
+          <OrderVerificationWidget
+            order={pendingOrder}
+            onConfirm={handleConfirmOrder}
+            onReject={handleRejectOrder}
+          />
+        </div>
+      )}
+
       {/* Action Bar for NEEDS_HUMAN status */}
       {conversation.status === 'NEEDS_HUMAN' && (
         <div className="px-4 py-3 bg-[var(--chidi-warning)]/5 border-t border-[var(--chidi-warning)]/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-[var(--chidi-warning)]">
               <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm">This conversation needs human attention</span>
+              <span className="text-sm">
+                {pendingOrder 
+                  ? 'Verify payment above or respond manually'
+                  : 'This conversation needs human attention'}
+              </span>
             </div>
             <div className="flex gap-2">
               <Button

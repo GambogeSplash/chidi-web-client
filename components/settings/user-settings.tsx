@@ -28,7 +28,9 @@ import {
   Settings2,
   Bot,
   ScrollText,
-  Brain
+  Brain,
+  Landmark,
+  CreditCard
 } from "lucide-react"
 import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
 import { TelegramSettings } from "@/components/chidi/telegram-settings"
@@ -40,7 +42,8 @@ import {
   type UserPreferences, 
   type AccountInfo, 
   type NotificationPreferences,
-  type BusinessPreferences 
+  type BusinessPreferences,
+  type PaymentSettings as PaymentSettingsType
 } from "@/lib/api/settings"
 import { useRouter } from "next/navigation"
 import {
@@ -112,6 +115,22 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(10)
   const [isSavingThreshold, setIsSavingThreshold] = useState(false)
 
+  // Payment settings state
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettingsType>({
+    bank_name: null,
+    account_name: null,
+    account_number: null,
+    payment_instructions: null,
+  })
+  const [paymentForm, setPaymentForm] = useState({
+    bank_name: "",
+    account_name: "",
+    account_number: "",
+    payment_instructions: "",
+  })
+  const [isSavingPayment, setIsSavingPayment] = useState(false)
+
   // Password state
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -166,6 +185,19 @@ export function UserSettings({ onClose }: UserSettingsProps) {
           setLowStockThreshold(bizPrefs.low_stock_threshold)
         } catch (bizErr) {
           console.warn('Could not load business preferences:', bizErr)
+        }
+
+        try {
+          const paySettings = await settingsAPI.getPaymentSettings(storedBusinessId)
+          setPaymentSettings(paySettings)
+          setPaymentForm({
+            bank_name: paySettings.bank_name || "",
+            account_name: paySettings.account_name || "",
+            account_number: paySettings.account_number || "",
+            payment_instructions: paySettings.payment_instructions || "",
+          })
+        } catch (payErr) {
+          console.warn('Could not load payment settings:', payErr)
         }
       }
     } catch (err: any) {
@@ -233,6 +265,38 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       setError(err.message || "Failed to update low stock threshold")
     } finally {
       setIsSavingThreshold(false)
+    }
+  }
+
+  const handleSavePaymentSettings = async () => {
+    const storedBusinessId = typeof window !== 'undefined' 
+      ? localStorage.getItem('chidi_business_id') 
+      : null
+    
+    if (!storedBusinessId) {
+      setError("Business ID not found")
+      return
+    }
+
+    setIsSavingPayment(true)
+    setError("")
+    setSuccess("")
+
+    try {
+      const updated = await settingsAPI.updatePaymentSettings(storedBusinessId, {
+        bank_name: paymentForm.bank_name || null,
+        account_name: paymentForm.account_name || null,
+        account_number: paymentForm.account_number || null,
+        payment_instructions: paymentForm.payment_instructions || null,
+      })
+      setPaymentSettings(updated)
+      setSuccess("Payment settings updated successfully")
+      setShowPaymentModal(false)
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (err: any) {
+      setError(err.message || "Failed to update payment settings")
+    } finally {
+      setIsSavingPayment(false)
     }
   }
 
@@ -520,6 +584,36 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
             </button>
           </div>
+        </section>
+
+        <Separator className="bg-[var(--chidi-border-subtle)]" />
+
+        {/* ═══════════════════════════════════════════════════════════════
+            PAYMENT SETTINGS SECTION
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="py-6">
+          <div className="flex items-start gap-2 mb-4">
+            <CreditCard className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Payment Settings</span>
+          </div>
+
+          <button
+            onClick={() => setShowPaymentModal(true)}
+            className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Landmark className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+              <div className="text-left">
+                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Bank Details</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">
+                  {paymentSettings.bank_name && paymentSettings.account_number
+                    ? `${paymentSettings.bank_name} - ${paymentSettings.account_number}`
+                    : "Set up your payment details for orders"}
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+          </button>
         </section>
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
@@ -923,6 +1017,92 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               No business selected. Please set up your business first.
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          PAYMENT SETTINGS MODAL
+      ═══════════════════════════════════════════════════════════════ */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Landmark className="w-5 h-5" />
+              Payment Settings
+            </DialogTitle>
+            <DialogDescription>
+              Set up your bank details to receive payments from customers
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="bank_name" className="text-sm text-[var(--chidi-text-secondary)]">Bank Name</Label>
+              <Input
+                id="bank_name"
+                value={paymentForm.bank_name}
+                onChange={(e) => setPaymentForm({ ...paymentForm, bank_name: e.target.value })}
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                placeholder="e.g., First Bank, GTBank"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="account_name" className="text-sm text-[var(--chidi-text-secondary)]">Account Name</Label>
+              <Input
+                id="account_name"
+                value={paymentForm.account_name}
+                onChange={(e) => setPaymentForm({ ...paymentForm, account_name: e.target.value })}
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                placeholder="Name on your bank account"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="account_number" className="text-sm text-[var(--chidi-text-secondary)]">Account Number</Label>
+              <Input
+                id="account_number"
+                value={paymentForm.account_number}
+                onChange={(e) => setPaymentForm({ ...paymentForm, account_number: e.target.value })}
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                placeholder="10-digit account number"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="payment_instructions" className="text-sm text-[var(--chidi-text-secondary)]">
+                Payment Instructions <span className="text-[var(--chidi-text-muted)]">(Optional)</span>
+              </Label>
+              <Input
+                id="payment_instructions"
+                value={paymentForm.payment_instructions}
+                onChange={(e) => setPaymentForm({ ...paymentForm, payment_instructions: e.target.value })}
+                className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                placeholder="e.g., Use your name as payment reference"
+              />
+              <p className="text-xs text-[var(--chidi-text-muted)]">
+                Additional instructions shown to customers when making payment
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button 
+                variant="outline"
+                onClick={() => setShowPaymentModal(false)}
+                className="border-[var(--chidi-border-default)]"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSavePaymentSettings}
+                disabled={isSavingPayment || !paymentForm.bank_name || !paymentForm.account_name || !paymentForm.account_number}
+                className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+              >
+                {isSavingPayment && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Payment Details
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

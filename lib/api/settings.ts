@@ -82,6 +82,21 @@ export interface UpdateBusinessPreferencesRequest {
   low_stock_threshold?: number
 }
 
+// === PAYMENT SETTINGS ===
+export interface PaymentSettings {
+  bank_name: string | null
+  account_name: string | null
+  account_number: string | null
+  payment_instructions: string | null
+}
+
+export interface UpdatePaymentSettingsRequest {
+  bank_name?: string | null
+  account_name?: string | null
+  account_number?: string | null
+  payment_instructions?: string | null
+}
+
 // === RESPONSES ===
 export interface SuccessResponse {
   success: boolean
@@ -358,6 +373,48 @@ export const settingsAPI = {
       return response
     } catch (error) {
       console.error('❌ [SETTINGS] Failed to update business preferences:', error)
+      throw error
+    }
+  },
+
+  // =========================================================================
+  // PAYMENT SETTINGS
+  // =========================================================================
+
+  /**
+   * Get payment settings (bank details for receiving customer payments)
+   */
+  async getPaymentSettings(businessId: string): Promise<PaymentSettings> {
+    console.log('💳 [SETTINGS] Fetching payment settings...')
+    try {
+      const response = await apiClient.get<PaymentSettings>(
+        `/api/business/${businessId}/payment-settings`
+      )
+      console.log('✅ [SETTINGS] Payment settings fetched:', response)
+      return response
+    } catch (error) {
+      console.error('❌ [SETTINGS] Failed to fetch payment settings:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Update payment settings
+   */
+  async updatePaymentSettings(
+    businessId: string, 
+    data: UpdatePaymentSettingsRequest
+  ): Promise<PaymentSettings> {
+    console.log('💳 [SETTINGS] Updating payment settings:', data)
+    try {
+      const response = await apiClient.put<PaymentSettings>(
+        `/api/business/${businessId}/payment-settings`,
+        data
+      )
+      console.log('✅ [SETTINGS] Payment settings updated:', response)
+      return response
+    } catch (error) {
+      console.error('❌ [SETTINGS] Failed to update payment settings:', error)
       throw error
     }
   }
