@@ -291,6 +291,7 @@ export const settingsAPI = {
         localStorage.removeItem('chidi_auth_token')
         localStorage.removeItem('chidi_refresh_token')
         localStorage.removeItem('chidi_inventory_id')
+        localStorage.removeItem('chidi_business_id')
       }
       
       console.log('✅ [SETTINGS] Logged out successfully')
@@ -301,6 +302,7 @@ export const settingsAPI = {
         localStorage.removeItem('chidi_auth_token')
         localStorage.removeItem('chidi_refresh_token')
         localStorage.removeItem('chidi_inventory_id')
+        localStorage.removeItem('chidi_business_id')
       }
       console.log('⚠️ [SETTINGS] Logout API failed but tokens cleared')
       return { success: true, message: 'Logged out locally' }
@@ -325,6 +327,7 @@ export const settingsAPI = {
         localStorage.removeItem('chidi_auth_token')
         localStorage.removeItem('chidi_refresh_token')
         localStorage.removeItem('chidi_inventory_id')
+        localStorage.removeItem('chidi_business_id')
       }
       
       console.log('✅ [SETTINGS] Logged out from all devices')

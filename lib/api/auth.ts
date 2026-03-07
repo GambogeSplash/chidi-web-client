@@ -1,6 +1,7 @@
 // Authentication API service
 import { apiClient } from './client'
 import { setStoredInventoryId, clearStoredInventoryId } from './products'
+import { setStoredBusinessId, clearStoredBusinessId } from './categories'
 
 export interface BusinessProfile {
   business_category?: string
@@ -134,13 +135,17 @@ export const authAPI = {
         expires_in: response.tokens.expires_in
       })
       
-      // Store tokens and inventory_id
+      // Store tokens, inventory_id, and business_id
       if (typeof window !== 'undefined') {
         localStorage.setItem('chidi_auth_token', response.tokens.access_token)
         localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
         if (response.inventory_id) {
           setStoredInventoryId(response.inventory_id)
           console.log(' [AUTH] Inventory ID stored:', response.inventory_id)
+        }
+        if (response.business_id) {
+          setStoredBusinessId(response.business_id)
+          console.log(' [AUTH] Business ID stored:', response.business_id)
         }
         console.log(' [AUTH] Tokens stored in localStorage')
       }
@@ -356,13 +361,17 @@ export const authAPI = {
     
     const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, customHeaders)
     
-    // Update stored tokens and inventory_id
+    // Update stored tokens, inventory_id, and business_id
     if (typeof window !== 'undefined') {
       localStorage.setItem('chidi_auth_token', response.tokens.access_token)
       localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
       if (response.inventory_id) {
         setStoredInventoryId(response.inventory_id)
         console.log(' [AUTH] Inventory ID stored after onboarding:', response.inventory_id)
+      }
+      if (response.business_id) {
+        setStoredBusinessId(response.business_id)
+        console.log(' [AUTH] Business ID stored after onboarding:', response.business_id)
       }
     }
     
@@ -375,6 +384,7 @@ export const authAPI = {
       localStorage.removeItem('chidi_auth_token')
       localStorage.removeItem('chidi_refresh_token')
       clearStoredInventoryId()
+      clearStoredBusinessId()
       // Clear any other cached data that might bypass onboarding
       localStorage.removeItem('chidi_user_data')
       localStorage.removeItem('chidi_onboarding_complete')

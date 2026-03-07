@@ -25,6 +25,15 @@ export function setStoredBusinessId(businessId: string): void {
 }
 
 /**
+ * Clear stored business ID from localStorage
+ */
+export function clearStoredBusinessId(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(BUSINESS_ID_KEY)
+  }
+}
+
+/**
  * ProductCategory type matching backend schema
  */
 export interface ProductCategory {
