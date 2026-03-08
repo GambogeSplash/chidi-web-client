@@ -14,7 +14,9 @@ import {
   XCircle,
   AlertCircle,
   ChevronRight,
-  RefreshCw
+  ChevronLeft,
+  RefreshCw,
+  X
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -113,8 +115,8 @@ export function OrdersView() {
 
   return (
     <div className="flex-1 bg-white flex">
-      {/* Orders List */}
-      <div className={`${selectedOrder ? 'w-1/2 border-r border-[var(--chidi-border-subtle)]' : 'w-full'} flex flex-col`}>
+      {/* Orders List - Hidden on mobile when order is selected */}
+      <div className={`${selectedOrder ? 'hidden md:flex md:w-1/2 md:border-r border-[var(--chidi-border-subtle)]' : 'w-full'} flex flex-col`}>
         {/* Header */}
         <div className="px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
           <div className="flex items-center justify-between mb-4">
@@ -211,26 +213,45 @@ export function OrdersView() {
         </div>
       </div>
 
-      {/* Order Detail Panel */}
+      {/* Order Detail Panel - Full width on mobile, half on desktop */}
       {selectedOrder && (
-        <div className="w-1/2 flex flex-col bg-[var(--chidi-surface)]">
+        <div className="w-full md:w-1/2 flex flex-col bg-[var(--chidi-surface)]">
           {/* Header */}
-          <div className="px-6 py-4 bg-white border-b border-[var(--chidi-border-subtle)]">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="px-4 md:px-6 py-4 bg-white border-b border-[var(--chidi-border-subtle)]">
+            <div className="flex items-center justify-between gap-3">
+              {/* Back button - visible on mobile */}
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="flex items-center gap-1 text-sm text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] md:hidden"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                <span>Back</span>
+              </button>
+              
+              <div className="flex-1 md:flex-none">
                 <h2 className="font-semibold text-[var(--chidi-text-primary)]">Order Details</h2>
                 <p className="text-xs text-[var(--chidi-text-muted)] mt-0.5">
                   {formatDate(selectedOrder.created_at)}
                 </p>
               </div>
-              <Badge className={`${getOrderStatusDisplay(selectedOrder.status).color} ${getOrderStatusDisplay(selectedOrder.status).bgColor} border-0`}>
-                {getOrderStatusDisplay(selectedOrder.status).text}
-              </Badge>
+              
+              <div className="flex items-center gap-2">
+                <Badge className={`${getOrderStatusDisplay(selectedOrder.status).color} ${getOrderStatusDisplay(selectedOrder.status).bgColor} border-0`}>
+                  {getOrderStatusDisplay(selectedOrder.status).text}
+                </Badge>
+                {/* Close button - visible on desktop */}
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="hidden md:flex p-1.5 rounded-md hover:bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
             {/* Customer Info */}
             <div className="bg-white rounded-lg p-4">
               <h3 className="text-sm font-medium text-[var(--chidi-text-primary)] mb-3">Customer</h3>
@@ -322,7 +343,7 @@ export function OrdersView() {
 
           {/* Actions */}
           {selectedOrder.status === 'CONFIRMED' && (
-            <div className="px-6 py-4 bg-white border-t border-[var(--chidi-border-subtle)]">
+            <div className="px-4 md:px-6 py-4 bg-white border-t border-[var(--chidi-border-subtle)]">
               <Button
                 onClick={() => handleFulfill(selectedOrder.id)}
                 disabled={actionLoading === selectedOrder.id}
@@ -338,7 +359,7 @@ export function OrdersView() {
             </div>
           )}
           {(selectedOrder.status === 'PENDING_PAYMENT' || selectedOrder.status === 'CONFIRMED') && (
-            <div className="px-6 py-3 bg-white border-t border-[var(--chidi-border-subtle)]">
+            <div className="px-4 md:px-6 py-3 bg-white border-t border-[var(--chidi-border-subtle)]">
               <Button
                 variant="outline"
                 onClick={() => handleCancel(selectedOrder.id)}
