@@ -222,15 +222,15 @@ export function OrdersView() {
               {/* Back button - visible on mobile */}
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="flex items-center gap-1 text-sm text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] md:hidden"
+                className="flex items-center gap-1.5 px-2 py-1.5 -ml-2 rounded-lg text-sm font-medium text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] active:bg-[var(--chidi-surface-hover)] transition-colors md:hidden"
               >
                 <ChevronLeft className="w-5 h-5" />
-                <span>Back</span>
+                Orders
               </button>
               
-              <div className="flex-1 md:flex-none">
+              <div className="flex-1 md:flex-none text-center md:text-left">
                 <h2 className="font-semibold text-[var(--chidi-text-primary)]">Order Details</h2>
-                <p className="text-xs text-[var(--chidi-text-muted)] mt-0.5">
+                <p className="text-xs text-[var(--chidi-text-muted)] mt-0.5 hidden md:block">
                   {formatDate(selectedOrder.created_at)}
                 </p>
               </div>
