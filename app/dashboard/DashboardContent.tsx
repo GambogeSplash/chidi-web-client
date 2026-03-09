@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { AppHeader } from '@/components/chidi/app-header'
 import { BottomNavigation, type TabId } from '@/components/chidi/bottom-navigation'
 import { InboxView } from '@/components/chidi/inbox-view'
@@ -20,6 +21,7 @@ import { Loader2 } from 'lucide-react'
 import type { ConversationResponse } from '@/lib/types/conversation'
 import { useNotifications, mapNotificationForUI, type MappedNotification } from '@/hooks/use-notifications'
 import { getStoredInventoryId } from '@/lib/api/products'
+import { useProducts, useUpdateProduct, productsKeys } from '@/lib/hooks/use-products'
 
 interface DashboardContentProps {
   businessSlug?: string;
@@ -27,14 +29,17 @@ interface DashboardContentProps {
 
 export default function DashboardContent({ businessSlug }: DashboardContentProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabId>("inbox")
-  const [products, setProducts] = useState<DisplayProduct[]>([])
   const [localNotifications, setLocalNotifications] = useState<MappedNotification[]>([])
-  const [apiError, setApiError] = useState<string | null>(null)
-  const [dataLoading, setDataLoading] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined)
+
+  // React Query for products
+  const { data: productsData } = useProducts()
+  const updateProductMutation = useUpdateProduct()
+  const products = productsData?.products ?? []
 
   // Use notifications hook for real-time notifications
   const inventoryId = typeof window !== 'undefined' ? getStoredInventoryId() : null
@@ -50,7 +55,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     businessId: user?.businessId || null,
     inventoryId: inventoryId,
     enableRealtime: true,
-    autoCheckLowStock: false, // Disabled - using PostgreSQL trigger for notifications
+    autoCheckLowStock: false,
   })
 
   // Combine API notifications with local notifications
@@ -89,9 +94,6 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
           router.push(`/dashboard/${userData.businessSlug}`)
           return
         }
-
-        // Load dashboard data
-        await loadAppData()
       } catch (error) {
         console.error('Auth check failed:', error)
         router.push('/auth')
@@ -102,24 +104,6 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
     checkAuth()
   }, [router, businessSlug])
-
-  // Load all app data from APIs
-  const loadAppData = async () => {
-    try {
-      setDataLoading(true)
-      setApiError(null)
-      
-      // Load products
-      const productsRes = await productsAPI.getProducts()
-      setProducts(productsRes.products)
-      
-    } catch (error) {
-      console.error('Failed to load app data:', error)
-      setApiError('Failed to load data')
-    } finally {
-      setDataLoading(false)
-    }
-  }
 
   const handleMarkNotificationAsRead = async (id: string) => {
     const isLocalNotification = localNotifications.some(n => n.id === id)
@@ -133,11 +117,9 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   }
 
   const handleMarkAllNotificationsAsRead = async () => {
-    // Mark all local notifications as read
     setLocalNotifications((prev) =>
       prev.map((notification) => ({ ...notification, read: true }))
     )
-    // Mark all API notifications as read
     await markAllAsRead()
   }
 
@@ -151,13 +133,11 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   }
 
   const handleNotificationClick = (notification: MappedNotification) => {
-    // If it's a product-related notification, show the product detail
     if (notification.referenceType === 'product' && notification.referenceId) {
       const product = products.find(p => p.id === notification.referenceId)
       if (product) {
         setSelectedProduct(product)
         setShowProductDetailModal(true)
-        // Switch to inventory tab
         setActiveTab('inventory')
       }
     }
@@ -169,32 +149,30 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   }
 
   const handleUpdateProduct = async (updatedProduct: DisplayProduct) => {
-    try {
-      const originalProduct = products.find((p) => p.id === updatedProduct.id)
-      
-      const updated = await productsAPI.updateProduct(updatedProduct.id, updatedProduct)
-      
-      setProducts((prev) => prev.map((product) => (product.id === updatedProduct.id ? updated : product)))
-
-      if (originalProduct && updated.stock > originalProduct.stock) {
-        const notification: MappedNotification = {
-          id: `restock-${Date.now()}`,
-          type: 'activity',
-          title: 'Product Restocked',
-          message: `${updated.name} restocked from ${originalProduct.stock} to ${updated.stock} units`,
-          timestamp: 'Just now',
-          read: false,
-          priority: 'medium'
-        }
-        setLocalNotifications((prev) => [notification, ...prev])
+    const originalProduct = products.find((p) => p.id === updatedProduct.id)
+    
+    updateProductMutation.mutate(
+      { productId: updatedProduct.id, updates: updatedProduct },
+      {
+        onSuccess: (updated) => {
+          if (originalProduct && updated.stock > originalProduct.stock) {
+            const notification: MappedNotification = {
+              id: `restock-${Date.now()}`,
+              type: 'activity',
+              title: 'Product Restocked',
+              message: `${updated.name} restocked from ${originalProduct.stock} to ${updated.stock} units`,
+              timestamp: 'Just now',
+              read: false,
+              priority: 'medium'
+            }
+            setLocalNotifications((prev) => [notification, ...prev])
+          }
+          
+          setShowQuickEditModal(false)
+          setSelectedProduct(null)
+        },
       }
-      
-      setShowQuickEditModal(false)
-      setSelectedProduct(null)
-    } catch (error) {
-      console.error('Failed to update product:', error)
-      setApiError('Failed to update product')
-    }
+    )
   }
 
   const handleViewProduct = (product: DisplayProduct) => {
@@ -205,9 +183,8 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const handleBulkImport = async (csvData: string) => {
     try {
       const result = await productsAPI.bulkImport(csvData)
-      // Reload products after bulk import
-      const updatedProducts = await productsAPI.getProducts()
-      setProducts(updatedProducts.products)
+      // Invalidate products query to refetch
+      queryClient.invalidateQueries({ queryKey: productsKeys.all })
       
       const notification: MappedNotification = {
         id: `import-${Date.now()}`,
@@ -221,7 +198,6 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
       setLocalNotifications((prev) => [notification, ...prev])
     } catch (error) {
       console.error('Failed to import products:', error)
-      setApiError('Failed to import products')
     }
   }
 
@@ -231,6 +207,23 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
   const handleConversationSelect = (conversationId: string | undefined) => {
     setActiveConversationId(conversationId)
+  }
+
+  const handleProductAdded = (product: DisplayProduct) => {
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    setShowAddProductModal(false)
+  }
+
+  const handleProductDeleted = (productId: string) => {
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    setShowProductDetailModal(false)
+    setSelectedProduct(null)
+  }
+
+  const handleProductSaved = (updatedProduct: DisplayProduct) => {
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    setShowEditProductModal(false)
+    setSelectedProduct(null)
   }
 
   if (isLoading) {
@@ -299,10 +292,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         <AddProductModal
           isOpen={showAddProductModal}
           onClose={() => setShowAddProductModal(false)}
-          onAddProduct={(product) => {
-            setProducts((prev) => [...prev, product])
-            setShowAddProductModal(false)
-          }}
+          onAddProduct={handleProductAdded}
         />
       )}
 
@@ -330,11 +320,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             setSelectedProduct(product)
             setShowEditProductModal(true)
           }}
-          onDeleteProduct={(productId) => {
-            setProducts((prev) => prev.filter((p) => p.id !== productId))
-            setShowProductDetailModal(false)
-            setSelectedProduct(null)
-          }}
+          onDeleteProduct={handleProductDeleted}
         />
       )}
 
@@ -346,13 +332,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             setShowEditProductModal(false)
             setSelectedProduct(null)
           }}
-          onSave={(updatedProduct) => {
-            setProducts((prev) => 
-              prev.map((p) => p.id === updatedProduct.id ? updatedProduct : p)
-            )
-            setShowEditProductModal(false)
-            setSelectedProduct(null)
-          }}
+          onSave={handleProductSaved}
         />
       )}
 

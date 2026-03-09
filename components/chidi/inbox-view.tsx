@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { 
   MessageSquare, 
   User, 
@@ -12,7 +13,6 @@ import {
   RefreshCw,
   MessageCircle,
   ChevronRight,
-  Send
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,37 +37,56 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { 
-  messagingAPI, 
   type ChannelConversation, 
   type ConversationStatus,
   type ChannelType,
-  type ConnectionListResponse,
   getChannelInfo,
   formatCustomerId,
 } from "@/lib/api/messaging"
+import {
+  useConnections,
+  useConversations,
+  useConnectWhatsApp,
+  useConnectTelegram,
+  messagingKeys,
+} from "@/lib/hooks/use-messaging"
 import { ChannelChat } from "./channel-chat"
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/channel-icons"
 import { cn } from "@/lib/utils"
 
 export function InboxView() {
-  const [conversations, setConversations] = useState<ChannelConversation[]>([])
-  const [loading, setLoading] = useState(true)
-  const [needsHumanCount, setNeedsHumanCount] = useState(0)
+  const queryClient = useQueryClient()
   const [selectedConversation, setSelectedConversation] = useState<ChannelConversation | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [channelFilter, setChannelFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   
-  // Connection state
-  const [connections, setConnections] = useState<ConnectionListResponse | null>(null)
-  const [checkingConnection, setCheckingConnection] = useState(true)
+  // Connection dialog state
   const [showChannelPicker, setShowChannelPicker] = useState(false)
   const [showConnectDialog, setShowConnectDialog] = useState(false)
   const [connectChannelType, setConnectChannelType] = useState<ChannelType | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [botToken, setBotToken] = useState('')
-  const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState<string | null>(null)
+
+  // React Query hooks
+  const { data: connections, isLoading: checkingConnection } = useConnections()
+  const status = statusFilter !== "all" ? statusFilter as ConversationStatus : undefined
+  const channel = channelFilter !== "all" ? channelFilter as ChannelType : undefined
+  
+  const hasAnyConnection = connections && connections.total > 0
+  
+  const { 
+    data: conversationsData, 
+    isLoading: loadingConversations, 
+    isRefetching 
+  } = useConversations(status, channel)
+  
+  const connectWhatsApp = useConnectWhatsApp()
+  const connectTelegram = useConnectTelegram()
+
+  const conversations = conversationsData?.conversations ?? []
+  const needsHumanCount = conversationsData?.needs_human_count ?? 0
 
   // Available channels configuration
   const availableChannels: { type: ChannelType; name: string; icon: React.ReactNode; color: string; description: string }[] = [
@@ -75,32 +94,8 @@ export function InboxView() {
     { type: 'TELEGRAM', name: 'Telegram', icon: <TelegramIcon size={24} className="text-[#0088CC]" />, color: '#0088CC', description: 'Connect your bot' },
   ]
 
-  const hasAnyConnection = connections && connections.total > 0
-
-  useEffect(() => {
-    checkConnections()
-  }, [])
-
-  useEffect(() => {
-    if (hasAnyConnection) {
-      loadConversations()
-    }
-  }, [statusFilter, channelFilter, hasAnyConnection])
-
-  const checkConnections = async () => {
-    try {
-      setCheckingConnection(true)
-      const data = await messagingAPI.getConnections()
-      setConnections(data)
-      if (data.total > 0) {
-        setLoading(true)
-      }
-    } catch (err) {
-      console.error("Failed to check connections:", err)
-      setConnections({ connections: [], total: 0 })
-    } finally {
-      setCheckingConnection(false)
-    }
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: messagingKeys.conversations(status, channel) })
   }
 
   const handleSelectChannel = (channelType: ChannelType) => {
@@ -122,29 +117,30 @@ export function InboxView() {
       return
     }
 
-    try {
-      setConnecting(true)
-      setConnectError(null)
-      
-      if (connectChannelType === 'WHATSAPP') {
-        await messagingAPI.connectWhatsApp({
-          phone_number: phoneNumber,
-        })
-      } else if (connectChannelType === 'TELEGRAM') {
-        await messagingAPI.connectTelegram(botToken)
-      }
-      
-      const data = await messagingAPI.getConnections()
-      setConnections(data)
-      setShowConnectDialog(false)
-      setConnectChannelType(null)
-      setPhoneNumber('')
-      setBotToken('')
-    } catch (err: any) {
-      console.error('Failed to connect channel:', err)
-      setConnectError(err.response?.data?.detail || `Failed to connect ${connectChannelType}`)
-    } finally {
-      setConnecting(false)
+    setConnectError(null)
+
+    if (connectChannelType === 'WHATSAPP') {
+      connectWhatsApp.mutate(phoneNumber, {
+        onSuccess: () => {
+          setShowConnectDialog(false)
+          setConnectChannelType(null)
+          setPhoneNumber('')
+        },
+        onError: (err: any) => {
+          setConnectError(err.response?.data?.detail || 'Failed to connect WhatsApp')
+        },
+      })
+    } else if (connectChannelType === 'TELEGRAM') {
+      connectTelegram.mutate(botToken, {
+        onSuccess: () => {
+          setShowConnectDialog(false)
+          setConnectChannelType(null)
+          setBotToken('')
+        },
+        onError: (err: any) => {
+          setConnectError(err.response?.data?.detail || 'Failed to connect Telegram')
+        },
+      })
     }
   }
 
@@ -156,35 +152,17 @@ export function InboxView() {
     setBotToken('')
   }
 
-  const loadConversations = async () => {
-    try {
-      setLoading(true)
-      const filter = statusFilter !== "all" ? statusFilter as ConversationStatus : undefined
-      const channel = channelFilter !== "all" ? channelFilter as ChannelType : undefined
-      const data = await messagingAPI.getConversations({
-        status: filter,
-        channelType: channel,
-      })
-      setConversations(data.conversations)
-      setNeedsHumanCount(data.needs_human_count)
-    } catch (err) {
-      console.error("Failed to load conversations:", err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleConversationClick = (conversation: ChannelConversation) => {
     setSelectedConversation(conversation)
   }
 
   const handleBackToList = () => {
     setSelectedConversation(null)
-    loadConversations()
+    queryClient.invalidateQueries({ queryKey: messagingKeys.conversations(status, channel) })
   }
 
-  const getStatusBadge = (status: ConversationStatus) => {
-    switch (status) {
+  const getStatusBadge = (convStatus: ConversationStatus) => {
+    switch (convStatus) {
       case "NEEDS_HUMAN":
         return (
           <Badge className="bg-[var(--chidi-warning)] text-[var(--chidi-warning-foreground)] border-0 text-[10px] px-1.5 py-0.5">
@@ -253,6 +231,9 @@ export function InboxView() {
     return customerId.includes(query) || name.includes(query)
   })
 
+  const isConnecting = connectWhatsApp.isPending || connectTelegram.isPending
+  const loading = loadingConversations && conversations.length === 0
+
   // Show loading state while checking connection
   if (checkingConnection) {
     return (
@@ -311,21 +292,21 @@ export function InboxView() {
             </DialogHeader>
             
             <div className="py-4 space-y-2">
-              {availableChannels.map((channel) => (
+              {availableChannels.map((channelOption) => (
                 <button
-                  key={channel.type}
-                  onClick={() => handleSelectChannel(channel.type)}
+                  key={channelOption.type}
+                  onClick={() => handleSelectChannel(channelOption.type)}
                   className="w-full flex items-center gap-4 p-4 rounded-xl border border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface)] transition-colors text-left"
                 >
                   <div 
                     className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                    style={{ backgroundColor: `${channel.color}15` }}
+                    style={{ backgroundColor: `${channelOption.color}15` }}
                   >
-                    {channel.icon}
+                    {channelOption.icon}
                   </div>
                   <div className="flex-1">
-                    <div className="font-medium text-[var(--chidi-text-primary)]">{channel.name}</div>
-                    <div className="text-sm text-[var(--chidi-text-muted)]">{channel.description}</div>
+                    <div className="font-medium text-[var(--chidi-text-primary)]">{channelOption.name}</div>
+                    <div className="text-sm text-[var(--chidi-text-muted)]">{channelOption.description}</div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
                 </button>
@@ -400,10 +381,10 @@ export function InboxView() {
               </Button>
               <Button 
                 onClick={handleConnect}
-                disabled={connecting || (connectChannelType === 'WHATSAPP' ? !phoneNumber : connectChannelType === 'TELEGRAM' ? !botToken : true)}
+                disabled={isConnecting || (connectChannelType === 'WHATSAPP' ? !phoneNumber : connectChannelType === 'TELEGRAM' ? !botToken : true)}
                 className="bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-white"
               >
-                {connecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                {isConnecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 Connect
               </Button>
             </DialogFooter>
@@ -421,9 +402,6 @@ export function InboxView() {
         onBack={handleBackToList}
         onConversationUpdate={(updated) => {
           setSelectedConversation(updated)
-          setConversations(prev => 
-            prev.map(c => c.id === updated.id ? updated : c)
-          )
         }}
       />
     )
@@ -449,11 +427,11 @@ export function InboxView() {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={loadConversations}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={loading || isRefetching}
             className="h-8 w-8 text-[var(--chidi-text-secondary)]"
           >
-            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+            <RefreshCw className={cn("w-4 h-4", isRefetching && "animate-spin")} />
           </Button>
         </div>
 
@@ -464,12 +442,12 @@ export function InboxView() {
               <TabsTrigger value="all" className="h-7 text-xs px-3 data-[state=active]:bg-white">
                 All
               </TabsTrigger>
-              {connectedChannels.map(channel => {
-                const info = getChannelInfo(channel)
+              {connectedChannels.map(channelType => {
+                const info = getChannelInfo(channelType)
                 return (
                   <TabsTrigger 
-                    key={channel} 
-                    value={channel} 
+                    key={channelType} 
+                    value={channelType} 
                     className="h-7 text-xs px-3 data-[state=active]:bg-white"
                   >
                     {info.icon} {info.name}

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { 
   ShoppingBag, 
   Loader2, 
@@ -21,70 +22,68 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { 
-  ordersAPI, 
   type Order, 
   type OrderStatus,
   getOrderStatusDisplay,
   formatOrderAmount
 } from "@/lib/api/orders"
+import {
+  useOrders,
+  useFulfillOrder,
+  useCancelOrder,
+  ordersKeys,
+} from "@/lib/hooks/use-orders"
 
 type FilterStatus = OrderStatus | 'ALL'
 
 export function OrdersView() {
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('ALL')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    loadOrders()
-  }, [selectedFilter])
+  const status = selectedFilter === 'ALL' ? undefined : selectedFilter
+  const { data, isLoading, isRefetching, isError, error } = useOrders(status)
+  const fulfillMutation = useFulfillOrder()
+  const cancelMutation = useCancelOrder()
 
-  const loadOrders = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const filter = selectedFilter === 'ALL' ? undefined : selectedFilter
-      const response = await ordersAPI.getOrders({ status: filter })
-      setOrders(response.orders)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load orders')
-    } finally {
-      setLoading(false)
-    }
+  const orders = data?.orders ?? []
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ordersKeys.list(status) })
   }
 
   const handleFulfill = async (orderId: string) => {
-    setActionLoading(orderId)
-    try {
-      const updated = await ordersAPI.fulfillOrder(orderId)
-      setOrders(prev => prev.map(o => o.id === orderId ? updated : o))
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(updated)
+    fulfillMutation.mutate(
+      { orderId },
+      {
+        onSuccess: (updatedOrder) => {
+          if (selectedOrder?.id === orderId) {
+            setSelectedOrder(updatedOrder)
+          }
+        },
       }
-    } catch (err) {
-      console.error('Failed to fulfill order:', err)
-    } finally {
-      setActionLoading(null)
-    }
+    )
   }
 
   const handleCancel = async (orderId: string) => {
-    setActionLoading(orderId)
-    try {
-      const updated = await ordersAPI.cancelOrder(orderId)
-      setOrders(prev => prev.map(o => o.id === orderId ? updated : o))
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(updated)
+    cancelMutation.mutate(
+      { orderId },
+      {
+        onSuccess: (updatedOrder) => {
+          if (selectedOrder?.id === orderId) {
+            setSelectedOrder(updatedOrder)
+          }
+        },
       }
-    } catch (err) {
-      console.error('Failed to cancel order:', err)
-    } finally {
-      setActionLoading(null)
-    }
+    )
   }
+
+  const isActionLoading = fulfillMutation.isPending || cancelMutation.isPending
+  const actionLoadingId = fulfillMutation.isPending 
+    ? fulfillMutation.variables?.orderId 
+    : cancelMutation.isPending 
+    ? cancelMutation.variables?.orderId 
+    : null
 
   const filterTabs: { id: FilterStatus; label: string; icon: typeof ShoppingBag }[] = [
     { id: 'ALL', label: 'All', icon: ShoppingBag },
@@ -105,7 +104,7 @@ export function OrdersView() {
     })
   }
 
-  if (loading && orders.length === 0) {
+  if (isLoading && orders.length === 0) {
     return (
       <div className="flex-1 bg-white flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--chidi-accent)]" />
@@ -129,10 +128,10 @@ export function OrdersView() {
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={loadOrders}
-              disabled={loading}
+              onClick={handleRefresh}
+              disabled={isLoading || isRefetching}
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
             </Button>
           </div>
 
@@ -160,8 +159,10 @@ export function OrdersView() {
 
         {/* Orders List */}
         <div className="flex-1 overflow-y-auto">
-          {error ? (
-            <div className="p-6 text-center text-red-600">{error}</div>
+          {isError ? (
+            <div className="p-6 text-center text-red-600">
+              {(error as Error)?.message || 'Failed to load orders'}
+            </div>
           ) : orders.length === 0 ? (
             <div className="p-6 text-center text-[var(--chidi-text-muted)]">
               <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -346,10 +347,10 @@ export function OrdersView() {
             <div className="px-4 md:px-6 py-4 bg-white border-t border-[var(--chidi-border-subtle)]">
               <Button
                 onClick={() => handleFulfill(selectedOrder.id)}
-                disabled={actionLoading === selectedOrder.id}
+                disabled={actionLoadingId === selectedOrder.id}
                 className="w-full bg-[var(--chidi-success)] hover:bg-[var(--chidi-success)]/90"
               >
-                {actionLoading === selectedOrder.id ? (
+                {actionLoadingId === selectedOrder.id ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Package className="w-4 h-4 mr-2" />
@@ -363,10 +364,10 @@ export function OrdersView() {
               <Button
                 variant="outline"
                 onClick={() => handleCancel(selectedOrder.id)}
-                disabled={actionLoading === selectedOrder.id}
+                disabled={actionLoadingId === selectedOrder.id}
                 className="w-full text-red-600 border-red-200 hover:bg-red-50"
               >
-                {actionLoading === selectedOrder.id ? (
+                {actionLoadingId === selectedOrder.id ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <XCircle className="w-4 h-4 mr-2" />

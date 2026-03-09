@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { 
   ArrowLeft,
   Send,
@@ -17,14 +18,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { 
-  messagingAPI,
   type ChannelConversation, 
   type ChannelMessage,
   type ChannelType,
   getChannelInfo,
   formatCustomerId,
 } from '@/lib/api/messaging'
-import { ordersAPI, type Order } from '@/lib/api/orders'
+import {
+  useConversationMessages,
+  useMarkConversationRead,
+  useSendReply,
+  useResolveConversation,
+  messagingKeys,
+} from '@/lib/hooks/use-messaging'
+import {
+  useOrderByConversation,
+  useConfirmOrder,
+  useRejectOrder,
+  ordersKeys,
+} from '@/lib/hooks/use-orders'
 import { WhatsAppIcon, TelegramIcon } from '@/components/ui/channel-icons'
 import { OrderVerificationWidget } from '@/components/chidi/order-verification-widget'
 
@@ -35,102 +47,88 @@ interface ChannelChatProps {
 }
 
 export function ChannelChat({ conversation, onBack, onConversationUpdate }: ChannelChatProps) {
-  const [messages, setMessages] = useState<ChannelMessage[]>([])
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
-  const [resolving, setResolving] = useState(false)
-  const [replyText, setReplyText] = useState('')
-  const [pendingOrder, setPendingOrder] = useState<Order | null>(null)
+  const queryClient = useQueryClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const replyInputRef = useRef<HTMLInputElement>(null)
 
+  // React Query hooks
+  const { data: messagesData, isLoading: loadingMessages, isRefetching } = useConversationMessages(conversation.id)
+  const { data: pendingOrder } = useOrderByConversation(conversation.id, 'PENDING_PAYMENT')
+  
+  const markAsRead = useMarkConversationRead()
+  const sendReply = useSendReply()
+  const resolveConversation = useResolveConversation()
+  const confirmOrder = useConfirmOrder()
+  const rejectOrder = useRejectOrder()
+
+  const messages = messagesData?.messages ?? []
+
+  // Mark as read when conversation opens
   useEffect(() => {
-    loadMessages()
-    markAsRead()
-    loadPendingOrder()
+    if (conversation.unread_count > 0) {
+      markAsRead.mutate(conversation.id, {
+        onSuccess: (updated) => onConversationUpdate(updated),
+      })
+    }
   }, [conversation.id])
 
+  // Scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
   }
 
-  const loadMessages = async () => {
-    try {
-      setLoading(true)
-      const data = await messagingAPI.getMessages(conversation.id)
-      setMessages(data.messages)
-    } catch (err) {
-      console.error('Failed to load messages:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const markAsRead = async () => {
-    try {
-      if (conversation.unread_count > 0) {
-        const updated = await messagingAPI.markConversationRead(conversation.id)
-        onConversationUpdate(updated)
+  const handleConfirmOrder = () => {
+    if (!pendingOrder) return
+    confirmOrder.mutate(
+      { orderId: pendingOrder.id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ordersKeys.byConversation(conversation.id, 'PENDING_PAYMENT') })
+          queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
+        },
       }
-    } catch (err) {
-      console.error('Failed to mark as read:', err)
-    }
+    )
   }
 
-  const loadPendingOrder = async () => {
-    try {
-      const order = await ordersAPI.getOrderByConversation(
-        conversation.id,
-        'PENDING_PAYMENT'
-      )
-      setPendingOrder(order)
-    } catch (err) {
-      console.error('Failed to load pending order:', err)
-      setPendingOrder(null)
-    }
-  }
-
-  const handleConfirmOrder = async () => {
+  const handleRejectOrder = (reason?: string) => {
     if (!pendingOrder) return
-    await ordersAPI.confirmOrder(pendingOrder.id)
-    setPendingOrder(null)
-    loadMessages()
+    rejectOrder.mutate(
+      { orderId: pendingOrder.id, reason },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
+        },
+      }
+    )
   }
 
-  const handleRejectOrder = async (reason?: string) => {
-    if (!pendingOrder) return
-    await ordersAPI.rejectOrder(pendingOrder.id, reason)
-    loadMessages()
+  const handleSendReply = () => {
+    const content = replyInputRef.current?.value?.trim()
+    if (!content || sendReply.isPending) return
+
+    sendReply.mutate(
+      { conversationId: conversation.id, content },
+      {
+        onSuccess: () => {
+          if (replyInputRef.current) {
+            replyInputRef.current.value = ''
+          }
+        },
+      }
+    )
   }
 
-  const handleSendReply = async () => {
-    if (!replyText.trim() || sending) return
-
-    try {
-      setSending(true)
-      const message = await messagingAPI.sendReply(conversation.id, replyText.trim())
-      setMessages(prev => [...prev, message])
-      setReplyText('')
-    } catch (err) {
-      console.error('Failed to send reply:', err)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const handleResolve = async (returnToAi: boolean) => {
-    try {
-      setResolving(true)
-      const updated = await messagingAPI.resolveConversation(conversation.id, returnToAi)
-      onConversationUpdate(updated)
-    } catch (err) {
-      console.error('Failed to resolve conversation:', err)
-    } finally {
-      setResolving(false)
-    }
+  const handleResolve = (returnToAi: boolean) => {
+    resolveConversation.mutate(
+      { conversationId: conversation.id, returnToAi },
+      {
+        onSuccess: (updated) => onConversationUpdate(updated),
+      }
+    )
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -218,6 +216,8 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
     }
   })
 
+  const loading = loadingMessages && messages.length === 0
+
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
@@ -266,11 +266,11 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={loadMessages}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={loading || isRefetching}
             className="h-8 w-8 text-[var(--chidi-text-secondary)]"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
@@ -378,7 +378,9 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
             order={pendingOrder}
             onConfirm={handleConfirmOrder}
             onReject={handleRejectOrder}
-            onDismiss={() => setPendingOrder(null)}
+            onDismiss={() => {
+              queryClient.invalidateQueries({ queryKey: ordersKeys.byConversation(conversation.id, 'PENDING_PAYMENT') })
+            }}
           />
         </div>
       )}
@@ -400,10 +402,10 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
                 variant="outline"
                 size="sm"
                 onClick={() => handleResolve(true)}
-                disabled={resolving}
+                disabled={resolveConversation.isPending}
                 className="text-[var(--chidi-success)] border-[var(--chidi-success)]/50 hover:bg-[var(--chidi-success)]/10"
               >
-                {resolving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+                {resolveConversation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
                 Return to AI
               </Button>
             </div>
@@ -415,20 +417,19 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
       <div className="px-4 py-3 border-t border-[var(--chidi-border-subtle)] bg-white">
         <div className="flex gap-2">
           <Input
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
+            ref={replyInputRef}
             onKeyPress={handleKeyPress}
             placeholder="Type your reply..."
             className="flex-1 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
-            disabled={sending}
+            disabled={sendReply.isPending}
           />
           <Button 
             onClick={handleSendReply}
-            disabled={!replyText.trim() || sending}
+            disabled={sendReply.isPending}
             style={{ backgroundColor: getChannelColor(conversation.channel_type) }}
             className="hover:opacity-90"
           >
-            {sending ? (
+            {sendReply.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Send className="w-4 h-4" />

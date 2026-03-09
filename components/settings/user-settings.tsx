@@ -25,7 +25,6 @@ import {
   Clock,
   ChevronRight,
   HelpCircle,
-  Settings2,
   Bot,
   ScrollText,
   Brain,
@@ -39,12 +38,19 @@ import { PolicySettings } from "@/components/settings/policy-settings"
 import { MemorySettings } from "@/components/settings/memory-settings"
 import { 
   settingsAPI, 
-  type UserPreferences, 
-  type AccountInfo, 
   type NotificationPreferences,
-  type BusinessPreferences,
-  type PaymentSettings as PaymentSettingsType
 } from "@/lib/api/settings"
+import {
+  useAccountSettings,
+  usePreferences,
+  useBusinessPreferences,
+  usePaymentSettings,
+  useUpdateAccount,
+  useUpdatePreferences,
+  useUpdateBusinessPreferences,
+  useUpdatePaymentSettings,
+  useChangePassword,
+} from "@/lib/hooks/use-settings"
 import { useRouter } from "next/navigation"
 import {
   Dialog,
@@ -60,8 +66,6 @@ interface UserSettingsProps {
 
 export function UserSettings({ onClose }: UserSettingsProps) {
   const router = useRouter()
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
@@ -71,16 +75,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false)
   const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [showMemoryModal, setShowMemoryModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
   
-  // Business ID for policy/memory settings (stored in state to avoid hydration issues)
+  // Business ID for policy/memory settings
   const [businessId, setBusinessId] = useState<string | null>(null)
 
-  // Business hours state
-  // TODO: Persist business hours to backend
-  // - Add business_hours field to Business model in schema.prisma
-  // - Create API endpoint: GET/PUT /api/settings/business-hours
-  // - Load saved hours on component mount
-  // - Save hours when user clicks "Save Hours"
+  // Business hours state (local only for now)
   const [businessHours, setBusinessHours] = useState({
     monday: { open: "09:00", close: "18:00", closed: false },
     tuesday: { open: "09:00", close: "18:00", closed: false },
@@ -91,47 +91,27 @@ export function UserSettings({ onClose }: UserSettingsProps) {
     sunday: { open: "10:00", close: "16:00", closed: true },
   })
 
-  // Account state
-  const [account, setAccount] = useState<AccountInfo | null>(null)
-  const [accountForm, setAccountForm] = useState({
-    name: "",
-    avatar_url: ""
-  })
+  // React Query hooks
+  const { data: account, isLoading: isLoadingAccount } = useAccountSettings()
+  const { data: preferences, isLoading: isLoadingPreferences } = usePreferences()
+  const { data: bizPreferences } = useBusinessPreferences(businessId)
+  const { data: paymentData } = usePaymentSettings(businessId)
 
-  // Preferences state
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null)
-  const [notificationForm, setNotificationForm] = useState<NotificationPreferences>({
-    email_notifications: true,
-    push_notifications: true,
-    stock_alerts: true,
-    order_updates: true,
-    weekly_reports: false,
-    daily_summary: false,
-    marketing_emails: false
-  })
+  const updateAccountMutation = useUpdateAccount()
+  const updatePreferencesMutation = useUpdatePreferences()
+  const updateBizPreferencesMutation = useUpdateBusinessPreferences()
+  const updatePaymentMutation = useUpdatePaymentSettings()
+  const changePasswordMutation = useChangePassword()
 
-  // Business preferences state
-  const [businessPreferences, setBusinessPreferences] = useState<BusinessPreferences | null>(null)
+  // Form states
+  const [accountForm, setAccountForm] = useState({ name: "", avatar_url: "" })
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(10)
-  const [isSavingThreshold, setIsSavingThreshold] = useState(false)
-
-  // Payment settings state
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [paymentSettings, setPaymentSettings] = useState<PaymentSettingsType>({
-    bank_name: null,
-    account_name: null,
-    account_number: null,
-    payment_instructions: null,
-  })
   const [paymentForm, setPaymentForm] = useState({
     bank_name: "",
     account_name: "",
     account_number: "",
     payment_instructions: "",
   })
-  const [isSavingPayment, setIsSavingPayment] = useState(false)
-
-  // Password state
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -139,168 +119,138 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   })
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
-
-  // Logout state
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
-  // Load initial data
+  // Initialize business ID from localStorage
   useEffect(() => {
-    // Get business ID from localStorage (client-side only)
     const storedBusinessId = localStorage.getItem('chidi_business_id')
     setBusinessId(storedBusinessId)
-    
-    loadData()
   }, [])
 
-  const loadData = async () => {
-    setIsLoading(true)
-    setError("")
-    
-    try {
-      const [accountData, prefsData] = await Promise.all([
-        settingsAPI.getAccount(),
-        settingsAPI.getPreferences()
-      ])
-      
-      setAccount(accountData)
+  // Sync form with account data
+  useEffect(() => {
+    if (account) {
       setAccountForm({
-        name: accountData.name,
-        avatar_url: accountData.avatar_url || ""
+        name: account.name,
+        avatar_url: account.avatar_url || ""
       })
-      
-      setPreferences(prefsData)
-      setNotificationForm(prefsData.notifications)
+    }
+  }, [account])
 
-      // Load business preferences if we have a business ID
-      // Get business ID from localStorage or account data
-      const storedBusinessId = typeof window !== 'undefined' 
-        ? localStorage.getItem('chidi_business_id') 
-        : null
-      
-      if (storedBusinessId) {
-        try {
-          const bizPrefs = await settingsAPI.getBusinessPreferences(storedBusinessId)
-          setBusinessPreferences(bizPrefs)
-          setLowStockThreshold(bizPrefs.low_stock_threshold)
-        } catch (bizErr) {
-          console.warn('Could not load business preferences:', bizErr)
-        }
+  // Sync form with business preferences
+  useEffect(() => {
+    if (bizPreferences) {
+      setLowStockThreshold(bizPreferences.low_stock_threshold)
+    }
+  }, [bizPreferences])
 
-        try {
-          const paySettings = await settingsAPI.getPaymentSettings(storedBusinessId)
-          setPaymentSettings(paySettings)
-          setPaymentForm({
-            bank_name: paySettings.bank_name || "",
-            account_name: paySettings.account_name || "",
-            account_number: paySettings.account_number || "",
-            payment_instructions: paySettings.payment_instructions || "",
-          })
-        } catch (payErr) {
-          console.warn('Could not load payment settings:', payErr)
-        }
+  // Sync form with payment settings
+  useEffect(() => {
+    if (paymentData) {
+      setPaymentForm({
+        bank_name: paymentData.bank_name || "",
+        account_name: paymentData.account_name || "",
+        account_number: paymentData.account_number || "",
+        payment_instructions: paymentData.payment_instructions || "",
+      })
+    }
+  }, [paymentData])
+
+  const handleSaveAccount = () => {
+    setError("")
+    setSuccess("")
+    
+    updateAccountMutation.mutate(
+      { name: accountForm.name, avatar_url: accountForm.avatar_url || undefined },
+      {
+        onSuccess: () => {
+          setSuccess("Account updated successfully")
+          setTimeout(() => setSuccess(""), 3000)
+        },
+        onError: (err: any) => {
+          setError(err.message || "Failed to update account")
+        },
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to load settings")
-    } finally {
-      setIsLoading(false)
-    }
+    )
   }
 
-  const handleSaveAccount = async () => {
-    setIsSaving(true)
-    setError("")
-    setSuccess("")
-    
-    try {
-      const updated = await settingsAPI.updateAccount({
-        name: accountForm.name,
-        avatar_url: accountForm.avatar_url || undefined
-      })
-      setAccount(updated)
-      setSuccess("Account updated successfully")
-      setTimeout(() => setSuccess(""), 3000)
-    } catch (err: any) {
-      setError(err.message || "Failed to update account")
-    } finally {
-      setIsSaving(false)
+  const handleNotificationChange = (key: keyof NotificationPreferences, value: boolean) => {
+    const currentNotifications = preferences?.notifications || {
+      email_notifications: true,
+      push_notifications: true,
+      stock_alerts: true,
+      order_updates: true,
+      weekly_reports: false,
+      daily_summary: false,
+      marketing_emails: false
     }
+    
+    updatePreferencesMutation.mutate(
+      { notifications: { ...currentNotifications, [key]: value } },
+      {
+        onError: (err: any) => {
+          setError(err.message || "Failed to save preference")
+        },
+      }
+    )
   }
 
-  const handleNotificationChange = async (key: keyof NotificationPreferences, value: boolean) => {
-    const newForm = { ...notificationForm, [key]: value }
-    setNotificationForm(newForm)
-    
-    try {
-      await settingsAPI.updatePreferences({ notifications: newForm })
-    } catch (err: any) {
-      // Revert on error
-      setNotificationForm(notificationForm)
-      setError(err.message || "Failed to save preference")
-    }
-  }
-
-  const handleSaveLowStockThreshold = async () => {
-    const storedBusinessId = typeof window !== 'undefined' 
-      ? localStorage.getItem('chidi_business_id') 
-      : null
-    
-    if (!storedBusinessId) {
+  const handleSaveLowStockThreshold = () => {
+    if (!businessId) {
       setError("Business ID not found")
       return
     }
 
-    setIsSavingThreshold(true)
     setError("")
     setSuccess("")
 
-    try {
-      const updated = await settingsAPI.updateBusinessPreferences(storedBusinessId, {
-        low_stock_threshold: lowStockThreshold
-      })
-      setBusinessPreferences(updated)
-      setSuccess("Low stock threshold updated successfully")
-      setTimeout(() => setSuccess(""), 3000)
-    } catch (err: any) {
-      setError(err.message || "Failed to update low stock threshold")
-    } finally {
-      setIsSavingThreshold(false)
-    }
+    updateBizPreferencesMutation.mutate(
+      { businessId, data: { low_stock_threshold: lowStockThreshold } },
+      {
+        onSuccess: () => {
+          setSuccess("Low stock threshold updated successfully")
+          setTimeout(() => setSuccess(""), 3000)
+        },
+        onError: (err: any) => {
+          setError(err.message || "Failed to update low stock threshold")
+        },
+      }
+    )
   }
 
-  const handleSavePaymentSettings = async () => {
-    const storedBusinessId = typeof window !== 'undefined' 
-      ? localStorage.getItem('chidi_business_id') 
-      : null
-    
-    if (!storedBusinessId) {
+  const handleSavePaymentSettings = () => {
+    if (!businessId) {
       setError("Business ID not found")
       return
     }
 
-    setIsSavingPayment(true)
     setError("")
     setSuccess("")
 
-    try {
-      const updated = await settingsAPI.updatePaymentSettings(storedBusinessId, {
-        bank_name: paymentForm.bank_name || null,
-        account_name: paymentForm.account_name || null,
-        account_number: paymentForm.account_number || null,
-        payment_instructions: paymentForm.payment_instructions || null,
-      })
-      setPaymentSettings(updated)
-      setSuccess("Payment settings updated successfully")
-      setShowPaymentModal(false)
-      setTimeout(() => setSuccess(""), 3000)
-    } catch (err: any) {
-      setError(err.message || "Failed to update payment settings")
-    } finally {
-      setIsSavingPayment(false)
-    }
+    updatePaymentMutation.mutate(
+      {
+        businessId,
+        data: {
+          bank_name: paymentForm.bank_name || null,
+          account_name: paymentForm.account_name || null,
+          account_number: paymentForm.account_number || null,
+          payment_instructions: paymentForm.payment_instructions || null,
+        },
+      },
+      {
+        onSuccess: () => {
+          setSuccess("Payment settings updated successfully")
+          setShowPaymentModal(false)
+          setTimeout(() => setSuccess(""), 3000)
+        },
+        onError: (err: any) => {
+          setError(err.message || "Failed to update payment settings")
+        },
+      }
+    )
   }
 
-  const handleChangePassword = async () => {
+  const handleChangePassword = () => {
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setError("New passwords do not match")
       return
@@ -311,24 +261,26 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       return
     }
     
-    setIsChangingPassword(true)
     setError("")
     setSuccess("")
     
-    try {
-      await settingsAPI.changePassword(
-        passwordForm.currentPassword,
-        passwordForm.newPassword
-      )
-      setSuccess("Password changed successfully")
-      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
-      setShowSecurityModal(false)
-      setTimeout(() => setSuccess(""), 3000)
-    } catch (err: any) {
-      setError(err.message || "Failed to change password")
-    } finally {
-      setIsChangingPassword(false)
-    }
+    changePasswordMutation.mutate(
+      {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      },
+      {
+        onSuccess: () => {
+          setSuccess("Password changed successfully")
+          setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" })
+          setShowSecurityModal(false)
+          setTimeout(() => setSuccess(""), 3000)
+        },
+        onError: (err: any) => {
+          setError(err.message || "Failed to change password")
+        },
+      }
+    )
   }
 
   const handleLogout = async () => {
@@ -353,6 +305,17 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const getAuthProviderLabel = (provider?: string) => {
     if (!provider || provider === "email") return "Signed in with EMAIL"
     return `Signed in with ${provider.toUpperCase()}`
+  }
+
+  const isLoading = isLoadingAccount || isLoadingPreferences
+  const notificationForm = preferences?.notifications || {
+    email_notifications: true,
+    push_notifications: true,
+    stock_alerts: true,
+    order_updates: true,
+    weekly_reports: false,
+    daily_summary: false,
+    marketing_emails: false
   }
 
   if (isLoading) {
@@ -404,9 +367,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       )}
 
       <div className="px-6 space-y-1">
-        {/* ═══════════════════════════════════════════════════════════════
-            PROFILE SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* PROFILE SECTION */}
         <section className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <User className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
@@ -460,11 +421,11 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               <div className="flex justify-end mt-4">
                 <Button 
                   onClick={handleSaveAccount}
-                  disabled={isSaving}
+                  disabled={updateAccountMutation.isPending}
                   size="sm"
                   className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
                 >
-                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  {updateAccountMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Save
                 </Button>
               </div>
@@ -504,9 +465,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-        {/* ═══════════════════════════════════════════════════════════════
-            INTEGRATIONS SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* INTEGRATIONS SECTION */}
         <section className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Plug className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
@@ -514,17 +473,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
           </div>
 
           <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
-            {/* WhatsApp */}
             <div className="p-4">
               <WhatsAppSettings />
             </div>
-
-            {/* Telegram */}
             <div className="p-4">
               <TelegramSettings />
             </div>
-            
-            {/* Instagram - Coming Soon */}
             <div className="p-4 flex items-center justify-between opacity-60">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
@@ -544,9 +498,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-        {/* ═══════════════════════════════════════════════════════════════
-            AI ASSISTANT SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* AI ASSISTANT SECTION */}
         <section className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Bot className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
@@ -554,7 +506,6 @@ export function UserSettings({ onClose }: UserSettingsProps) {
           </div>
 
           <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
-            {/* Business Policies */}
             <button
               onClick={() => setShowPolicyModal(true)}
               className="w-full p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
@@ -569,7 +520,6 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
             </button>
 
-            {/* AI Memory */}
             <button
               onClick={() => setShowMemoryModal(true)}
               className="w-full p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
@@ -588,9 +538,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-        {/* ═══════════════════════════════════════════════════════════════
-            PAYMENT SETTINGS SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* PAYMENT SETTINGS SECTION */}
         <section className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <CreditCard className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
@@ -606,8 +554,8 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               <div className="text-left">
                 <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Bank Details</p>
                 <p className="text-xs text-[var(--chidi-text-muted)]">
-                  {paymentSettings.bank_name && paymentSettings.account_number
-                    ? `${paymentSettings.bank_name} - ${paymentSettings.account_number}`
+                  {paymentData?.bank_name && paymentData?.account_number
+                    ? `${paymentData.bank_name} - ${paymentData.account_number}`
                     : "Set up your payment details for orders"}
                 </p>
               </div>
@@ -618,9 +566,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-        {/* ═══════════════════════════════════════════════════════════════
-            DATA MANAGEMENT SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* DATA MANAGEMENT SECTION */}
         <section className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Download className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
@@ -640,9 +586,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-        {/* ═══════════════════════════════════════════════════════════════
-            NOTIFICATIONS SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* NOTIFICATIONS SECTION */}
         <section className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Bell className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
@@ -679,14 +623,14 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                   className="w-24 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
                 />
                 <span className="text-sm text-[var(--chidi-text-muted)]">units</span>
-                {lowStockThreshold !== (businessPreferences?.low_stock_threshold ?? 10) && (
+                {lowStockThreshold !== (bizPreferences?.low_stock_threshold ?? 10) && (
                   <Button 
                     onClick={handleSaveLowStockThreshold}
-                    disabled={isSavingThreshold}
+                    disabled={updateBizPreferencesMutation.isPending}
                     size="sm"
                     className="ml-auto bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
                   >
-                    {isSavingThreshold && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    {updateBizPreferencesMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Save
                   </Button>
                 )}
@@ -722,9 +666,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-        {/* ═══════════════════════════════════════════════════════════════
-            SECURITY SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* SECURITY SECTION */}
         <section className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Shield className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
@@ -745,9 +687,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
 
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
-        {/* ═══════════════════════════════════════════════════════════════
-            HELP & SIGN OUT SECTION
-        ═══════════════════════════════════════════════════════════════ */}
+        {/* HELP & SIGN OUT SECTION */}
         <section className="py-6 space-y-3">
           <button
             className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center gap-3 hover:bg-[var(--chidi-surface)] transition-colors"
@@ -771,9 +711,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         </section>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          CATEGORY MODAL
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* CATEGORY MODAL */}
       <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -786,9 +724,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          SECURITY MODAL
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* SECURITY MODAL */}
       <Dialog open={showSecurityModal} onOpenChange={setShowSecurityModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -802,7 +738,6 @@ export function UserSettings({ onClose }: UserSettingsProps) {
           </DialogHeader>
           
           <div className="space-y-4 pt-4">
-            {/* Current Password */}
             <div className="space-y-2">
               <Label htmlFor="currentPassword" className="text-sm text-[var(--chidi-text-secondary)]">Current Password</Label>
               <div className="relative">
@@ -824,7 +759,6 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               </div>
             </div>
 
-            {/* New Password */}
             <div className="space-y-2">
               <Label htmlFor="newPassword" className="text-sm text-[var(--chidi-text-secondary)]">New Password</Label>
               <div className="relative">
@@ -847,7 +781,6 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               <p className="text-xs text-[var(--chidi-text-muted)]">Must be at least 6 characters</p>
             </div>
 
-            {/* Confirm Password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-sm text-[var(--chidi-text-secondary)]">Confirm New Password</Label>
               <Input
@@ -870,10 +803,10 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               </Button>
               <Button 
                 onClick={handleChangePassword}
-                disabled={isChangingPassword || !passwordForm.currentPassword || !passwordForm.newPassword}
+                disabled={changePasswordMutation.isPending || !passwordForm.currentPassword || !passwordForm.newPassword}
                 className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
               >
-                {isChangingPassword && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {changePasswordMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Change Password
               </Button>
             </div>
@@ -881,9 +814,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          BUSINESS HOURS MODAL
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* BUSINESS HOURS MODAL */}
       <Dialog open={showBusinessHoursModal} onOpenChange={setShowBusinessHoursModal}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -959,7 +890,6 @@ export function UserSettings({ onClose }: UserSettingsProps) {
             </Button>
             <Button 
               onClick={() => {
-                // TODO: Save business hours to backend
                 setSuccess("Business hours saved")
                 setShowBusinessHoursModal(false)
                 setTimeout(() => setSuccess(""), 3000)
@@ -972,9 +902,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          POLICY MODAL
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* POLICY MODAL */}
       <Dialog open={showPolicyModal} onOpenChange={setShowPolicyModal}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -996,9 +924,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          MEMORY MODAL
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* MEMORY MODAL */}
       <Dialog open={showMemoryModal} onOpenChange={setShowMemoryModal}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -1020,9 +946,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          PAYMENT SETTINGS MODAL
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* PAYMENT SETTINGS MODAL */}
       <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1095,10 +1019,10 @@ export function UserSettings({ onClose }: UserSettingsProps) {
               </Button>
               <Button 
                 onClick={handleSavePaymentSettings}
-                disabled={isSavingPayment || !paymentForm.bank_name || !paymentForm.account_name || !paymentForm.account_number}
+                disabled={updatePaymentMutation.isPending || !paymentForm.bank_name || !paymentForm.account_name || !paymentForm.account_number}
                 className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
               >
-                {isSavingPayment && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                {updatePaymentMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Save Payment Details
               </Button>
             </div>
