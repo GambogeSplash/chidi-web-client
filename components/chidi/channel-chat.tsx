@@ -378,6 +378,7 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
             order={pendingOrder}
             onConfirm={handleConfirmOrder}
             onReject={handleRejectOrder}
+            onDismiss={() => setPendingOrder(null)}
           />
         </div>
       )}

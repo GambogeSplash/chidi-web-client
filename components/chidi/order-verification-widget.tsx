@@ -23,12 +23,14 @@ interface OrderVerificationWidgetProps {
   order: Order
   onConfirm: () => Promise<void>
   onReject: (reason?: string) => Promise<void>
+  onDismiss?: () => void
 }
 
 export function OrderVerificationWidget({ 
   order, 
   onConfirm, 
-  onReject 
+  onReject,
+  onDismiss,
 }: OrderVerificationWidgetProps) {
   const [isConfirming, setIsConfirming] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
@@ -68,14 +70,23 @@ export function OrderVerificationWidget({
   const moreItems = order.items.length > 2 ? ` +${order.items.length - 2} more` : ''
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 relative">
+      {onDismiss && (
+        <button
+          onClick={onDismiss}
+          className="absolute top-2 right-2 p-1 rounded-md text-amber-400 hover:text-amber-600 hover:bg-amber-100 transition-colors"
+          aria-label="Dismiss"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      )}
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
           <AlertCircle className="w-5 h-5 text-amber-600" />
         </div>
         
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-amber-900 text-sm">
+          <h4 className="font-medium text-amber-900 text-sm pr-6">
             Order Pending Verification
           </h4>
           <p className="text-xs text-amber-700 mt-0.5">
