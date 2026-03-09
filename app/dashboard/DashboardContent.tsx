@@ -35,6 +35,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [activeTab, setActiveTab] = useState<TabId>("inbox")
   const [localNotifications, setLocalNotifications] = useState<MappedNotification[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
 
   // React Query for products
   const { data: productsData } = useProducts()
@@ -140,6 +141,9 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         setShowProductDetailModal(true)
         setActiveTab('inventory')
       }
+    } else if (notification.referenceType === 'order' && notification.referenceId) {
+      setSelectedOrderId(notification.referenceId)
+      setActiveTab('orders')
     }
   }
 
@@ -255,7 +259,10 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         )}
         
         {activeTab === "orders" && (
-          <OrdersView />
+          <OrdersView 
+            initialOrderId={selectedOrderId}
+            onOrderSelected={() => setSelectedOrderId(null)}
+          />
         )}
         
         {activeTab === "inventory" && (

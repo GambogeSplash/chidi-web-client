@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { 
   ShoppingBag, 
@@ -29,6 +29,7 @@ import {
 } from "@/lib/api/orders"
 import {
   useOrders,
+  useOrder,
   useFulfillOrder,
   useCancelOrder,
   ordersKeys,
@@ -36,10 +37,26 @@ import {
 
 type FilterStatus = OrderStatus | 'ALL'
 
-export function OrdersView() {
+interface OrdersViewProps {
+  initialOrderId?: string | null
+  onOrderSelected?: () => void
+}
+
+export function OrdersView({ initialOrderId, onOrderSelected }: OrdersViewProps) {
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('ALL')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const queryClient = useQueryClient()
+  
+  // Fetch specific order if initialOrderId is provided
+  const { data: initialOrder } = useOrder(initialOrderId || null)
+  
+  // Auto-select order when initialOrderId changes and order is fetched
+  useEffect(() => {
+    if (initialOrder && initialOrderId) {
+      setSelectedOrder(initialOrder)
+      onOrderSelected?.()
+    }
+  }, [initialOrder, initialOrderId, onOrderSelected])
 
   const status = selectedFilter === 'ALL' ? undefined : selectedFilter
   const { data, isLoading, isRefetching, isError, error } = useOrders(status)
