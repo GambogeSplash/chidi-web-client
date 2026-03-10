@@ -7,8 +7,7 @@ import type {
   BackendProduct, 
   DisplayProduct, 
   CreateProductRequest,
-  StockStatus,
-  ProductVariant
+  StockStatus
 } from '@/lib/types/product'
 
 /**
@@ -59,6 +58,7 @@ export function backendToDisplay(product: BackendProduct): DisplayProduct {
     status: product.status,
     isFeatured: product.is_featured,
     isDigital: product.is_digital,
+    hasVariants: product.has_variants ?? false,
     tags: product.tags || [],
     reorderLevel: product.low_stock_threshold,
     inventoryId: product.inventory_id,
@@ -76,14 +76,6 @@ export function backendToDisplayList(products: BackendProduct[]): DisplayProduct
 }
 
 /**
- * Extract variants from product attributes
- */
-export function getProductVariants(product: DisplayProduct): ProductVariant[] {
-  if (!product.attributes?.variants) return []
-  return product.attributes.variants as ProductVariant[]
-}
-
-/**
  * Create product request from form data
  */
 export function formDataToCreateRequest(formData: {
@@ -95,7 +87,6 @@ export function formDataToCreateRequest(formData: {
   description?: string
   brand?: string
   imageUrls?: string[]
-  variants?: ProductVariant[]
 }): CreateProductRequest {
   const sellingPrice = parseCurrency(formData.price)
   const costPrice = formData.costPrice ? parseCurrency(formData.costPrice) : sellingPrice * 0.7 // Default 30% margin
@@ -118,10 +109,6 @@ export function formDataToCreateRequest(formData: {
 
   if (formData.imageUrls && formData.imageUrls.length > 0) {
     request.image_urls = formData.imageUrls
-  }
-
-  if (formData.variants && formData.variants.length > 0) {
-    request.attributes = { variants: formData.variants }
   }
 
   return request

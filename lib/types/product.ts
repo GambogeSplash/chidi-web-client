@@ -32,6 +32,7 @@ export interface BackendProduct {
   status: ProductStatus
   is_featured: boolean
   is_digital: boolean
+  has_variants: boolean
   weight?: number
   length?: number
   width?: number
@@ -148,22 +149,13 @@ export interface DisplayProduct {
   status: ProductStatus
   isFeatured: boolean
   isDigital: boolean
+  hasVariants: boolean
   tags: string[]
   reorderLevel: number
   inventoryId: string
   attributes?: Record<string, any>
   createdAt: Date
   updatedAt: Date
-}
-
-/**
- * Product variant (stored in attributes field)
- */
-export interface ProductVariant {
-  id: string
-  name: string
-  options: string[]
-  stock?: Record<string, number>
 }
 
 /**
@@ -174,4 +166,129 @@ export interface ProductsResponse {
   total: number
   limit: number
   offset: number
+}
+
+
+// =============================================================================
+// Product Variations (new system)
+// =============================================================================
+
+/**
+ * Input for a single variation option when creating a product
+ */
+export interface VariationOptionInput {
+  value: string
+  sort_order?: number
+}
+
+/**
+ * Input for a variation type with its options
+ */
+export interface VariationTypeInput {
+  name: string  // e.g., "Color", "Size"
+  options: VariationOptionInput[]
+  sort_order?: number
+}
+
+/**
+ * Input for a single product variant
+ */
+export interface ProductVariantInput {
+  options: Record<string, string>  // {"Color": "Red", "Size": "M"}
+  sku_suffix?: string
+  price_adjustment?: number  // +/- from base price
+  stock_quantity?: number
+  image_url?: string
+}
+
+/**
+ * Request to create a product with variations
+ */
+export interface CreateProductWithVariationsRequest extends CreateProductRequest {
+  variation_types?: VariationTypeInput[]
+  variants?: ProductVariantInput[]
+}
+
+/**
+ * Response for a variation option
+ */
+export interface VariationOptionResponse {
+  id: string
+  value: string
+  sort_order: number
+}
+
+/**
+ * Response for a variation type
+ */
+export interface VariationTypeResponse {
+  id: string
+  name: string
+  sort_order: number
+  options: VariationOptionResponse[]
+}
+
+/**
+ * Response for a product variant
+ */
+export interface ProductVariantResponse {
+  id: string
+  sku: string
+  price_adjustment: number
+  stock_quantity: number
+  status: ProductStatus
+  image_url?: string
+  options: Record<string, string>  // {"Color": "Red", "Size": "M"}
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Backend product with variations - extended response
+ */
+export interface BackendProductWithVariations extends BackendProduct {
+  has_variants: boolean
+  variation_types: VariationTypeResponse[]
+  variants: ProductVariantResponse[]
+  total_variant_stock?: number
+}
+
+/**
+ * Frontend display product with variations
+ */
+export interface DisplayProductWithVariations extends DisplayProduct {
+  hasVariants: boolean
+  variationTypes: VariationTypeResponse[]
+  variants: ProductVariantResponse[]
+  totalVariantStock?: number
+}
+
+/**
+ * Request to add a new variation type to existing product
+ */
+export interface AddVariationTypeRequest {
+  name: string
+  options: string[]  // Just the values
+  sort_order?: number
+}
+
+/**
+ * Request to add a new variant to existing product
+ */
+export interface AddVariantRequest {
+  options: Record<string, string>
+  sku_suffix?: string
+  price_adjustment?: number
+  stock_quantity?: number
+  image_url?: string
+}
+
+/**
+ * Request to update a variant
+ */
+export interface UpdateVariantRequest {
+  price_adjustment?: number
+  stock_quantity?: number
+  status?: ProductStatus
+  image_url?: string
 }

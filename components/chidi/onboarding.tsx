@@ -63,8 +63,6 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     businessName: "",
     phone: "",
     categories: [] as string[],
-    whatsappNumber: "",
-    instagramHandle: "",
   })
   const [nameError, setNameError] = useState("")
   
@@ -77,7 +75,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     }
   }, [])
 
-  const totalSteps = 4
+  const totalSteps = 3
 
   const handleNext = async () => {
     // Validate name if user needs to update it (step 2)
@@ -100,7 +98,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     if (step < totalSteps) {
       setStep(step + 1)
     } else {
-      // Complete onboarding by calling the API (step 4 is the last step)
+      // Complete onboarding by calling the API (step 3 is the last step)
       setIsLoading(true)
       try {
         const response = await authAPI.completeOnboarding({
@@ -109,8 +107,6 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           business_industry: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
           phone: userData.phone,
           categories: selectedCategories,
-          whatsapp_number: userData.whatsappNumber,
-          instagram_handle: userData.instagramHandle
         })
         
         // Call the parent completion handler with the API response
@@ -381,82 +377,6 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
               onClick={handleBack}
               variant="outline"
               className="flex-1 h-12 font-medium rounded-xl border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
-            >
-              Back
-            </Button>
-            <Button
-              onClick={handleNext}
-              className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
-              disabled={selectedCategories.length === 0}
-            >
-              Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Step 4: Connect Channels
-  if (step === 4) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="w-full max-w-lg animate-in fade-in duration-500">
-          <ProgressBar currentStep={step} totalSteps={totalSteps} />
-
-          <OnboardingHeader 
-            title="Connect your channels"
-            subtitle="Link WhatsApp and Instagram to start receiving messages"
-          />
-
-          {/* Form */}
-          <div className="space-y-5 mb-6">
-            <div className="space-y-2">
-              <Label htmlFor="whatsappNumber" className="text-[var(--chidi-text-primary)] text-sm font-medium">
-                WhatsApp Business Number <span className="text-[var(--chidi-text-muted)]">(Optional)</span>
-              </Label>
-              <Input
-                id="whatsappNumber"
-                placeholder="e.g., +234 801 234 5678"
-                value={userData.whatsappNumber}
-                onChange={(e) => handleInputChange("whatsappNumber", e.target.value)}
-                className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="instagramHandle" className="text-[var(--chidi-text-primary)] text-sm font-medium">
-                Instagram Handle <span className="text-[var(--chidi-text-muted)]">(Optional)</span>
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--chidi-text-muted)]">@</span>
-                <Input
-                  id="instagramHandle"
-                  placeholder="e.g., bellasfashion"
-                  value={userData.instagramHandle}
-                  onChange={(e) => handleInputChange("instagramHandle", e.target.value)}
-                  className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12 pl-8"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* What happens next */}
-          <div className="bg-[var(--chidi-surface)] rounded-xl p-4 border border-[var(--chidi-border-subtle)] mb-8">
-            <h4 className="font-medium text-[var(--chidi-text-primary)] text-sm mb-2">What happens next?</h4>
-            <ul className="text-sm text-[var(--chidi-text-muted)] space-y-1">
-              <li>• You'll be able to connect these channels from Settings</li>
-              <li>• Chidi will start monitoring for customer messages</li>
-              <li>• AI will help respond to common questions automatically</li>
-            </ul>
-          </div>
-
-          <div className="flex gap-3">
-            <Button
-              onClick={handleBack}
-              variant="outline"
-              className="flex-1 h-12 font-medium rounded-xl border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
               disabled={isLoading}
             >
               Back
@@ -464,7 +384,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
             <Button
               onClick={handleNext}
               className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
-              disabled={isLoading}
+              disabled={selectedCategories.length === 0 || isLoading}
             >
               {isLoading ? (
                 <>

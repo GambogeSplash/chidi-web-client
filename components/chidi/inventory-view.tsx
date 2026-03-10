@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "./empty-state"
+import { ManageVariationsSheet } from "./manage-variations-sheet"
 import type { DisplayProduct } from "@/lib/types/product"
 import { cn } from "@/lib/utils"
 
@@ -15,12 +16,31 @@ interface InventoryViewProps {
   onAddProduct: () => void
   onEditProduct: (product: DisplayProduct) => void
   onViewProduct: (product: DisplayProduct) => void
+  onProductsUpdated?: () => void
 }
 
-export function InventoryView({ products, onAddProduct, onEditProduct, onViewProduct }: InventoryViewProps) {
+export function InventoryView({ products, onAddProduct, onEditProduct, onViewProduct, onProductsUpdated }: InventoryViewProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
+  
+  // Variations sheet state
+  const [variationsSheetOpen, setVariationsSheetOpen] = useState(false)
+  const [selectedProductForVariations, setSelectedProductForVariations] = useState<DisplayProduct | null>(null)
+
+  const handleManageVariations = (product: DisplayProduct) => {
+    setSelectedProductForVariations(product)
+    setVariationsSheetOpen(true)
+  }
+
+  const handleVariationsSheetClose = () => {
+    setVariationsSheetOpen(false)
+    setSelectedProductForVariations(null)
+  }
+
+  const handleVariationsUpdated = () => {
+    onProductsUpdated?.()
+  }
 
   // Derive categories dynamically from actual product data
   const categories = ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
@@ -57,9 +77,12 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Inventory</h2>
             <p className="text-xs text-[var(--chidi-text-muted)]">
               {products.length} product{products.length !== 1 ? "s" : ""}
-              {products.filter(p => p.stock === 0).length > 0 && (
-                <span className="text-[var(--chidi-danger)]"> · {products.filter(p => p.stock === 0).length} out of stock</span>
-              )}
+              {(() => {
+                const outOfStockCount = products.filter(p => p.stock === 0).length
+                return outOfStockCount > 0 ? (
+                  <span className="text-[var(--chidi-danger)]"> · {outOfStockCount} out of stock</span>
+                ) : null
+              })()}
             </p>
           </div>
           <Button 
@@ -188,6 +211,17 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                           >
                             Edit product
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleManageVariations(product)
+                            }}
+                            className="text-[var(--chidi-text-primary)]"
+                          >
+                            <Layers className="w-4 h-4 mr-2" />
+                            Manage variations
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -233,9 +267,20 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                       </span>
                     </div>
 
-                    <p className="text-xs text-[var(--chidi-text-muted)] capitalize mt-1">
-                      {product.category}
-                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-[var(--chidi-text-muted)] capitalize">
+                        {product.category}
+                      </p>
+                      {product.hasVariants && (
+                        <Badge 
+                          variant="outline" 
+                          className="text-[10px] px-1.5 py-0 h-4 border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)]"
+                        >
+                          <Layers className="w-2.5 h-2.5 mr-0.5" />
+                          Variants
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
@@ -243,6 +288,16 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           </div>
         )}
       </div>
+
+      {/* Manage Variations Sheet */}
+      {selectedProductForVariations && (
+        <ManageVariationsSheet
+          isOpen={variationsSheetOpen}
+          onClose={handleVariationsSheetClose}
+          product={selectedProductForVariations}
+          onUpdate={handleVariationsUpdated}
+        />
+      )}
     </div>
   )
 }
