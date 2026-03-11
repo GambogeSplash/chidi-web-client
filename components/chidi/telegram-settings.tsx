@@ -8,13 +8,26 @@ import {
   AlertCircle,
   CheckCircle2,
   Trash2,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  HelpCircle,
+  ExternalLink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +50,7 @@ export function TelegramSettings() {
   const [showConnectDialog, setShowConnectDialog] = useState(false)
   const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
   const [botToken, setBotToken] = useState('')
+  const [connectionSuccess, setConnectionSuccess] = useState(false)
 
   useEffect(() => {
     loadStatus()
@@ -68,7 +82,7 @@ export function TelegramSettings() {
       
       await messagingAPI.connectTelegram(botToken)
       await loadStatus()
-      setShowConnectDialog(false)
+      setConnectionSuccess(true)
       setBotToken('')
     } catch (err: any) {
       console.error('Failed to connect Telegram:', err)
@@ -165,46 +179,105 @@ export function TelegramSettings() {
           </div>
         </button>
 
-        <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
+        <Dialog open={showConnectDialog} onOpenChange={(open) => {
+          setShowConnectDialog(open)
+          if (!open) setConnectionSuccess(false)
+        }}>
           <DialogContent className="bg-white border-[var(--chidi-border-subtle)]">
-            <DialogHeader>
-              <DialogTitle className="text-[var(--chidi-text-primary)]">Connect Telegram</DialogTitle>
-              <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                Enter your Telegram bot token to start receiving messages.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="botToken" className="text-[var(--chidi-text-primary)]">Bot Token</Label>
-                <Input
-                  id="botToken"
-                  value={botToken}
-                  onChange={(e) => setBotToken(e.target.value)}
-                  placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] font-mono text-sm"
-                />
-                <p className="text-xs text-[var(--chidi-text-muted)]">
-                  Get this from @BotFather on Telegram
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowConnectDialog(false)}
-                className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)]"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleConnect}
-                disabled={saving || !botToken}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                Connect
-              </Button>
-            </DialogFooter>
+            {connectionSuccess ? (
+              <>
+                <div className="flex flex-col items-center text-center py-6">
+                  <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                    <CheckCircle2 className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[var(--chidi-text-primary)] mb-2">
+                    Telegram Connected!
+                  </h3>
+                  <p className="text-sm text-[var(--chidi-text-secondary)] max-w-xs mb-4">
+                    Your bot is ready to receive messages. Share your bot link with customers to start conversations.
+                  </p>
+                  <div className="bg-[var(--chidi-surface)] rounded-lg p-3 w-full mb-4">
+                    <p className="text-xs text-[var(--chidi-text-muted)] mb-1">Next step</p>
+                    <p className="text-sm text-[var(--chidi-text-primary)]">
+                      Make sure you have products in your inventory so Chidi can help customers with their questions.
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    onClick={() => {
+                      setShowConnectDialog(false)
+                      setConnectionSuccess(false)
+                    }}
+                    className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-white"
+                  >
+                    Done
+                  </Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-[var(--chidi-text-primary)]">Connect Telegram</DialogTitle>
+                  <DialogDescription className="text-[var(--chidi-text-secondary)]">
+                    Enter your Telegram bot token to start receiving messages.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="botToken" className="text-[var(--chidi-text-primary)]">Bot Token</Label>
+                    <Input
+                      id="botToken"
+                      value={botToken}
+                      onChange={(e) => setBotToken(e.target.value)}
+                      placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                      className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] font-mono text-sm"
+                    />
+                    <Collapsible>
+                      <CollapsibleTrigger className="flex items-center gap-1 text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] transition-colors group">
+                        <HelpCircle className="w-3 h-3" />
+                        <span>How to get your bot token</span>
+                        <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <ol className="text-xs text-[var(--chidi-text-secondary)] space-y-1.5 mt-2 pl-4 list-decimal">
+                          <li>Open Telegram and search for <strong>@BotFather</strong></li>
+                          <li>Send <code className="bg-[var(--chidi-surface)] px-1 py-0.5 rounded">/newbot</code> and follow the prompts to name your bot</li>
+                          <li>BotFather will reply with a token like <code className="bg-[var(--chidi-surface)] px-1 py-0.5 rounded">123456789:ABC...</code></li>
+                          <li>Copy that token and paste it here</li>
+                        </ol>
+                        <a 
+                          href="https://t.me/BotFather" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[var(--chidi-accent)] hover:underline mt-2"
+                        >
+                          Open BotFather
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowConnectDialog(false)}
+                    className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleConnect}
+                    disabled={saving || !botToken}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Connect
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </>
@@ -241,6 +314,14 @@ export function TelegramSettings() {
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 text-[var(--chidi-text-muted)]" />
             <span className="text-sm text-[var(--chidi-text-primary)]">AI Responses</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-xs">When enabled, Chidi automatically replies to customer messages. When disabled, messages appear in your inbox for manual reply.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <Switch
             checked={status.ai_enabled ?? true}
@@ -252,6 +333,14 @@ export function TelegramSettings() {
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-[var(--chidi-text-muted)]" />
             <span className="text-sm text-[var(--chidi-text-primary)]">After-Hours Only</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-xs">AI only responds outside your set business hours. During business hours, messages go to your inbox.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <Switch
             checked={status.after_hours_only ?? false}

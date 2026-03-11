@@ -45,8 +45,9 @@ export function ChannelMix({ data, loading }: ChannelMixProps) {
         <h3 className="text-sm font-medium text-[var(--chidi-text-primary)] mb-4">
           Sales by Channel
         </h3>
-        <div className="h-40 flex items-center justify-center text-sm text-[var(--chidi-text-muted)]">
-          No channel data yet
+        <div className="h-40 flex flex-col items-center justify-center text-center px-4">
+          <p className="text-sm font-medium text-[var(--chidi-text-primary)] mb-1">No channel data yet</p>
+          <p className="text-xs text-[var(--chidi-text-muted)]">Connect WhatsApp or Telegram to start seeing channel activity.</p>
         </div>
       </div>
     )

@@ -10,6 +10,7 @@ import { useConversationList } from "@/hooks/use-conversation-list"
 import { conversationsAPI } from "@/lib/api/conversations"
 import { CopilotHistoryPanel } from "./copilot-history-panel"
 import { CopilotMessageContent } from "./copilot-blocks"
+import { useFirstTimeHint } from "@/lib/hooks/use-first-time-hint"
 import Image from "next/image"
 import type { ConversationResponse, ChatMessage } from "@/lib/types/conversation"
 import type { DisplayProduct } from "@/lib/types/product"
@@ -110,6 +111,9 @@ export function CopilotView({
   const messageIndexRef = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  
+  // First-time hint
+  const { shouldShow: showCopilotHint, dismiss: dismissCopilotHint } = useFirstTimeHint("copilot_intro")
 
   // Use the conversation hook for state management
   const {
@@ -282,9 +286,21 @@ export function CopilotView({
             height={200}
             className="mb-2 drop-shadow-md mix-blend-multiply"
           />
-          <p className="text-2xl font-semibold text-[var(--chidi-text-primary)] text-center mb-6">
+          <p className="text-2xl font-semibold text-[var(--chidi-text-primary)] text-center mb-2">
             How can I help today?
           </p>
+          
+          {/* First-time hint */}
+          {showCopilotHint ? (
+            <button 
+              onClick={dismissCopilotHint}
+              className="text-xs text-[var(--chidi-text-muted)] text-center mb-4 hover:text-[var(--chidi-text-secondary)] transition-colors"
+            >
+              My answers draw from your inventory, orders, conversations and more.
+            </button>
+          ) : (
+            <div className="mb-4" />
+          )}
 
           {/* Prompt categories */}
           <div className="w-full max-w-sm flex flex-col gap-1">

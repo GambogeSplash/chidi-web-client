@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Search, Star, Phone, Mail, RefreshCw } from "lucide-react"
+import { Search, Star, Phone, Mail, RefreshCw, Users } from "lucide-react"
 import { formatCurrency, formatRelativeTime, getChannelDisplay } from "@/lib/api/analytics"
 import { useCustomers, analyticsKeys } from "@/lib/hooks/use-analytics"
 import type { CustomerSummary } from "@/lib/types/analytics"
@@ -76,8 +76,8 @@ export function CustomersView() {
             </div>
           ) : customers.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                <Phone className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-[var(--chidi-text-muted)]" />
               </div>
               <h3 className="text-lg font-medium text-[var(--chidi-text-primary)] mb-2">
                 {search ? "No customers found" : "No customers yet"}
@@ -85,7 +85,7 @@ export function CustomersView() {
               <p className="text-sm text-[var(--chidi-text-muted)] max-w-xs">
                 {search
                   ? "Try a different search term"
-                  : "Customers will appear here when they place orders through your sales channels"}
+                  : "Customer profiles are created automatically when people message you through connected channels."}
               </p>
             </div>
           ) : (

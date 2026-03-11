@@ -34,6 +34,8 @@ import {
   useCancelOrder,
   ordersKeys,
 } from "@/lib/hooks/use-orders"
+import { HintBanner } from "./hint-banner"
+import { useFirstTimeHint } from "@/lib/hooks/use-first-time-hint"
 
 type FilterStatus = OrderStatus | 'ALL'
 
@@ -46,6 +48,9 @@ export function OrdersView({ initialOrderId, onOrderSelected }: OrdersViewProps)
   const [selectedFilter, setSelectedFilter] = useState<FilterStatus>('ALL')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const queryClient = useQueryClient()
+  
+  // First-time hint
+  const { shouldShow: showFirstOrderHint, dismiss: dismissFirstOrderHint } = useFirstTimeHint("orders_first_order")
   
   // Fetch specific order if initialOrderId is provided
   const { data: initialOrder } = useOrder(initialOrderId || null)
@@ -181,12 +186,27 @@ export function OrdersView({ initialOrderId, onOrderSelected }: OrdersViewProps)
               {(error as Error)?.message || 'Failed to load orders'}
             </div>
           ) : orders.length === 0 ? (
-            <div className="p-6 text-center text-[var(--chidi-text-muted)]">
-              <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p>No orders found</p>
+            <div className="flex flex-col items-center justify-center p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center mb-4">
+                <ShoppingBag className="w-8 h-8 text-[var(--chidi-text-muted)]" />
+              </div>
+              <h3 className="text-lg font-semibold text-[var(--chidi-text-primary)] mb-2">No orders yet</h3>
+              <p className="text-sm text-[var(--chidi-text-muted)] max-w-xs">
+                Orders are created when customers purchase through your messaging channels. Connect a channel and add products to get started.
+              </p>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--chidi-border-subtle)]">
+            <div>
+              {/* First order hint */}
+              {showFirstOrderHint && orders.length > 0 && (
+                <div className="px-4 pt-4">
+                  <HintBanner onDismiss={dismissFirstOrderHint}>
+                    Confirm payment to notify customers, then mark as fulfilled when shipped.
+                  </HintBanner>
+                </div>
+              )}
+              
+              <div className="divide-y divide-[var(--chidi-border-subtle)]">
               {orders.map(order => {
                 const statusDisplay = getOrderStatusDisplay(order.status)
                 const isSelected = selectedOrder?.id === order.id
@@ -226,6 +246,7 @@ export function OrdersView({ initialOrderId, onOrderSelected }: OrdersViewProps)
                   </button>
                 )
               })}
+              </div>
             </div>
           )}
         </div>

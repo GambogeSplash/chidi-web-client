@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { UserSettings } from '@/components/settings'
 import { authAPI } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
@@ -9,11 +9,12 @@ import { Loader2 } from 'lucide-react'
 export default function SettingsPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const slug = params.slug as string
+  const section = searchParams.get('section')
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Check authentication
     if (!authAPI.isAuthenticated()) {
       router.push('/auth')
       return
@@ -35,7 +36,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[var(--chidi-surface)]">
-      <UserSettings onClose={handleClose} />
+      <UserSettings onClose={handleClose} scrollToSection={section} />
     </div>
   )
 }

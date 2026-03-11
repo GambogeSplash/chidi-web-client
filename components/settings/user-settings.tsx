@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -59,14 +59,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { HelpSheet } from "./help-sheet"
 
 interface UserSettingsProps {
   onClose?: () => void
+  scrollToSection?: string | null
 }
 
-export function UserSettings({ onClose }: UserSettingsProps) {
+export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
   const router = useRouter()
   const [error, setError] = useState("")
+  
+  // Section refs for scrolling
+  const paymentSectionRef = useRef<HTMLElement>(null)
+  const aiSectionRef = useRef<HTMLElement>(null)
+  const integrationsSectionRef = useRef<HTMLElement>(null)
+  const notificationsSectionRef = useRef<HTMLElement>(null)
   const [success, setSuccess] = useState("")
 
   // Modal states
@@ -76,6 +84,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
   const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [showMemoryModal, setShowMemoryModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [showHelpSheet, setShowHelpSheet] = useState(false)
   
   // Business ID for policy/memory settings
   const [businessId, setBusinessId] = useState<string | null>(null)
@@ -155,6 +164,27 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       })
     }
   }, [paymentData])
+
+  // Scroll to section if specified
+  useEffect(() => {
+    if (!scrollToSection) return
+    
+    const timer = setTimeout(() => {
+      const refMap: Record<string, React.RefObject<HTMLElement | null>> = {
+        payment: paymentSectionRef,
+        ai: aiSectionRef,
+        integrations: integrationsSectionRef,
+        notifications: notificationsSectionRef,
+      }
+      
+      const ref = refMap[scrollToSection]
+      if (ref?.current) {
+        ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }, 100)
+    
+    return () => clearTimeout(timer)
+  }, [scrollToSection])
 
   const handleSaveAccount = () => {
     setError("")
@@ -239,9 +269,9 @@ export function UserSettings({ onClose }: UserSettingsProps) {
       },
       {
         onSuccess: () => {
-          setSuccess("Payment settings updated successfully")
+          setSuccess("Payment details saved. Chidi will share these with customers ready to pay.")
           setShowPaymentModal(false)
-          setTimeout(() => setSuccess(""), 3000)
+          setTimeout(() => setSuccess(""), 5000)
         },
         onError: (err: any) => {
           setError(err.message || "Failed to update payment settings")
@@ -466,7 +496,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
         {/* INTEGRATIONS SECTION */}
-        <section className="py-6">
+        <section ref={integrationsSectionRef} className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Plug className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
             <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Integrations</span>
@@ -499,7 +529,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
         {/* AI ASSISTANT SECTION */}
-        <section className="py-6">
+        <section ref={aiSectionRef} className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Bot className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
             <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">AI Assistant</span>
@@ -514,7 +544,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                 <ScrollText className="w-5 h-5 text-[var(--chidi-text-muted)]" />
                 <div className="text-left">
                   <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Business Policies</p>
-                  <p className="text-xs text-[var(--chidi-text-muted)]">FAQs and rules your AI follows</p>
+                  <p className="text-xs text-[var(--chidi-text-muted)]">FAQs, return policies, and rules that shape your AI's responses</p>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
@@ -528,7 +558,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
                 <Brain className="w-5 h-5 text-[var(--chidi-text-muted)]" />
                 <div className="text-left">
                   <p className="font-medium text-sm text-[var(--chidi-text-primary)]">AI Memory</p>
-                  <p className="text-xs text-[var(--chidi-text-muted)]">View what your AI remembers</p>
+                  <p className="text-xs text-[var(--chidi-text-muted)]">Things Chidi has learned from your conversations</p>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
@@ -539,11 +569,14 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
         {/* PAYMENT SETTINGS SECTION */}
-        <section className="py-6">
-          <div className="flex items-start gap-2 mb-4">
+        <section ref={paymentSectionRef} className="py-6">
+          <div className="flex items-start gap-2 mb-2">
             <CreditCard className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
             <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Payment Settings</span>
           </div>
+          <p className="text-xs text-[var(--chidi-text-muted)] mb-4 ml-6">
+            These details are shared with customers when they're ready to pay.
+          </p>
 
           <button
             onClick={() => setShowPaymentModal(true)}
@@ -587,7 +620,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         <Separator className="bg-[var(--chidi-border-subtle)]" />
 
         {/* NOTIFICATIONS SECTION */}
-        <section className="py-6">
+        <section ref={notificationsSectionRef} className="py-6">
           <div className="flex items-start gap-2 mb-4">
             <Bell className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
             <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Notifications</span>
@@ -690,6 +723,7 @@ export function UserSettings({ onClose }: UserSettingsProps) {
         {/* HELP & SIGN OUT SECTION */}
         <section className="py-6 space-y-3">
           <button
+            onClick={() => setShowHelpSheet(true)}
             className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center gap-3 hover:bg-[var(--chidi-surface)] transition-colors"
           >
             <HelpCircle className="w-5 h-5 text-[var(--chidi-text-muted)]" />
@@ -1029,6 +1063,12 @@ export function UserSettings({ onClose }: UserSettingsProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Help Sheet */}
+      <HelpSheet 
+        isOpen={showHelpSheet} 
+        onClose={() => setShowHelpSheet(false)} 
+      />
     </div>
   )
 }

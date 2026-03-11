@@ -33,8 +33,9 @@ export function RevenueChart({ data, loading }: RevenueChartProps) {
         <h3 className="text-sm font-medium text-[var(--chidi-text-primary)] mb-4">
           Revenue Trend
         </h3>
-        <div className="h-48 flex items-center justify-center text-sm text-[var(--chidi-text-muted)]">
-          No sales data yet
+        <div className="h-48 flex flex-col items-center justify-center text-center px-4">
+          <p className="text-sm font-medium text-[var(--chidi-text-primary)] mb-1">No sales data yet</p>
+          <p className="text-xs text-[var(--chidi-text-muted)]">Revenue data appears as customers place orders through your channels.</p>
         </div>
       </div>
     )

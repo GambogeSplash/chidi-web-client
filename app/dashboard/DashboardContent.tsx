@@ -15,6 +15,7 @@ import { EditProductModal } from '@/components/chidi/edit-product-modal'
 import { QuickEditModal } from '@/components/chidi/quick-edit-modal'
 import { ProductDetailModal } from '@/components/chidi/product-detail-modal'
 import { BulkCSVImport } from '@/components/chidi/bulk-csv-import'
+import { ManageVariationsSheet } from '@/components/chidi/manage-variations-sheet'
 import { authAPI, productsAPI, type User } from '@/lib/api'
 import type { DisplayProduct } from '@/lib/types/product'
 import { Loader2 } from 'lucide-react'
@@ -22,6 +23,7 @@ import type { ConversationResponse } from '@/lib/types/conversation'
 import { useNotifications, mapNotificationForUI, type MappedNotification } from '@/hooks/use-notifications'
 import { getStoredInventoryId } from '@/lib/api/products'
 import { useProducts, useUpdateProduct, productsKeys } from '@/lib/hooks/use-products'
+import { SetupChecklist } from '@/components/chidi/setup-checklist'
 
 interface DashboardContentProps {
   businessSlug?: string;
@@ -71,6 +73,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [showProductDetailModal, setShowProductDetailModal] = useState(false)
   const [showEditProductModal, setShowEditProductModal] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [variationsProduct, setVariationsProduct] = useState<DisplayProduct | null>(null)
 
   // Authentication check on page load
   useEffect(() => {
@@ -214,8 +217,22 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   }
 
   const handleProductAdded = (product: DisplayProduct) => {
+    const wasFirstProduct = products.length === 0
     queryClient.invalidateQueries({ queryKey: productsKeys.all })
     setShowAddProductModal(false)
+    
+    if (wasFirstProduct) {
+      const notification: MappedNotification = {
+        id: `first-product-${Date.now()}`,
+        type: 'activity',
+        title: 'First Product Added!',
+        message: 'Customers on your channels can now ask about it.',
+        timestamp: 'Just now',
+        read: false,
+        priority: 'low'
+      }
+      setLocalNotifications((prev) => [notification, ...prev])
+    }
   }
 
   const handleProductDeleted = (productId: string) => {
@@ -228,6 +245,14 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     queryClient.invalidateQueries({ queryKey: productsKeys.all })
     setShowEditProductModal(false)
     setSelectedProduct(null)
+  }
+
+  const handleManageVariations = (product: DisplayProduct) => {
+    setVariationsProduct(product)
+  }
+
+  const handleVariationsUpdated = () => {
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
   }
 
   if (isLoading) {
@@ -252,6 +277,15 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         onNotificationClick={handleNotificationClick}
       />
 
+      {/* Setup Checklist - shown until complete or dismissed */}
+      <SetupChecklist
+        businessId={user?.businessId || null}
+        businessSlug={businessSlug}
+        products={products}
+        setActiveTab={setActiveTab}
+        onAddProduct={() => setShowAddProductModal(true)}
+      />
+
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden pb-16">
         {activeTab === "inbox" && (
@@ -271,6 +305,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             onAddProduct={() => setShowAddProductModal(true)}
             onEditProduct={handleEditProduct}
             onViewProduct={handleViewProduct}
+            onProductsUpdated={handleVariationsUpdated}
           />
         )}
         
@@ -340,6 +375,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             setSelectedProduct(null)
           }}
           onSave={handleProductSaved}
+          onManageVariations={handleManageVariations}
         />
       )}
 
@@ -347,6 +383,15 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         <BulkCSVImport
           onClose={() => setShowBulkImport(false)}
           onImport={handleBulkImport}
+        />
+      )}
+
+      {variationsProduct && (
+        <ManageVariationsSheet
+          isOpen={!!variationsProduct}
+          onClose={() => setVariationsProduct(null)}
+          product={variationsProduct}
+          onUpdate={handleVariationsUpdated}
         />
       )}
     </div>

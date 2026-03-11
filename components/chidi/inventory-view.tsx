@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "./empty-state"
 import { ManageVariationsSheet } from "./manage-variations-sheet"
+import { HintBanner } from "./hint-banner"
+import { useFirstTimeHint } from "@/lib/hooks/use-first-time-hint"
 import type { DisplayProduct } from "@/lib/types/product"
 import { cn } from "@/lib/utils"
 
@@ -27,6 +29,9 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   // Variations sheet state
   const [variationsSheetOpen, setVariationsSheetOpen] = useState(false)
   const [selectedProductForVariations, setSelectedProductForVariations] = useState<DisplayProduct | null>(null)
+
+  // First-time hint
+  const { shouldShow: showFirstProductHint, dismiss: dismissFirstProductHint } = useFirstTimeHint("inventory_first_product")
 
   const handleManageVariations = (product: DisplayProduct) => {
     setSelectedProductForVariations(product)
@@ -150,7 +155,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             description={
               searchQuery 
                 ? "Try adjusting your search or filter"
-                : "Add your first product to start managing your inventory."
+                : "Products you add here are what your AI uses to answer customer questions and take orders."
             }
             action={
               !searchQuery && (
@@ -165,7 +170,15 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
+            {/* First product hint */}
+            {showFirstProductHint && products.length > 0 && (
+              <HintBanner onDismiss={dismissFirstProductHint}>
+                Your AI can now answer customer questions about your products.
+              </HintBanner>
+            )}
+            
+            <div className="grid grid-cols-2 gap-3">
             {filteredProducts.map((product) => {
               const stockStatus = getStockStatus(product.stock, product.reorderLevel)
 
@@ -285,6 +298,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 </div>
               )
             })}
+            </div>
           </div>
         )}
       </div>
