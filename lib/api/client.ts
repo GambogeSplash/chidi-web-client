@@ -20,7 +20,6 @@ interface RequestConfig {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
   headers?: HeadersInit
   body?: any
-  token?: string
 }
 
 // SSE Stream chunk types
@@ -41,7 +40,7 @@ class APIClient {
   private defaultHeaders: HeadersInit
   public isDevelopmentMode: boolean
   private isRefreshing: boolean = false
-  private refreshPromise: Promise<string> | null = null
+  private refreshPromise: Promise<void> | null = null
 
   constructor() {
     this.baseURL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
@@ -56,62 +55,49 @@ class APIClient {
     })
   }
 
-  private getAuthToken(): string | null {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('chidi_auth_token')
+  /**
+   * Check if user is authenticated by checking for the indicator cookie.
+   * The actual tokens are in httpOnly cookies that can't be accessed by JavaScript.
+   */
+  isAuthenticated(): boolean {
+    if (typeof window === 'undefined') return false
+    return document.cookie.includes('chidi_logged_in=true')
   }
 
-  private getRefreshToken(): string | null {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('chidi_refresh_token')
-  }
-
-  private async refreshAccessToken(): Promise<string> {
+  private async refreshAccessToken(): Promise<void> {
     if (this.isRefreshing && this.refreshPromise) {
-      return this.refreshPromise
+      await this.refreshPromise
+      return
     }
 
     this.isRefreshing = true
     this.refreshPromise = this.performTokenRefresh()
 
     try {
-      const newToken = await this.refreshPromise
-      return newToken
+      await this.refreshPromise
     } finally {
       this.isRefreshing = false
       this.refreshPromise = null
     }
   }
 
-  private async performTokenRefresh(): Promise<string> {
-    const refreshToken = this.getRefreshToken()
-    if (!refreshToken) {
-      throw new Error('No refresh token available')
-    }
-
+  private async performTokenRefresh(): Promise<void> {
+    // The refresh token is sent automatically via httpOnly cookie.
+    // New tokens are set via httpOnly cookies by the server.
     const response = await fetch(`${this.baseURL}/auth/refresh`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        refresh_token: refreshToken
-      })
+      credentials: 'include',  // Send refresh token cookie
+      body: JSON.stringify({})
     })
 
     if (!response.ok) {
       throw new Error('Token refresh failed')
     }
-
-    const data = await response.json()
     
-    // Store new tokens
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', data.access_token)
-      localStorage.setItem('chidi_refresh_token', data.refresh_token)
-    }
-
-    return data.access_token
+    // Cookies are set by the server response - nothing to store locally
   }
 
   private async handleResponse<T>(response: Response): Promise<T> {
@@ -150,25 +136,21 @@ class APIClient {
   }
 
   async request<T>(endpoint: string, options: RequestConfig = {}): Promise<T> {
-    const { method = 'GET', headers = {}, body, token } = options
+    const { method = 'GET', headers = {}, body } = options
     
     debugLog(`🚀 ${method} ${endpoint}`)
 
     const url = `${this.baseURL}${endpoint}`
-    const authToken = token || this.getAuthToken()
     
     const requestHeaders = {
       ...this.defaultHeaders,
       ...headers,
     } as Record<string, string>
-    
-    if (authToken) {
-      requestHeaders['Authorization'] = `Bearer ${authToken}`
-    }
 
     const requestConfig: RequestInit = {
       method,
       headers: requestHeaders,
+      credentials: 'include',  // Send cookies with cross-origin requests
     }
 
     if (body && method !== 'GET') {
@@ -182,23 +164,19 @@ class APIClient {
       
       debugLog(`📥 ${method} ${endpoint}: ${response.status} (${duration}ms)`)
       
-      // Handle token expiration
-      if (response.status === 401 && authToken && !this.isRefreshing) {
+      // Handle token expiration - cookies are used for auth
+      if (response.status === 401 && !this.isRefreshing) {
         debugLog('🔄 Token expired, attempting refresh...')
         try {
-          const newToken = await this.refreshAccessToken()
+          await this.refreshAccessToken()
           
-          const retryResponse = await fetch(url, {
-            ...requestConfig,
-            headers: { ...requestHeaders, 'Authorization': `Bearer ${newToken}` }
-          })
+          // Retry with refreshed cookie (automatically included)
+          const retryResponse = await fetch(url, requestConfig)
           
           return this.handleResponse<T>(retryResponse)
         } catch (refreshError) {
           // If refresh fails, redirect to login
           if (typeof window !== 'undefined') {
-            localStorage.removeItem('chidi_auth_token')
-            localStorage.removeItem('chidi_refresh_token')
             window.location.href = '/auth'
           }
           throw refreshError
@@ -222,13 +200,6 @@ class APIClient {
         debugError(`❌ Request failed:`, error)
       }
       
-      // Handle auth errors by clearing token
-      if (error instanceof APIError && error.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('chidi_auth_token')
-          localStorage.removeItem('chidi_refresh_token')
-        }
-      }
       throw error
     }
   }
@@ -321,7 +292,6 @@ class APIClient {
     onError: (error: Error) => void
   ): Promise<void> {
     const url = `${this.baseURL}${endpoint}`
-    const authToken = this.getAuthToken()
     
     debugLog(`🌊 [STREAM] POST ${endpoint}`)
 
@@ -329,16 +299,13 @@ class APIClient {
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
     }
-    
-    if (authToken) {
-      requestHeaders['Authorization'] = `Bearer ${authToken}`
-    }
 
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: requestHeaders,
         body: JSON.stringify(body),
+        credentials: 'include',  // Send cookies with cross-origin requests
       })
 
       if (!response.ok) {

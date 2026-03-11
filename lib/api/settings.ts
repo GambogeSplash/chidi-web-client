@@ -279,6 +279,10 @@ export const settingsAPI = {
   async logout(): Promise<SuccessResponse> {
     console.log('🚪 [SETTINGS] Logging out...')
     try {
+      // Call auth logout to clear httpOnly cookies
+      await apiClient.post('/auth/logout')
+      
+      // Also call settings logout for any server-side session cleanup
       const response = await apiClient.post<SuccessResponse>(
         '/api/settings/logout',
         undefined,
@@ -286,10 +290,8 @@ export const settingsAPI = {
         { success: true, message: 'Logged out successfully' }
       )
       
-      // Clear local storage
+      // Clear stored IDs
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('chidi_auth_token')
-        localStorage.removeItem('chidi_refresh_token')
         localStorage.removeItem('chidi_inventory_id')
         localStorage.removeItem('chidi_business_id')
       }
@@ -297,14 +299,18 @@ export const settingsAPI = {
       console.log('✅ [SETTINGS] Logged out successfully')
       return response
     } catch (error) {
-      // Even if API fails, clear local tokens
+      // Even if API fails, try to clear cookies
+      try {
+        await apiClient.post('/auth/logout')
+      } catch {
+        // Ignore - best effort
+      }
+      
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('chidi_auth_token')
-        localStorage.removeItem('chidi_refresh_token')
         localStorage.removeItem('chidi_inventory_id')
         localStorage.removeItem('chidi_business_id')
       }
-      console.log('⚠️ [SETTINGS] Logout API failed but tokens cleared')
+      console.log('⚠️ [SETTINGS] Logout API failed but cookies cleared')
       return { success: true, message: 'Logged out locally' }
     }
   },
@@ -315,6 +321,9 @@ export const settingsAPI = {
   async logoutAllSessions(): Promise<LogoutAllResponse> {
     console.log('🚪 [SETTINGS] Logging out from all devices...')
     try {
+      // Call auth logout to clear httpOnly cookies for this session
+      await apiClient.post('/auth/logout')
+      
       const response = await apiClient.post<LogoutAllResponse>(
         '/api/settings/logout-all',
         undefined,
@@ -322,10 +331,8 @@ export const settingsAPI = {
         { success: true, message: 'Logged out from all devices', sessions_terminated: 1 }
       )
       
-      // Clear local storage
+      // Clear stored IDs
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('chidi_auth_token')
-        localStorage.removeItem('chidi_refresh_token')
         localStorage.removeItem('chidi_inventory_id')
         localStorage.removeItem('chidi_business_id')
       }
@@ -333,6 +340,18 @@ export const settingsAPI = {
       console.log('✅ [SETTINGS] Logged out from all devices')
       return response
     } catch (error) {
+      // Try to clear cookies even if logout-all fails
+      try {
+        await apiClient.post('/auth/logout')
+      } catch {
+        // Ignore - best effort
+      }
+      
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('chidi_inventory_id')
+        localStorage.removeItem('chidi_business_id')
+      }
+      
       console.error('❌ [SETTINGS] Failed to logout all sessions:', error)
       throw error
     }

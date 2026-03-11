@@ -129,16 +129,9 @@ export const authAPI = {
       const response = await apiClient.post<AuthResponse>('/auth/signin', credentials)
       
       console.log(' [AUTH] Login successful for user:', response.user.email)
-      console.log(' [AUTH] Received tokens:', {
-        access_token: response.tokens.access_token.substring(0, 20) + '...',
-        refresh_token: response.tokens.refresh_token.substring(0, 20) + '...',
-        expires_in: response.tokens.expires_in
-      })
       
-      // Store tokens, inventory_id, and business_id
+      // Store inventory_id and business_id (tokens are in httpOnly cookies)
       if (typeof window !== 'undefined') {
-        localStorage.setItem('chidi_auth_token', response.tokens.access_token)
-        localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
         if (response.inventory_id) {
           setStoredInventoryId(response.inventory_id)
           console.log(' [AUTH] Inventory ID stored:', response.inventory_id)
@@ -147,7 +140,6 @@ export const authAPI = {
           setStoredBusinessId(response.business_id)
           console.log(' [AUTH] Business ID stored:', response.business_id)
         }
-        console.log(' [AUTH] Tokens stored in localStorage')
       }
       
       return response
@@ -198,14 +190,7 @@ export const authAPI = {
     try {
       const response = await apiClient.post<MagicLinkCallbackResponse>('/auth/magic-link/callback', callbackData)
       console.log('✅ [AUTH] Magic link callback processed:', response)
-      
-      // Store tokens
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('chidi_auth_token', response.access_token)
-        localStorage.setItem('chidi_refresh_token', response.refresh_token)
-        console.log('✅ [AUTH] Tokens stored from magic link callback')
-      }
-      
+      // Tokens are set via httpOnly cookies by the server
       return response
     } catch (error) {
       console.error('❌ [AUTH] Failed to process magic link callback:', error)
@@ -290,33 +275,18 @@ export const authAPI = {
   },
 
   async refreshToken(): Promise<TokenResponse> {
-    const refreshToken = this.getRefreshToken()
-    if (!refreshToken) {
-      throw new Error('No refresh token available')
-    }
-    
-    const response = await apiClient.post<TokenResponse>('/auth/refresh', {
-      refresh_token: refreshToken
-    })
-    
-    // Update stored tokens
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', response.access_token)
-      localStorage.setItem('chidi_refresh_token', response.refresh_token)
-    }
-    
+    // Refresh token is sent automatically via httpOnly cookie
+    const response = await apiClient.post<TokenResponse>('/auth/refresh', {})
+    // New tokens are set via httpOnly cookies by the server
     return response
   },
 
   async logout(): Promise<void> {
     try {
+      // Call backend to clear httpOnly cookies
       await apiClient.post('/auth/logout')
-    } finally {
-      // Clear tokens regardless of API response
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('chidi_auth_token')
-        localStorage.removeItem('chidi_refresh_token')
-      }
+    } catch (error) {
+      console.warn('[AUTH] Logout API call failed:', error)
     }
   },
 
@@ -325,21 +295,10 @@ export const authAPI = {
   },
 
   // Helper to check if user is authenticated
+  // Uses the non-httpOnly indicator cookie set by the server
   isAuthenticated(): boolean {
     if (typeof window === 'undefined') return false
-    return !!localStorage.getItem('chidi_auth_token')
-  },
-
-  // Helper to get current token
-  getToken(): string | null {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('chidi_auth_token')
-  },
-
-  // Helper to get refresh token
-  getRefreshToken(): string | null {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('chidi_refresh_token')
+    return document.cookie.includes('chidi_logged_in=true')
   },
 
   // Complete onboarding by creating business profile
@@ -352,19 +311,10 @@ export const authAPI = {
     whatsapp_number?: string
     instagram_handle?: string
   }): Promise<AuthResponse> {
-    // Include refresh token in header so backend can return it in the response
-    const refreshToken = this.getRefreshToken()
-    const customHeaders: Record<string, string> = {}
-    if (refreshToken) {
-      customHeaders['X-Refresh-Token'] = refreshToken
-    }
+    const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData)
     
-    const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData, customHeaders)
-    
-    // Update stored tokens, inventory_id, and business_id
+    // Store inventory_id and business_id (tokens are in httpOnly cookies)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('chidi_auth_token', response.tokens.access_token)
-      localStorage.setItem('chidi_refresh_token', response.tokens.refresh_token)
       if (response.inventory_id) {
         setStoredInventoryId(response.inventory_id)
         console.log(' [AUTH] Inventory ID stored after onboarding:', response.inventory_id)
@@ -381,13 +331,17 @@ export const authAPI = {
   // Helper to clear all stored auth data
   clearAllAuthData(): void {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('chidi_auth_token')
-      localStorage.removeItem('chidi_refresh_token')
+      // Clear stored IDs
       clearStoredInventoryId()
       clearStoredBusinessId()
-      // Clear any other cached data that might bypass onboarding
+      // Clear any other cached data
       localStorage.removeItem('chidi_user_data')
       localStorage.removeItem('chidi_onboarding_complete')
+      
+      // Call backend to clear httpOnly cookies (fire and forget)
+      apiClient.post('/auth/logout').catch(() => {
+        // Ignore errors - we're just cleaning up
+      })
     }
   }
 }
