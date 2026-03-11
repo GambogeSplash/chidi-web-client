@@ -368,6 +368,21 @@ export const productsAPI = {
     console.log('📦 [PRODUCTS] Deleting variant:', endpoint)
     
     return await apiClient.delete<{ message: string }>(endpoint)
+  },
+
+  /**
+   * Bulk import products from CSV
+   */
+  async bulkImport(csvContent: string): Promise<{ imported: number; failed: number }> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/bulk-import`
+    console.log('📦 [PRODUCTS] Bulk importing products:', endpoint)
+    
+    return await apiClient.post<{ imported: number; failed: number }>(endpoint, { csv_content: csvContent })
   }
 }
 

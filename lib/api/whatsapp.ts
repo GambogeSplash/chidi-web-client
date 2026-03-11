@@ -128,24 +128,21 @@ export interface SendMessageRequest {
  * Get WhatsApp connection status
  */
 export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
-  const response = await apiClient.get('/api/whatsapp/status');
-  return response.data;
+  return apiClient.get<WhatsAppStatus>('/api/whatsapp/status');
 }
 
 /**
  * Connect WhatsApp (save Twilio credentials)
  */
 export async function connectWhatsApp(request: ConnectWhatsAppRequest): Promise<WhatsAppConnection> {
-  const response = await apiClient.post('/api/whatsapp/connect', request);
-  return response.data;
+  return apiClient.post<WhatsAppConnection>('/api/whatsapp/connect', request);
 }
 
 /**
  * Update WhatsApp settings
  */
 export async function updateWhatsAppSettings(request: UpdateWhatsAppSettingsRequest): Promise<WhatsAppConnection> {
-  const response = await apiClient.patch('/api/whatsapp/settings', request);
-  return response.data;
+  return apiClient.patch<WhatsAppConnection>('/api/whatsapp/settings', request);
 }
 
 /**
@@ -168,8 +165,7 @@ export async function getConversations(
   params.append('limit', limit.toString());
   params.append('offset', offset.toString());
   
-  const response = await apiClient.get(`/api/whatsapp/conversations?${params.toString()}`);
-  return response.data;
+  return apiClient.get<ConversationListResponse>(`/api/whatsapp/conversations?${params.toString()}`);
 }
 
 /**
@@ -184,10 +180,9 @@ export async function getConversationMessages(
   params.append('limit', limit.toString());
   params.append('offset', offset.toString());
   
-  const response = await apiClient.get(
+  return apiClient.get<MessageListResponse>(
     `/api/whatsapp/conversations/${conversationId}/messages?${params.toString()}`
   );
-  return response.data;
 }
 
 /**
@@ -197,11 +192,10 @@ export async function sendReply(
   conversationId: string,
   content: string
 ): Promise<WhatsAppMessage> {
-  const response = await apiClient.post(
+  return apiClient.post<WhatsAppMessage>(
     `/api/whatsapp/conversations/${conversationId}/reply`,
     { conversation_id: conversationId, content }
   );
-  return response.data;
 }
 
 /**
@@ -211,20 +205,18 @@ export async function resolveConversation(
   conversationId: string,
   returnToAi: boolean = true
 ): Promise<WhatsAppConversation> {
-  const response = await apiClient.post(
+  return apiClient.post<WhatsAppConversation>(
     `/api/whatsapp/conversations/${conversationId}/resolve?return_to_ai=${returnToAi}`
   );
-  return response.data;
 }
 
 /**
  * Mark conversation as read
  */
 export async function markConversationRead(conversationId: string): Promise<WhatsAppConversation> {
-  const response = await apiClient.post(
+  return apiClient.post<WhatsAppConversation>(
     `/api/whatsapp/conversations/${conversationId}/read`
   );
-  return response.data;
 }
 
 // Export as namespace for convenience

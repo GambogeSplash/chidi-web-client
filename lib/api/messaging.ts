@@ -142,10 +142,12 @@ export interface WhatsAppCredentials {
   phone_number: string;
   subaccount_sid?: string;
   subaccount_token?: string;
+  [key: string]: string | undefined;
 }
 
 export interface TelegramCredentials {
   bot_token: string;
+  [key: string]: string | undefined;
 }
 
 // ============================================

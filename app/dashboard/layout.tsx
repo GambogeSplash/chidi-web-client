@@ -1,23 +1,10 @@
 'use client'
 
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { authAPI, type User } from '@/lib/api'
 import { Loader2 } from 'lucide-react'
-
-interface AuthContextType {
-  user: User | null
-  isLoading: boolean
-  isAuthenticated: boolean
-}
-
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  isLoading: true,
-  isAuthenticated: false,
-})
-
-export const useDashboardAuth = () => useContext(AuthContext)
+import { AuthContext } from '@/lib/providers/dashboard-auth-context'
 
 function AuthLoadingSkeleton() {
   return (

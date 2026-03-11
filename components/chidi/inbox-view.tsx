@@ -201,9 +201,9 @@ export function InboxView() {
     const info = getChannelInfo(channelType)
     
     const IconComponent = channelType === 'WHATSAPP' 
-      ? <WhatsAppIcon size={10} className="mr-0.5" style={{ color: info.color }} />
+      ? <WhatsAppIcon size={10} className="mr-0.5" />
       : channelType === 'TELEGRAM'
-      ? <TelegramIcon size={10} className="mr-0.5" style={{ color: info.color }} />
+      ? <TelegramIcon size={10} className="mr-0.5" />
       : null
     
     return (

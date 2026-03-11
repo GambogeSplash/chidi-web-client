@@ -95,14 +95,19 @@ export function ChannelMix({ data, loading }: ChannelMixProps) {
           <ChartTooltip
             content={
               <ChartTooltipContent
-                formatter={(value, name, item) => (
-                  <div className="flex flex-col gap-1">
-                    <span>{formatCurrency(value as number)}</span>
-                    <span className="text-muted-foreground">
-                      {item.payload.orders} orders · {item.payload.percentage.toFixed(1)}%
-                    </span>
-                  </div>
-                )}
+                formatter={(value, name, item) => {
+                  const payload = item.payload as Record<string, unknown> | undefined
+                  const orders = Number(payload?.orders ?? 0)
+                  const percentage = Number(payload?.percentage ?? 0)
+                  return (
+                    <div className="flex flex-col gap-1">
+                      <span>{formatCurrency(value as number)}</span>
+                      <span className="text-muted-foreground">
+                        {orders} orders · {percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                  )
+                }}
               />
             }
           />

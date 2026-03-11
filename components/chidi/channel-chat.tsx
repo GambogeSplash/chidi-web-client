@@ -81,29 +81,37 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate }: Chan
     queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
   }
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async (): Promise<void> => {
     if (!pendingOrder) return
-    confirmOrder.mutate(
-      { orderId: pendingOrder.id },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: ordersKeys.byConversation(conversation.id, 'PENDING_PAYMENT') })
-          queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
-        },
-      }
-    )
+    return new Promise((resolve, reject) => {
+      confirmOrder.mutate(
+        pendingOrder.id,
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ordersKeys.byConversation(conversation.id, 'PENDING_PAYMENT') })
+            queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
+            resolve()
+          },
+          onError: (error) => reject(error),
+        }
+      )
+    })
   }
 
-  const handleRejectOrder = (reason?: string) => {
+  const handleRejectOrder = async (reason?: string): Promise<void> => {
     if (!pendingOrder) return
-    rejectOrder.mutate(
-      { orderId: pendingOrder.id, reason },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
-        },
-      }
-    )
+    return new Promise((resolve, reject) => {
+      rejectOrder.mutate(
+        { orderId: pendingOrder.id, reason },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: messagingKeys.messages(conversation.id) })
+            resolve()
+          },
+          onError: (error) => reject(error),
+        }
+      )
+    })
   }
 
   const handleSendReply = () => {

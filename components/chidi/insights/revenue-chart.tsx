@@ -85,7 +85,7 @@ export function RevenueChart({ data, loading }: RevenueChartProps) {
             content={
               <ChartTooltipContent
                 formatter={(value) => formatCurrency(value as number)}
-                labelFormatter={(label) => label}
+                labelFormatter={(label) => String(label)}
               />
             }
           />

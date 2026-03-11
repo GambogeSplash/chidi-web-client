@@ -44,7 +44,6 @@ jobs:
 
       - name: Type check
         run: pnpm exec tsc --noEmit
-        continue-on-error: true  # TypeScript errors won't block (matching your next.config)
 
   # ============================================
   # Build Verification

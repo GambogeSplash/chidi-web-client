@@ -122,7 +122,7 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
             <div>
               <h3 className="text-lg font-semibold text-[var(--chidi-text-primary)]">{product.name}</h3>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xl font-bold text-[var(--chidi-text-primary)]">{product.price}</span>
+                <span className="text-xl font-bold text-[var(--chidi-text-primary)]">{product.displayPrice}</span>
                 <Badge className={`text-xs ${getStatusColor(product.stockStatus)}`}>{getStatusText(product.stockStatus)}</Badge>
               </div>
             </div>

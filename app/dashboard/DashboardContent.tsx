@@ -24,7 +24,7 @@ import { useNotifications, mapNotificationForUI, type MappedNotification } from 
 import { getStoredInventoryId } from '@/lib/api/products'
 import { useProducts, useUpdateProduct, productsKeys } from '@/lib/hooks/use-products'
 import { SetupChecklist } from '@/components/chidi/setup-checklist'
-import { useDashboardAuth } from './layout'
+import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
 
 interface DashboardContentProps {
   businessSlug?: string;
@@ -155,25 +155,19 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     setShowProductDetailModal(true)
   }
 
-  const handleBulkImport = async (csvData: string) => {
-    try {
-      const result = await productsAPI.bulkImport(csvData)
-      // Invalidate products query to refetch
-      queryClient.invalidateQueries({ queryKey: productsKeys.all })
-      
-      const notification: MappedNotification = {
-        id: `import-${Date.now()}`,
-        type: 'activity',
-        title: 'Bulk Import Complete',
-        message: `${result.imported} products imported successfully${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
-        timestamp: 'Just now',
-        read: false,
-        priority: 'medium'
-      }
-      setLocalNotifications((prev) => [notification, ...prev])
-    } catch (error) {
-      console.error('Failed to import products:', error)
+  const handleBulkImport = (result: { imported: number; failed: number; products: unknown[] }) => {
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    
+    const notification: MappedNotification = {
+      id: `import-${Date.now()}`,
+      type: 'activity',
+      title: 'Bulk Import Complete',
+      message: `${result.imported} products imported successfully${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
+      timestamp: 'Just now',
+      read: false,
+      priority: 'medium'
     }
+    setLocalNotifications((prev) => [notification, ...prev])
   }
 
   const handleConversationCreated = (conversation: ConversationResponse) => {
@@ -340,6 +334,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
       {showBulkImport && (
         <BulkCSVImport
+          isOpen={showBulkImport}
           onClose={() => setShowBulkImport(false)}
           onImport={handleBulkImport}
         />
