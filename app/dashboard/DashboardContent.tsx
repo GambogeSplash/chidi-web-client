@@ -16,7 +16,7 @@ import { QuickEditModal } from '@/components/chidi/quick-edit-modal'
 import { ProductDetailModal } from '@/components/chidi/product-detail-modal'
 import { BulkCSVImport } from '@/components/chidi/bulk-csv-import'
 import { ManageVariationsSheet } from '@/components/chidi/manage-variations-sheet'
-import { authAPI, productsAPI, type User } from '@/lib/api'
+import { productsAPI, type User } from '@/lib/api'
 import type { DisplayProduct } from '@/lib/types/product'
 import { Loader2 } from 'lucide-react'
 import type { ConversationResponse } from '@/lib/types/conversation'
@@ -24,6 +24,7 @@ import { useNotifications, mapNotificationForUI, type MappedNotification } from 
 import { getStoredInventoryId } from '@/lib/api/products'
 import { useProducts, useUpdateProduct, productsKeys } from '@/lib/hooks/use-products'
 import { SetupChecklist } from '@/components/chidi/setup-checklist'
+import { useDashboardAuth } from './layout'
 
 interface DashboardContentProps {
   businessSlug?: string;
@@ -32,8 +33,7 @@ interface DashboardContentProps {
 export default function DashboardContent({ businessSlug }: DashboardContentProps) {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user } = useDashboardAuth()
   const [activeTab, setActiveTab] = useState<TabId>("inbox")
   const [localNotifications, setLocalNotifications] = useState<MappedNotification[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined)
@@ -75,39 +75,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [variationsProduct, setVariationsProduct] = useState<DisplayProduct | null>(null)
 
-  // Authentication check on page load
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        if (!authAPI.isAuthenticated()) {
-          router.push('/auth')
-          return
-        }
-
-        const userData = await authAPI.getMe()
-        setUser(userData)
-        
-        // Check if user needs onboarding
-        if (!userData.businessName) {
-          router.push('/onboarding')
-          return
-        }
-
-        // Validate slug matches user's business (redirect if mismatch)
-        if (businessSlug && userData.businessSlug && userData.businessSlug !== businessSlug) {
-          router.push(`/dashboard/${userData.businessSlug}`)
-          return
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error)
-        router.push('/auth')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [router, businessSlug])
+  // Auth is now handled by the dashboard layout - user is guaranteed to be set here
 
   const handleMarkNotificationAsRead = async (id: string) => {
     const isLocalNotification = localNotifications.some(n => n.id === id)
@@ -255,16 +223,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     queryClient.invalidateQueries({ queryKey: productsKeys.all })
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-white">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[var(--chidi-text-muted)] mx-auto mb-4" />
-          <p className="text-sm text-[var(--chidi-text-muted)]">Loading...</p>
-        </div>
-      </div>
-    )
-  }
+  // Loading state is handled by the dashboard layout - we're guaranteed to have user here
 
   return (
     <div className="flex flex-col h-screen w-full bg-white">

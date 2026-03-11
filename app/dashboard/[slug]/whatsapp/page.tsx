@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { WhatsAppSettings } from '@/components/chidi/whatsapp-settings'
 import { WhatsAppConversations } from '@/components/chidi/whatsapp-conversations'
-import { authAPI, type User } from '@/lib/api'
 import { whatsappAPI, type WhatsAppStatus } from '@/lib/api/whatsapp'
 
 export default function WhatsAppPage() {
@@ -20,58 +19,32 @@ export default function WhatsAppPage() {
   const params = useParams()
   const businessSlug = params.slug as string
   
-  const [user, setUser] = useState<User | null>(null)
+  // Auth is handled by dashboard layout - we're guaranteed to be authenticated here
   const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true)
   const [activeTab, setActiveTab] = useState('conversations')
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const loadWhatsAppStatus = async () => {
       try {
-        if (!authAPI.isAuthenticated()) {
-          router.push('/auth')
-          return
-        }
-
-        const userData = await authAPI.getMe()
-        setUser(userData)
+        const status = await whatsappAPI.getStatus()
+        setWhatsappStatus(status)
         
-        // Check if user needs onboarding
-        if (!userData.businessName) {
-          router.push('/onboarding')
-          return
+        // If not connected, show settings tab
+        if (!status.connected) {
+          setActiveTab('settings')
         }
-
-        // Validate slug
-        if (userData.businessSlug && userData.businessSlug !== businessSlug) {
-          router.push(`/dashboard/${userData.businessSlug}/whatsapp`)
-          return
-        }
-
-        // Load WhatsApp status
-        try {
-          const status = await whatsappAPI.getStatus()
-          setWhatsappStatus(status)
-          
-          // If not connected, show settings tab
-          if (!status.connected) {
-            setActiveTab('settings')
-          }
-        } catch (err) {
-          console.error('Failed to load WhatsApp status:', err)
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error)
-        router.push('/auth')
+      } catch (err) {
+        console.error('Failed to load WhatsApp status:', err)
       } finally {
-        setIsLoading(false)
+        setIsLoadingStatus(false)
       }
     }
 
-    checkAuth()
-  }, [router, businessSlug])
+    loadWhatsAppStatus()
+  }, [])
 
-  if (isLoading) {
+  if (isLoadingStatus) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
