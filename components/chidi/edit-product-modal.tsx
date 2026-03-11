@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Edit3, Loader2, ImageIcon, Trash2, Plus } from "lucide-react"
+import { X, Edit3, Loader2, ImageIcon, Trash2, Plus, Layers } from "lucide-react"
 import { productsAPI } from "@/lib/api"
 import { categoriesAPI, type ProductCategory, type CreateCategoryRequest } from "@/lib/api/categories"
 import type { DisplayProduct } from "@/lib/types/product"
@@ -18,9 +18,10 @@ interface EditProductModalProps {
   product: DisplayProduct
   onSave: (product: DisplayProduct) => void
   onError?: (error: string) => void
+  onManageVariations?: (product: DisplayProduct) => void
 }
 
-export function EditProductModal({ isOpen, onClose, product, onSave, onError }: EditProductModalProps) {
+export function EditProductModal({ isOpen, onClose, product, onSave, onError, onManageVariations }: EditProductModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     sellingPrice: "",
@@ -67,7 +68,7 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
       
       setFormData({
         name: product.name || "",
-        sellingPrice: product.price?.replace(/[^\d.]/g, "") || "",
+        sellingPrice: product.sellingPrice?.toString() || "",
         costPrice: product.costPrice?.toString() || "",
         stock: product.stock?.toString() || "",
         lowStockThreshold: product.reorderLevel?.toString() || "",
@@ -322,7 +323,7 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="stock" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
-                  Stock Quantity
+                  Stock Quantity {product.hasVariants && "(Total)"}
                 </Label>
                 <Input
                   id="stock"
@@ -331,8 +332,14 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
                   min="0"
                   value={formData.stock}
                   onChange={(e) => handleInputChange("stock", e.target.value)}
-                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
+                  disabled={product.hasVariants}
+                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] disabled:bg-[var(--chidi-surface)] disabled:cursor-not-allowed"
                 />
+                {product.hasVariants && (
+                  <p className="text-xs text-[var(--chidi-text-muted)]">
+                    Managed via variants
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lowStockThreshold" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
@@ -350,6 +357,31 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError }: 
                 <p className="text-xs text-[var(--chidi-text-muted)]">Alert when stock falls to this level</p>
               </div>
             </div>
+
+            {/* Manage Variations Link - only for products with variants */}
+            {product.hasVariants && onManageVariations && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose()
+                  onManageVariations(product)
+                }}
+                className="flex items-center gap-2 w-full p-3 rounded-lg border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)] hover:bg-[var(--chidi-surface-elevated)] transition-colors text-left"
+              >
+                <div className="p-2 rounded-lg bg-[var(--chidi-accent)]/10">
+                  <Layers className="w-4 h-4 text-[var(--chidi-accent)]" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-[var(--chidi-text-primary)]">
+                    Manage Variations
+                  </p>
+                  <p className="text-xs text-[var(--chidi-text-muted)]">
+                    Edit stock and prices for each variant
+                  </p>
+                </div>
+                <span className="text-[var(--chidi-text-muted)]">→</span>
+              </button>
+            )}
 
             {/* Brand */}
             <div className="space-y-2">

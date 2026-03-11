@@ -10,7 +10,15 @@ import type {
   UpdateProductRequest,
   UpdateStockRequest,
   ProductFilters,
-  ProductsResponse 
+  ProductsResponse,
+  CreateProductWithVariationsRequest,
+  BackendProductWithVariations,
+  DisplayProductWithVariations,
+  VariationTypeResponse,
+  ProductVariantResponse,
+  AddVariationTypeRequest,
+  AddVariantRequest,
+  UpdateVariantRequest
 } from '@/lib/types/product'
 import { backendToDisplay, backendToDisplayList } from '@/lib/utils/product-transformer'
 
@@ -231,5 +239,148 @@ export const productsAPI = {
   async getLowStockProducts(): Promise<DisplayProduct[]> {
     const response = await this.getProducts({ low_stock: true })
     return response.products
+  },
+
+  // ===========================================================================
+  // Product Variations
+  // ===========================================================================
+
+  /**
+   * Create a product with variations
+   */
+  async createProductWithVariations(
+    productData: CreateProductWithVariationsRequest
+  ): Promise<DisplayProductWithVariations> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/with-variations`
+    console.log('📦 [PRODUCTS] Creating product with variations:', endpoint)
+    
+    const backendProduct = await apiClient.post<BackendProductWithVariations>(endpoint, productData)
+    return backendWithVariationsToDisplay(backendProduct)
+  },
+
+  /**
+   * Get product with all variation data
+   */
+  async getProductWithVariations(productId: string): Promise<DisplayProductWithVariations> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/${productId}/full`
+    console.log('📦 [PRODUCTS] Fetching product with variations:', endpoint)
+    
+    const backendProduct = await apiClient.get<BackendProductWithVariations>(endpoint)
+    return backendWithVariationsToDisplay(backendProduct)
+  },
+
+  /**
+   * Add a variation type to existing product
+   */
+  async addVariationType(
+    productId: string,
+    data: AddVariationTypeRequest
+  ): Promise<VariationTypeResponse> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/${productId}/variation-types`
+    console.log('📦 [PRODUCTS] Adding variation type:', endpoint)
+    
+    return await apiClient.post<VariationTypeResponse>(endpoint, data)
+  },
+
+  /**
+   * Delete a variation type
+   */
+  async deleteVariationType(
+    productId: string,
+    variationTypeId: string
+  ): Promise<{ message: string }> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/${productId}/variation-types/${variationTypeId}`
+    console.log('📦 [PRODUCTS] Deleting variation type:', endpoint)
+    
+    return await apiClient.delete<{ message: string }>(endpoint)
+  },
+
+  /**
+   * Add a variant to existing product
+   */
+  async addVariant(
+    productId: string,
+    data: AddVariantRequest
+  ): Promise<ProductVariantResponse> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/${productId}/variants`
+    console.log('📦 [PRODUCTS] Adding variant:', endpoint)
+    
+    return await apiClient.post<ProductVariantResponse>(endpoint, data)
+  },
+
+  /**
+   * Update a variant
+   */
+  async updateVariant(
+    productId: string,
+    variantId: string,
+    data: UpdateVariantRequest
+  ): Promise<ProductVariantResponse> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/${productId}/variants/${variantId}`
+    console.log('📦 [PRODUCTS] Updating variant:', endpoint)
+    
+    return await apiClient.put<ProductVariantResponse>(endpoint, data)
+  },
+
+  /**
+   * Delete a variant
+   */
+  async deleteVariant(
+    productId: string,
+    variantId: string
+  ): Promise<{ message: string }> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/${productId}/variants/${variantId}`
+    console.log('📦 [PRODUCTS] Deleting variant:', endpoint)
+    
+    return await apiClient.delete<{ message: string }>(endpoint)
+  }
+}
+
+/**
+ * Transform backend product with variations to display format
+ */
+function backendWithVariationsToDisplay(product: BackendProductWithVariations): DisplayProductWithVariations {
+  const base = backendToDisplay(product)
+  return {
+    ...base,
+    hasVariants: product.has_variants,
+    variationTypes: product.variation_types,
+    variants: product.variants,
+    totalVariantStock: product.total_variant_stock
   }
 }

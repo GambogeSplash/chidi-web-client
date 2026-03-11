@@ -1,22 +1,41 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Package, Loader2, ImageIcon, Trash2, Plus } from "lucide-react"
+import { X, Package, Loader2, ImageIcon, Trash2, Plus, ChevronDown, ChevronUp, Layers } from "lucide-react"
 import { productsAPI } from "@/lib/api"
 import { categoriesAPI, type ProductCategory, type CreateCategoryRequest } from "@/lib/api/categories"
-import type { DisplayProduct, CreateProductRequest } from "@/lib/types/product"
+import type { 
+  DisplayProduct, 
+  CreateProductRequest,
+  VariationTypeInput,
+  ProductVariantInput,
+  DisplayProductWithVariations
+} from "@/lib/types/product"
 import { parseCurrency } from "@/lib/utils/product-transformer"
+
+interface VariationType {
+  id: string
+  name: string
+  options: string[]
+}
+
+interface VariantRow {
+  id: string
+  options: Record<string, string>
+  stock: number
+  priceAdjustment: number
+}
 
 interface AddProductModalProps {
   isOpen: boolean
   onClose: () => void
-  onAddProduct: (product: DisplayProduct) => void
+  onAddProduct: (product: DisplayProduct | DisplayProductWithVariations) => void
   isLoading?: boolean
   onError?: (error: string) => void
 }
@@ -43,6 +62,14 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Variations state
+  const [showVariations, setShowVariations] = useState(false)
+  const [variationTypes, setVariationTypes] = useState<VariationType[]>([])
+  const [newVariationName, setNewVariationName] = useState("")
+  const [newOptionInputs, setNewOptionInputs] = useState<Record<string, string>>({})
+  const [variants, setVariants] = useState<VariantRow[]>([])
+  const [showVariantTable, setShowVariantTable] = useState(false)
 
   // Fetch categories when modal opens
   useEffect(() => {
@@ -158,13 +185,109 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
     }
   }
 
+  // Variation handlers
+  const addVariationType = () => {
+    if (!newVariationName.trim()) return
+    
+    const newType: VariationType = {
+      id: `vt-${Date.now()}`,
+      name: newVariationName.trim(),
+      options: []
+    }
+    setVariationTypes(prev => [...prev, newType])
+    setNewVariationName("")
+    setNewOptionInputs(prev => ({ ...prev, [newType.id]: "" }))
+  }
+
+  const removeVariationType = (typeId: string) => {
+    setVariationTypes(prev => prev.filter(t => t.id !== typeId))
+    setNewOptionInputs(prev => {
+      const { [typeId]: _, ...rest } = prev
+      return rest
+    })
+    // Clear variants when variation types change
+    setVariants([])
+  }
+
+  const addOptionToType = (typeId: string) => {
+    const optionValue = newOptionInputs[typeId]?.trim()
+    if (!optionValue) return
+    
+    setVariationTypes(prev => prev.map(t => {
+      if (t.id === typeId && !t.options.includes(optionValue)) {
+        return { ...t, options: [...t.options, optionValue] }
+      }
+      return t
+    }))
+    setNewOptionInputs(prev => ({ ...prev, [typeId]: "" }))
+    // Clear variants when options change
+    setVariants([])
+  }
+
+  const removeOptionFromType = (typeId: string, option: string) => {
+    setVariationTypes(prev => prev.map(t => {
+      if (t.id === typeId) {
+        return { ...t, options: t.options.filter(o => o !== option) }
+      }
+      return t
+    }))
+    // Clear variants when options change
+    setVariants([])
+  }
+
+  // Generate all possible variant combinations
+  const generateVariants = useCallback(() => {
+    if (variationTypes.length === 0 || variationTypes.some(t => t.options.length === 0)) {
+      setVariants([])
+      return
+    }
+
+    const combinations: Record<string, string>[] = []
+    
+    const generate = (index: number, current: Record<string, string>) => {
+      if (index === variationTypes.length) {
+        combinations.push({ ...current })
+        return
+      }
+      
+      const type = variationTypes[index]
+      for (const option of type.options) {
+        current[type.name] = option
+        generate(index + 1, current)
+      }
+    }
+    
+    generate(0, {})
+    
+    setVariants(combinations.map((opts, idx) => ({
+      id: `var-${idx}`,
+      options: opts,
+      stock: 0,
+      priceAdjustment: 0
+    })))
+    setShowVariantTable(true)
+  }, [variationTypes])
+
+  const updateVariantStock = (variantId: string, stock: number) => {
+    setVariants(prev => prev.map(v => 
+      v.id === variantId ? { ...v, stock: Math.max(0, stock) } : v
+    ))
+  }
+
+  const updateVariantPrice = (variantId: string, adjustment: number) => {
+    setVariants(prev => prev.map(v => 
+      v.id === variantId ? { ...v, priceAdjustment: adjustment } : v
+    ))
+  }
+
+  const hasVariations = variationTypes.length > 0 && variationTypes.every(t => t.options.length > 0)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
 
     try {
-      const stockNum = Number.parseInt(formData.stock) || 0
       const sellingPrice = parseCurrency(formData.sellingPrice)
       const costPrice = formData.costPrice ? parseCurrency(formData.costPrice) : sellingPrice * 0.7
 
@@ -174,20 +297,52 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
         imageUrls.push(imagePreview)
       }
 
-      const productData: CreateProductRequest = {
-        name: formData.name,
-        category: formData.category,
-        cost_price: costPrice,
-        selling_price: sellingPrice,
-        stock_quantity: stockNum,
-        low_stock_threshold: formData.lowStockThreshold ? parseInt(formData.lowStockThreshold) : undefined,
-        description: formData.description || undefined,
-        brand: formData.brand || undefined,
-        image_urls: imageUrls.length > 0 ? imageUrls : undefined,
-      }
+      // Check if we have variations
+      if (hasVariations && variants.length > 0) {
+        // Create product with variations
+        const variationTypesInput: VariationTypeInput[] = variationTypes.map((vt, idx) => ({
+          name: vt.name,
+          options: vt.options.map((opt, optIdx) => ({ value: opt, sort_order: optIdx })),
+          sort_order: idx
+        }))
 
-      const createdProduct = await productsAPI.createProduct(productData)
-      onAddProduct(createdProduct)
+        const variantsInput: ProductVariantInput[] = variants.map(v => ({
+          options: v.options,
+          stock_quantity: v.stock,
+          price_adjustment: v.priceAdjustment
+        }))
+
+        const createdProduct = await productsAPI.createProductWithVariations({
+          name: formData.name,
+          category: formData.category,
+          cost_price: costPrice,
+          selling_price: sellingPrice,
+          low_stock_threshold: formData.lowStockThreshold ? parseInt(formData.lowStockThreshold) : undefined,
+          description: formData.description || undefined,
+          brand: formData.brand || undefined,
+          image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+          variation_types: variationTypesInput,
+          variants: variantsInput
+        })
+        onAddProduct(createdProduct)
+      } else {
+        // Create simple product without variations
+        const stockNum = Number.parseInt(formData.stock) || 0
+        const productData: CreateProductRequest = {
+          name: formData.name,
+          category: formData.category,
+          cost_price: costPrice,
+          selling_price: sellingPrice,
+          stock_quantity: stockNum,
+          low_stock_threshold: formData.lowStockThreshold ? parseInt(formData.lowStockThreshold) : undefined,
+          description: formData.description || undefined,
+          brand: formData.brand || undefined,
+          image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+        }
+        const createdProduct = await productsAPI.createProduct(productData)
+        onAddProduct(createdProduct)
+      }
+      
       resetForm()
       onClose()
     } catch (err) {
@@ -220,6 +375,13 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
       fileInputRef.current.value = ''
     }
     setError(null)
+    // Reset variations
+    setShowVariations(false)
+    setVariationTypes([])
+    setNewVariationName("")
+    setNewOptionInputs({})
+    setVariants([])
+    setShowVariantTable(false)
   }
 
   const handleClose = () => {
@@ -227,7 +389,13 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
     onClose()
   }
 
-  const isFormValid = formData.name && formData.sellingPrice && formData.stock && (formData.categoryId || formData.category)
+  // For products with variations, stock is managed per variant, not at product level
+  const stockRequired = !hasVariations || variants.length === 0
+  const isFormValid = formData.name && 
+    formData.sellingPrice && 
+    (formData.categoryId || formData.category) &&
+    (stockRequired ? formData.stock : true) &&
+    (!hasVariations || variants.length > 0)
   const isDisabled = !isFormValid || isSubmitting || isLoading || categoriesLoading
 
   if (!isOpen) return null
@@ -309,40 +477,6 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   onChange={(e) => handleInputChange("costPrice", e.target.value)}
                   className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                 />
-              </div>
-            </div>
-
-            {/* Stock and Low Stock Threshold */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="stock" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
-                  Stock Quantity <span className="text-[var(--chidi-danger)]">*</span>
-                </Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  placeholder="10"
-                  min="0"
-                  value={formData.stock}
-                  onChange={(e) => handleInputChange("stock", e.target.value)}
-                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lowStockThreshold" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
-                  Low Stock Alert
-                </Label>
-                <Input
-                  id="lowStockThreshold"
-                  type="number"
-                  placeholder="Default: 10"
-                  min="1"
-                  value={formData.lowStockThreshold}
-                  onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
-                  className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
-                />
-                <p className="text-xs text-[var(--chidi-text-muted)]">Alert when stock falls to this level</p>
               </div>
             </div>
 
@@ -496,6 +630,241 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                 className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] resize-none"
               />
             </div>
+
+            {/* Product Variations */}
+            <div className="space-y-3 border border-[var(--chidi-border-subtle)] rounded-lg p-4 bg-[var(--chidi-surface)]">
+              <button
+                type="button"
+                onClick={() => setShowVariations(!showVariations)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+                  <span className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                    Product Variations
+                  </span>
+                  {variationTypes.length > 0 && (
+                    <span className="text-xs bg-[var(--chidi-accent)]/10 text-[var(--chidi-accent)] px-2 py-0.5 rounded-full">
+                      {variationTypes.length} type{variationTypes.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                {showVariations ? (
+                  <ChevronUp className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+                )}
+              </button>
+
+              {showVariations && (
+                <div className="space-y-4 pt-3 border-t border-[var(--chidi-border-subtle)]">
+                  <p className="text-xs text-[var(--chidi-text-muted)]">
+                    Add variations like Size, Color, or Material. Each combination will have its own stock.
+                  </p>
+
+                  {/* Existing variation types */}
+                  {variationTypes.map((vt) => (
+                    <div key={vt.id} className="space-y-2 p-3 bg-white rounded-lg border border-[var(--chidi-border-subtle)]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-[var(--chidi-text-primary)]">{vt.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeVariationType(vt.id)}
+                          className="text-[var(--chidi-text-muted)] hover:text-[var(--chidi-danger)]"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      {/* Options tags */}
+                      <div className="flex flex-wrap gap-2">
+                        {vt.options.map((opt) => (
+                          <span
+                            key={opt}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--chidi-surface)] rounded-md text-xs text-[var(--chidi-text-secondary)]"
+                          >
+                            {opt}
+                            <button
+                              type="button"
+                              onClick={() => removeOptionFromType(vt.id, opt)}
+                              className="text-[var(--chidi-text-muted)] hover:text-[var(--chidi-danger)]"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      
+                      {/* Add option input */}
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder={`Add ${vt.name.toLowerCase()} option...`}
+                          value={newOptionInputs[vt.id] || ""}
+                          onChange={(e) => setNewOptionInputs(prev => ({ ...prev, [vt.id]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              addOptionToType(vt.id)
+                            }
+                          }}
+                          className="flex-1 h-8 text-sm bg-white border-[var(--chidi-border-subtle)]"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => addOptionToType(vt.id)}
+                          disabled={!newOptionInputs[vt.id]?.trim()}
+                          className="h-8 px-3 bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]"
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add new variation type */}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Variation name (e.g., Color, Size)"
+                      value={newVariationName}
+                      onChange={(e) => setNewVariationName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addVariationType()
+                        }
+                      }}
+                      className="flex-1 h-9 text-sm bg-white border-[var(--chidi-border-subtle)]"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={addVariationType}
+                      disabled={!newVariationName.trim()}
+                      className="h-9 px-4 bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Type
+                    </Button>
+                  </div>
+
+                  {/* Generate variants button */}
+                  {hasVariations && !showVariantTable && (
+                    <Button
+                      type="button"
+                      onClick={generateVariants}
+                      className="w-full bg-[var(--chidi-surface-elevated)] text-[var(--chidi-text-primary)] border border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface)]"
+                    >
+                      Generate {variationTypes.reduce((acc, t) => acc * t.options.length, 1)} Variant Combinations
+                    </Button>
+                  )}
+
+                  {/* Variants table */}
+                  {showVariantTable && variants.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                          Variant Stock & Pricing
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVariants([])
+                            setShowVariantTable(false)
+                          }}
+                          className="text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-danger)]"
+                        >
+                          Reset
+                        </button>
+                      </div>
+                      <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--chidi-border-subtle)]">
+                        <table className="w-full text-sm">
+                          <thead className="bg-[var(--chidi-surface)] sticky top-0">
+                            <tr>
+                              {variationTypes.map(vt => (
+                                <th key={vt.id} className="px-3 py-2 text-left text-xs font-medium text-[var(--chidi-text-muted)]">
+                                  {vt.name}
+                                </th>
+                              ))}
+                              <th className="px-3 py-2 text-left text-xs font-medium text-[var(--chidi-text-muted)]">Stock</th>
+                              <th className="px-3 py-2 text-left text-xs font-medium text-[var(--chidi-text-muted)]">Price +/-</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-[var(--chidi-border-subtle)]">
+                            {variants.map((variant) => (
+                              <tr key={variant.id}>
+                                {variationTypes.map(vt => (
+                                  <td key={vt.id} className="px-3 py-2 text-[var(--chidi-text-primary)]">
+                                    {variant.options[vt.name]}
+                                  </td>
+                                ))}
+                                <td className="px-3 py-2">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={variant.stock}
+                                    onChange={(e) => updateVariantStock(variant.id, parseInt(e.target.value) || 0)}
+                                    className="w-20 h-7 text-sm bg-white border-[var(--chidi-border-subtle)]"
+                                  />
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Input
+                                    type="number"
+                                    value={variant.priceAdjustment}
+                                    onChange={(e) => updateVariantPrice(variant.id, parseInt(e.target.value) || 0)}
+                                    className="w-24 h-7 text-sm bg-white border-[var(--chidi-border-subtle)]"
+                                    placeholder="₦0"
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-xs text-[var(--chidi-text-muted)]">
+                        Total stock: {variants.reduce((sum, v) => sum + v.stock, 0)} units across {variants.length} variants
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Stock field - only shown when no variations */}
+            {(!hasVariations || variants.length === 0) && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="stock" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                    Stock Quantity <span className="text-[var(--chidi-danger)]">*</span>
+                  </Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    placeholder="10"
+                    min="0"
+                    value={formData.stock}
+                    onChange={(e) => handleInputChange("stock", e.target.value)}
+                    className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
+                    required={!hasVariations}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lowStockThreshold" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                    Low Stock Alert
+                  </Label>
+                  <Input
+                    id="lowStockThreshold"
+                    type="number"
+                    placeholder="Default: 10"
+                    min="1"
+                    value={formData.lowStockThreshold}
+                    onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
+                    className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
+                  />
+                  <p className="text-xs text-[var(--chidi-text-muted)]">Alert when stock falls to this level</p>
+                </div>
+              </div>
+            )}
 
             {/* Product Image */}
             <div className="space-y-2">
