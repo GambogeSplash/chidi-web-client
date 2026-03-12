@@ -11,14 +11,9 @@ const PUBLIC_PATHS = [
 
 const PROTECTED_PATH_PREFIXES = ['/dashboard', '/onboarding']
 
-// TODO: Re-enable middleware auth check when deployed to same domain (e.g., chidi.app)
-// Currently disabled because cross-origin cookies (Vercel frontend + Railway backend)
-// are not visible to Next.js middleware. Client-side auth in dashboard/layout.tsx
-// still protects these routes. When on same domain:
-// 1. Set cookie Domain=.chidi.app
-// 2. Change SameSite back to "lax" in backend
-// 3. Uncomment the auth check below
-const ENABLE_MIDDLEWARE_AUTH = false
+// Middleware auth is enabled now that frontend (chidi.app) and backend (api.chidi.app)
+// share the same root domain with cookies set to Domain=.chidi.app
+const ENABLE_MIDDLEWARE_AUTH = true
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
