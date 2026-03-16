@@ -27,3 +27,4 @@ coverage/
 # Lockfiles (keep pnpm lock but ignore others if used locally)
 package-lock.json
 node_modules
+tsconfig.tsbuildinfo
