@@ -38,7 +38,7 @@ export function CustomerDetail({ customerPhone, onClose }: CustomerDetailProps) 
       />
 
       {/* Sheet */}
-      <div className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
+      <div className="relative w-full max-w-lg max-h-[80vh] sm:max-h-[90vh] mb-16 sm:mb-0 bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">
@@ -73,7 +73,7 @@ export function CustomerDetail({ customerPhone, onClose }: CustomerDetailProps) 
               </button>
             </div>
           ) : data ? (
-            <div className="p-4 space-y-6">
+            <div className="p-4 pb-24 space-y-6">
               {/* Customer Info */}
               <CustomerInfo customer={data.customer} />
 
