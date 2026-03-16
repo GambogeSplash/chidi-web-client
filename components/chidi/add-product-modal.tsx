@@ -91,6 +91,12 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
     setError(null)
   }
 
+  const handleNumericInputChange = (field: string, value: string) => {
+    const sanitized = value.replace(/^0+/, '') || ''
+    setFormData((prev) => ({ ...prev, [field]: sanitized }))
+    setError(null)
+  }
+
   const handleCreateCategory = async () => {
     if (!newCategoryName.trim()) {
       setError("Please enter a category name")
@@ -800,20 +806,31 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                                 ))}
                                 <td className="px-3 py-2">
                                   <Input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                     min="0"
-                                    value={variant.stock}
-                                    onChange={(e) => updateVariantStock(variant.id, parseInt(e.target.value) || 0)}
+                                    value={variant.stock === 0 ? '' : variant.stock}
+                                    onChange={(e) => {
+                                      const value = e.target.value.replace(/^0+/, '') || '0'
+                                      updateVariantStock(variant.id, parseInt(value) || 0)
+                                    }}
                                     className="w-20 h-7 text-sm bg-white border-[var(--chidi-border-subtle)]"
+                                    placeholder="0"
                                   />
                                 </td>
                                 <td className="px-3 py-2">
                                   <Input
-                                    type="number"
-                                    value={variant.priceAdjustment}
-                                    onChange={(e) => updateVariantPrice(variant.id, parseInt(e.target.value) || 0)}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="-?[0-9]*"
+                                    value={variant.priceAdjustment === 0 ? '' : variant.priceAdjustment}
+                                    onChange={(e) => {
+                                      const value = e.target.value.replace(/^(-?)0+/, '$1') || '0'
+                                      updateVariantPrice(variant.id, parseInt(value) || 0)
+                                    }}
                                     className="w-24 h-7 text-sm bg-white border-[var(--chidi-border-subtle)]"
-                                    placeholder="₦0"
+                                    placeholder="0"
                                   />
                                 </td>
                               </tr>
@@ -839,11 +856,12 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   </Label>
                   <Input
                     id="stock"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="10"
-                    min="0"
                     value={formData.stock}
-                    onChange={(e) => handleInputChange("stock", e.target.value)}
+                    onChange={(e) => handleNumericInputChange("stock", e.target.value.replace(/\D/g, ''))}
                     className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                     required={!hasVariations}
                   />
@@ -854,11 +872,12 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                   </Label>
                   <Input
                     id="lowStockThreshold"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Default: 10"
-                    min="1"
                     value={formData.lowStockThreshold}
-                    onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
+                    onChange={(e) => handleNumericInputChange("lowStockThreshold", e.target.value.replace(/\D/g, ''))}
                     className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                   />
                   <p className="text-xs text-[var(--chidi-text-muted)]">Alert when stock falls to this level</p>
