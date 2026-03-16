@@ -49,6 +49,7 @@ export interface SignupRequest {
   email: string
   password: string
   name: string
+  redirect_url?: string  // Origin URL for email verification redirect
 }
 
 export interface AuthResponse {
@@ -70,6 +71,7 @@ export interface TokenResponse {
 
 export interface MagicLinkRequest {
   email: string
+  redirect_url?: string  // Origin URL for magic link redirect
 }
 
 export interface MagicLinkResponse {
@@ -153,7 +155,12 @@ export const authAPI = {
     console.log(' [AUTH] Attempting signup for:', userData.email)
     
     try {
-      const response = await apiClient.post<SignupResponse>('/auth/signup', userData)
+      // Include redirect_url if not provided (defaults to current origin)
+      const requestData = {
+        ...userData,
+        redirect_url: userData.redirect_url || (typeof window !== 'undefined' ? window.location.origin : undefined)
+      }
+      const response = await apiClient.post<SignupResponse>('/auth/signup', requestData)
       
       console.log(' [AUTH] Signup API response:', response)
       console.log(' [AUTH] Response type:', typeof response)
@@ -171,11 +178,14 @@ export const authAPI = {
     }
   },
 
-  async sendMagicLink(email: string): Promise<MagicLinkResponse> {
+  async sendMagicLink(email: string, redirectUrl?: string): Promise<MagicLinkResponse> {
     console.log('🔗 [AUTH] Sending magic link to:', email)
     
     try {
-      const response = await apiClient.post<MagicLinkResponse>('/auth/magic-link', { email })
+      const response = await apiClient.post<MagicLinkResponse>('/auth/magic-link', { 
+        email,
+        redirect_url: redirectUrl || (typeof window !== 'undefined' ? window.location.origin : undefined)
+      })
       console.log('✅ [AUTH] Magic link sent:', response)
       return response
     } catch (error) {
@@ -227,11 +237,14 @@ export const authAPI = {
     }
   },
 
-  async resendVerification(email: string): Promise<ResendVerificationResponse> {
+  async resendVerification(email: string, redirectUrl?: string): Promise<ResendVerificationResponse> {
     console.log(' [AUTH] Resending verification email to:', email)
     
     try {
-      const response = await apiClient.post<ResendVerificationResponse>('/auth/resend-verification', { email })
+      const response = await apiClient.post<ResendVerificationResponse>('/auth/resend-verification', { 
+        email,
+        redirect_url: redirectUrl || (typeof window !== 'undefined' ? window.location.origin : undefined)
+      })
       console.log(' [AUTH] Resend verification response:', response)
       return response
     } catch (error) {
