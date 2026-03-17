@@ -28,3 +28,4 @@ coverage/
 package-lock.json
 node_modules
 tsconfig.tsbuildinfo
+.pnpm-store/
