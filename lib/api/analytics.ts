@@ -110,19 +110,8 @@ export const analyticsAPI = {
   },
 }
 
-// Helper functions for formatting
-
-/**
- * Format currency amount in Nigerian Naira
- */
-export function formatCurrency(amount: number, currency: string = 'NGN'): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
+// Re-export currency formatting from centralized utility
+export { formatCurrency, formatCurrencyCompact } from '@/lib/utils/currency'
 
 /**
  * Format a number with thousands separator

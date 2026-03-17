@@ -323,6 +323,7 @@ export const authAPI = {
     categories?: string[]
     whatsapp_number?: string
     instagram_handle?: string
+    default_currency?: string  // Currency code (NGN, GHS, KES)
   }): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>('/auth/complete-onboarding', onboardingData)
     

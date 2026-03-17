@@ -9,21 +9,26 @@ import type {
   CreateProductRequest,
   StockStatus
 } from '@/lib/types/product'
+import { 
+  formatCurrency as formatCurrencyUtil, 
+  parseCurrency as parseCurrencyUtil,
+  DEFAULT_CURRENCY 
+} from './currency'
 
 /**
- * Format a number as Nigerian Naira currency
+ * Format a number as currency
+ * @deprecated Use formatCurrency from '@/lib/utils/currency' directly for multi-currency support
  */
-export function formatCurrency(amount: number): string {
-  return `₦${amount.toLocaleString('en-NG')}`
+export function formatCurrency(amount: number, currencyCode: string = DEFAULT_CURRENCY): string {
+  return formatCurrencyUtil(amount, currencyCode)
 }
 
 /**
- * Parse a currency string to number (removes ₦ and commas)
+ * Parse a currency string to number (removes currency symbols and commas)
+ * @deprecated Use parseCurrency from '@/lib/utils/currency' directly
  */
 export function parseCurrency(priceString: string): number {
-  const cleaned = priceString.replace(/[₦,\s]/g, '')
-  const parsed = parseFloat(cleaned)
-  return isNaN(parsed) ? 0 : parsed
+  return parseCurrencyUtil(priceString)
 }
 
 /**

@@ -257,14 +257,6 @@ export function getOrderStatusDisplay(status: OrderStatus): {
   }
 }
 
-/**
- * Format currency (NGN)
- */
-export function formatOrderAmount(amount: number, currency: string = 'NGN'): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
+// Re-export formatCurrency as formatOrderAmount for backward compatibility
+import { formatCurrency } from '@/lib/utils/currency'
+export { formatCurrency as formatOrderAmount }

@@ -4,10 +4,11 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Store, MessageCircle, BarChart3, ArrowRight, Check, Clock, Loader2 } from "lucide-react"
+import { Store, MessageCircle, BarChart3, ArrowRight, Check, Clock, Loader2, Globe } from "lucide-react"
 import type { User } from "@/lib/api"
 import { authAPI } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { CURRENCIES, DEFAULT_CURRENCY, type CurrencyInfo } from "@/lib/utils/currency"
 
 const PLACEHOLDER_NAME = "Chidi User"
 
@@ -63,6 +64,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     businessName: "",
     phone: "",
     categories: [] as string[],
+    currency: DEFAULT_CURRENCY,
   })
   const [nameError, setNameError] = useState("")
   
@@ -107,6 +109,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           business_industry: selectedCategories.length > 0 ? selectedCategories[0] : undefined,
           phone: userData.phone,
           categories: selectedCategories,
+          default_currency: userData.currency,
         })
         
         // Call the parent completion handler with the API response
@@ -304,6 +307,37 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
                 onChange={(e) => handleInputChange("phone", e.target.value)}
                 className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12"
               />
+            </div>
+            
+            {/* Currency Selection */}
+            <div className="space-y-2">
+              <Label className="text-[var(--chidi-text-primary)] text-sm font-medium flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                Currency <span className="text-[var(--chidi-danger)]">*</span>
+              </Label>
+              <p className="text-xs text-[var(--chidi-text-muted)] mb-2">
+                Select the currency your business uses
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.values(CURRENCIES)
+                  .filter(c => c.code !== 'USD') // Only show African currencies
+                  .map((currency) => (
+                    <button
+                      key={currency.code}
+                      type="button"
+                      onClick={() => handleInputChange("currency", currency.code)}
+                      className={cn(
+                        "p-3 rounded-xl border transition-all duration-200 text-center",
+                        userData.currency === currency.code
+                          ? "bg-[var(--chidi-accent)] border-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]"
+                          : "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:border-[var(--chidi-text-muted)]"
+                      )}
+                    >
+                      <div className="text-lg font-semibold">{currency.symbol}</div>
+                      <div className="text-xs mt-1">{currency.code}</div>
+                    </button>
+                  ))}
+              </div>
             </div>
 
             <div className="flex gap-3 pt-4">
