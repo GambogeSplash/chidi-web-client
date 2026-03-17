@@ -11,7 +11,7 @@ const PUBLIC_PATHS = [
 
 const PROTECTED_PATH_PREFIXES = ['/dashboard', '/onboarding']
 
-// Middleware auth is enabled now that frontend (chidi.app) and backend (api.chidi.app)
+// Middleware auth is enabled now that frontend (my.chidi.app) and backend (api.chidi.app)
 // share the same root domain with cookies set to Domain=.chidi.app
 const ENABLE_MIDDLEWARE_AUTH = true
 
