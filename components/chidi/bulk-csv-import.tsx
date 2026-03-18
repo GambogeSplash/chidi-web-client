@@ -342,67 +342,68 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
     const mappedHeaders = getMappedPreviewHeaders()
 
     return (
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-[var(--chidi-text-secondary)]">
-              Preview ({analysis.preview_rows.length} of {analysis.total_rows} rows)
-            </Label>
-            <span className="text-xs text-[var(--chidi-text-muted)]">
-              Scroll horizontally to see all columns →
-            </span>
-          </div>
-          
-          <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-x-auto overflow-y-auto max-h-72">
-            <table className="text-sm min-w-max">
-              <thead className="bg-[var(--chidi-surface)] sticky top-0 z-10">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-[var(--chidi-text-muted)] whitespace-nowrap w-10 sticky left-0 bg-[var(--chidi-surface)]">
-                    #
+      <div className="flex flex-col h-full gap-4">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-shrink-0">
+          <Label className="text-[var(--chidi-text-secondary)]">
+            Preview ({analysis.preview_rows.length} of {analysis.total_rows} rows)
+          </Label>
+          <span className="text-xs text-[var(--chidi-text-muted)]">
+            ← Swipe →
+          </span>
+        </div>
+        
+        {/* Scrollable table container */}
+        <div className="flex-1 min-h-0 border border-[var(--chidi-border-subtle)] rounded-lg overflow-auto">
+          <table className="text-sm">
+            <thead className="bg-[var(--chidi-surface)] sticky top-0">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium text-[var(--chidi-text-muted)] whitespace-nowrap sticky left-0 bg-[var(--chidi-surface)]">
+                  #
+                </th>
+                {mappedHeaders.map(({ field }) => (
+                  <th key={field} className="px-3 py-2 text-left font-medium text-[var(--chidi-text-secondary)] whitespace-nowrap">
+                    {CHIDI_FIELDS.find(f => f.value === field)?.label || field}
                   </th>
-                  {mappedHeaders.map(({ field }) => (
-                    <th key={field} className="px-3 py-2 text-left font-medium text-[var(--chidi-text-secondary)] whitespace-nowrap min-w-[120px]">
-                      {CHIDI_FIELDS.find(f => f.value === field)?.label || field}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {analysis.preview_rows.map((row, idx) => (
-                  <tr key={idx} className="border-t border-[var(--chidi-border-subtle)] hover:bg-[var(--chidi-surface)]">
-                    <td className="px-3 py-2 text-[var(--chidi-text-muted)] text-xs sticky left-0 bg-white">
-                      {idx + 1}
-                    </td>
-                    {mappedHeaders.map(({ header, field }) => {
-                      const value = row[header] || row[field] || "-"
-                      const displayValue = typeof value === 'string' && value.length > 40 
-                        ? value.substring(0, 40) + "..." 
-                        : value
-                      return (
-                        <td 
-                          key={field} 
-                          className="px-3 py-2 text-[var(--chidi-text-primary)] whitespace-nowrap"
-                          title={typeof value === 'string' ? value : undefined}
-                        >
-                          {displayValue}
-                        </td>
-                      )
-                    })}
-                  </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody>
+              {analysis.preview_rows.map((row, idx) => (
+                <tr key={idx} className="border-t border-[var(--chidi-border-subtle)]">
+                  <td className="px-3 py-2 text-[var(--chidi-text-muted)] text-xs sticky left-0 bg-white">
+                    {idx + 1}
+                  </td>
+                  {mappedHeaders.map(({ header, field }) => {
+                    const value = row[header] || row[field] || "-"
+                    const displayValue = typeof value === 'string' && value.length > 25 
+                      ? value.substring(0, 25) + "..." 
+                      : value
+                    return (
+                      <td 
+                        key={field} 
+                        className="px-3 py-2 text-[var(--chidi-text-primary)] whitespace-nowrap"
+                        title={typeof value === 'string' ? value : undefined}
+                      >
+                        {displayValue}
+                      </td>
+                    )
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {error && (
-          <div className="flex gap-2 p-3 bg-[var(--chidi-danger)]/5 border border-[var(--chidi-danger)]/20 rounded-lg text-sm text-[var(--chidi-danger)]">
+          <div className="flex gap-2 p-3 bg-[var(--chidi-danger)]/5 border border-[var(--chidi-danger)]/20 rounded-lg text-sm text-[var(--chidi-danger)] flex-shrink-0">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="flex gap-2 pt-2">
+        {/* Fixed buttons at bottom */}
+        <div className="flex gap-2 flex-shrink-0 pt-2">
           <Button 
             variant="outline" 
             onClick={() => { setStep("mapping"); setError(""); }}
@@ -413,7 +414,7 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
           </Button>
           <Button 
             onClick={handleExecuteImport}
-            className="flex-1 bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+            className="flex-1 bg-[var(--chidi-accent)] text-white hover:bg-[var(--chidi-accent)]/90 font-medium py-2"
           >
             Import {analysis.total_rows} Products
           </Button>
@@ -525,11 +526,13 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl bg-white border-[var(--chidi-border-default)]">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col bg-white border-[var(--chidi-border-default)]">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-[var(--chidi-text-primary)]">{getStepTitle()}</DialogTitle>
         </DialogHeader>
-        {renderStepContent()}
+        <div className="flex-1 overflow-hidden">
+          {renderStepContent()}
+        </div>
       </DialogContent>
     </Dialog>
   )
