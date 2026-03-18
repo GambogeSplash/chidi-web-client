@@ -259,6 +259,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             onEditProduct={handleEditProduct}
             onViewProduct={handleViewProduct}
             onProductsUpdated={handleVariationsUpdated}
+            onBulkImport={() => setShowBulkImport(true)}
           />
         )}
         

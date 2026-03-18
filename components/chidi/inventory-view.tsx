@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -19,9 +19,10 @@ interface InventoryViewProps {
   onEditProduct: (product: DisplayProduct) => void
   onViewProduct: (product: DisplayProduct) => void
   onProductsUpdated?: () => void
+  onBulkImport?: () => void
 }
 
-export function InventoryView({ products, onAddProduct, onEditProduct, onViewProduct, onProductsUpdated }: InventoryViewProps) {
+export function InventoryView({ products, onAddProduct, onEditProduct, onViewProduct, onProductsUpdated, onBulkImport }: InventoryViewProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
@@ -90,14 +91,27 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               })()}
             </p>
           </div>
-          <Button 
-            onClick={onAddProduct}
-            size="sm"
-            className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add
-          </Button>
+          <div className="flex items-center gap-2">
+            {onBulkImport && (
+              <Button 
+                onClick={onBulkImport}
+                size="sm"
+                variant="outline"
+                className="border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
+              >
+                <Upload className="w-4 h-4 mr-1" />
+                Import
+              </Button>
+            )}
+            <Button 
+              onClick={onAddProduct}
+              size="sm"
+              className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add
+            </Button>
+          </div>
         </div>
 
         {/* Search and filter */}

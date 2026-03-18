@@ -18,7 +18,11 @@ import type {
   ProductVariantResponse,
   AddVariationTypeRequest,
   AddVariantRequest,
-  UpdateVariantRequest
+  UpdateVariantRequest,
+  BulkImportAnalysis,
+  BulkImportResult,
+  ColumnMapping,
+  BulkImportFileType,
 } from '@/lib/types/product'
 import { backendToDisplay, backendToDisplayList } from '@/lib/utils/product-transformer'
 
@@ -371,18 +375,52 @@ export const productsAPI = {
   },
 
   /**
-   * Bulk import products from CSV
+   * Analyze file for bulk import (supports CSV, TSV, XLSX)
+   * Returns detected format, column mappings, and preview
+   * 
+   * @param content - File content (text for CSV/TSV, base64 for XLSX)
+   * @param fileType - File type: 'csv', 'tsv', or 'xlsx'
    */
-  async bulkImport(csvContent: string): Promise<{ imported: number; failed: number }> {
+  async analyzeImport(content: string, fileType: BulkImportFileType = 'csv'): Promise<BulkImportAnalysis> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/bulk-import/analyze`
+    console.log(`📦 [PRODUCTS] Analyzing ${fileType.toUpperCase()} for import:`, endpoint)
+    
+    return await apiClient.post<BulkImportAnalysis>(endpoint, { 
+      content,
+      file_type: fileType
+    })
+  },
+
+  /**
+   * Bulk import products from file with confirmed column mapping
+   * 
+   * @param content - File content (text for CSV/TSV, base64 for XLSX)
+   * @param columnMapping - Confirmed column mapping from user
+   * @param fileType - File type: 'csv', 'tsv', or 'xlsx'
+   */
+  async bulkImport(
+    content: string, 
+    columnMapping: ColumnMapping, 
+    fileType: BulkImportFileType = 'csv'
+  ): Promise<BulkImportResult> {
     const inventoryId = getStoredInventoryId()
     if (!inventoryId) {
       throw new Error('Inventory ID not found. Please complete onboarding.')
     }
 
     const endpoint = `/api/inventory/${inventoryId}/products/bulk-import`
-    console.log('📦 [PRODUCTS] Bulk importing products:', endpoint)
+    console.log(`📦 [PRODUCTS] Bulk importing products (${fileType.toUpperCase()}):`, endpoint)
     
-    return await apiClient.post<{ imported: number; failed: number }>(endpoint, { csv_content: csvContent })
+    return await apiClient.post<BulkImportResult>(endpoint, { 
+      content,
+      file_type: fileType,
+      column_mapping: columnMapping
+    })
   }
 }
 

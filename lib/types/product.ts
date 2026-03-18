@@ -292,3 +292,47 @@ export interface UpdateVariantRequest {
   status?: ProductStatus
   image_url?: string
 }
+
+
+// =============================================================================
+// Bulk Import Types (Meta Catalog alignment)
+// =============================================================================
+
+/**
+ * Supported file types for bulk import
+ */
+export type BulkImportFileType = 'csv' | 'tsv' | 'xlsx'
+
+/**
+ * Column mapping: header -> Chidi field name (or null to skip)
+ */
+export type ColumnMapping = Record<string, string | null>
+
+/**
+ * Error details for a failed row in bulk import
+ */
+export interface BulkImportError {
+  row: number
+  field?: string
+  message: string
+}
+
+/**
+ * Response from analyzing a file for bulk import
+ */
+export interface BulkImportAnalysis {
+  detected_format: 'meta' | 'chidi' | 'shopify' | 'unknown'
+  total_rows: number
+  column_mapping: ColumnMapping
+  unmapped_columns: string[]
+  preview_rows: Record<string, any>[]
+}
+
+/**
+ * Response from executing a bulk import
+ */
+export interface BulkImportResult {
+  imported: number
+  failed: number
+  errors: BulkImportError[]
+}
