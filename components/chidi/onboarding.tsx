@@ -50,11 +50,14 @@ function OnboardingHeader({ title, subtitle }: { title: string; subtitle: string
   )
 }
 
-// Setup progress phases
+// Setup progress phases - calibrated to match typical API response time
 const SETUP_PHASES = [
   { label: "Creating your business...", icon: Store },
+  { label: "Setting up your profile...", icon: Store },
+  { label: "Configuring preferences...", icon: Store },
   { label: "Setting up inventory...", icon: Store },
   { label: "Configuring categories...", icon: Store },
+  { label: "Finalizing setup...", icon: Store },
   { label: "Almost ready...", icon: Check },
 ] as const
 
@@ -144,6 +147,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   const [apiError, setApiError] = useState("")
   
   // Cycle through setup phases when loading
+  // Interval is calibrated so animation covers typical API response time (~5-8 seconds)
   useEffect(() => {
     if (!isLoading) {
       setSetupPhase(0)
@@ -155,9 +159,9 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         if (prev < SETUP_PHASES.length - 1) {
           return prev + 1
         }
-        return prev
+        return prev  // Stay on "Almost ready..." until API returns
       })
-    }, 600)
+    }, 1000)  // 1 second per phase = ~7 seconds total before reaching final phase
     
     return () => clearInterval(interval)
   }, [isLoading])
