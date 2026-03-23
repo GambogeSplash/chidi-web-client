@@ -21,6 +21,8 @@ import type {
   UpdateVariantRequest,
   BulkImportAnalysis,
   BulkImportResult,
+  BulkImportStartResult,
+  BulkImportJobStatus,
   ColumnMapping,
   BulkImportFileType,
 } from '@/lib/types/product'
@@ -397,11 +399,12 @@ export const productsAPI = {
   },
 
   /**
-   * Bulk import products from file with confirmed column mapping
+   * Bulk import products from file with confirmed column mapping (legacy synchronous)
    * 
    * @param content - File content (text for CSV/TSV, base64 for XLSX)
    * @param columnMapping - Confirmed column mapping from user
    * @param fileType - File type: 'csv', 'tsv', or 'xlsx'
+   * @deprecated Use startBulkImport + getBulkImportStatus for progress tracking
    */
   async bulkImport(
     content: string, 
@@ -421,6 +424,51 @@ export const productsAPI = {
       file_type: fileType,
       column_mapping: columnMapping
     })
+  },
+
+  /**
+   * Start a bulk import job (returns immediately with job_id)
+   * 
+   * @param content - File content (text for CSV/TSV, base64 for XLSX)
+   * @param columnMapping - Confirmed column mapping from user
+   * @param fileType - File type: 'csv', 'tsv', or 'xlsx'
+   * @returns job_id for polling progress
+   */
+  async startBulkImport(
+    content: string, 
+    columnMapping: ColumnMapping, 
+    fileType: BulkImportFileType = 'csv'
+  ): Promise<BulkImportStartResult> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/bulk-import`
+    console.log(`📦 [PRODUCTS] Starting bulk import job (${fileType.toUpperCase()}):`, endpoint)
+    
+    return await apiClient.post<BulkImportStartResult>(endpoint, { 
+      content,
+      file_type: fileType,
+      column_mapping: columnMapping
+    })
+  },
+
+  /**
+   * Get the status of a bulk import job
+   * 
+   * @param jobId - Job ID from startBulkImport
+   * @returns Current job status with progress
+   */
+  async getBulkImportStatus(jobId: string): Promise<BulkImportJobStatus> {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) {
+      throw new Error('Inventory ID not found. Please complete onboarding.')
+    }
+
+    const endpoint = `/api/inventory/${inventoryId}/products/bulk-import/${jobId}/status`
+    
+    return await apiClient.get<BulkImportJobStatus>(endpoint)
   }
 }
 

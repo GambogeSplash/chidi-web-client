@@ -329,10 +329,36 @@ export interface BulkImportAnalysis {
 }
 
 /**
- * Response from executing a bulk import
+ * Response from executing a bulk import (legacy, synchronous)
  */
 export interface BulkImportResult {
   imported: number
   failed: number
   errors: BulkImportError[]
+}
+
+/**
+ * Response when starting a bulk import job (returns immediately)
+ */
+export interface BulkImportStartResult {
+  job_id: string
+}
+
+/**
+ * Job status for bulk import progress polling
+ */
+export type BulkImportJobStatusType = 'pending' | 'processing' | 'completed' | 'failed'
+
+/**
+ * Response from polling bulk import job status
+ */
+export interface BulkImportJobStatus {
+  job_id: string
+  status: BulkImportJobStatusType
+  total: number
+  progress: number  // rows processed so far (imported + failed)
+  imported: number
+  failed: number
+  errors: BulkImportError[]
+  error_message?: string  // For job-level failures
 }

@@ -1,14 +1,14 @@
 "use client"
 
 import type React from "react"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Upload, CheckCircle, AlertCircle, ArrowLeft, ArrowRight, Loader2, FileSpreadsheet } from "lucide-react"
 import { productsAPI } from "@/lib/api"
-import type { BulkImportAnalysis, BulkImportResult, ColumnMapping, BulkImportFileType } from "@/lib/types/product"
+import type { BulkImportAnalysis, BulkImportResult, BulkImportJobStatus, ColumnMapping, BulkImportFileType } from "@/lib/types/product"
 
 interface BulkCSVImportProps {
   isOpen: boolean
@@ -65,6 +65,11 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null)
+  
+  // Job polling state
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [jobStatus, setJobStatus] = useState<BulkImportJobStatus | null>(null)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
 
   const resetState = useCallback(() => {
     setStep("upload")
@@ -76,6 +81,12 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
     setError("")
     setIsLoading(false)
     setImportResult(null)
+    setJobId(null)
+    setJobStatus(null)
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
   }, [])
 
   const handleClose = useCallback(() => {
@@ -170,6 +181,7 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
   const handleExecuteImport = async () => {
     setStep("importing")
     setError("")
+    setJobStatus(null)
 
     try {
       const cleanMapping: ColumnMapping = {}
@@ -179,17 +191,12 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
         }
       }
 
-      const result = await productsAPI.bulkImport(fileContent, cleanMapping, fileType)
-      setImportResult(result)
-      setStep("complete")
+      // Start the import job (returns immediately with job_id)
+      const { job_id } = await productsAPI.startBulkImport(fileContent, cleanMapping, fileType)
+      setJobId(job_id)
       
-      onImport({
-        imported: result.imported,
-        failed: result.failed,
-        products: [],
-      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to import products"
+      const message = err instanceof Error ? err.message : "Failed to start import"
       setError(message)
       setStep("preview")
       if (onError) {
@@ -197,6 +204,69 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
       }
     }
   }
+
+  // Poll for job status when importing
+  useEffect(() => {
+    if (step !== "importing" || !jobId) {
+      return
+    }
+
+    const pollStatus = async () => {
+      try {
+        const status = await productsAPI.getBulkImportStatus(jobId)
+        setJobStatus(status)
+
+        if (status.status === "completed") {
+          // Import finished successfully
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current)
+            pollingRef.current = null
+          }
+          
+          setImportResult({
+            imported: status.imported,
+            failed: status.failed,
+            errors: status.errors,
+          })
+          setStep("complete")
+          
+          onImport({
+            imported: status.imported,
+            failed: status.failed,
+            products: [],
+          })
+        } else if (status.status === "failed") {
+          // Import failed
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current)
+            pollingRef.current = null
+          }
+          
+          const errorMessage = status.error_message || "Import failed"
+          setError(errorMessage)
+          setStep("preview")
+          if (onError) {
+            onError(errorMessage)
+          }
+        }
+        // For "pending" and "processing", keep polling
+      } catch (err) {
+        console.error("Failed to poll import status:", err)
+        // Don't stop polling on transient errors, but maybe show a warning
+      }
+    }
+
+    // Poll immediately, then every 1.5 seconds
+    pollStatus()
+    pollingRef.current = setInterval(pollStatus, 1500)
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+  }, [step, jobId, onImport, onError])
 
   const getMappedPreviewHeaders = () => {
     if (!analysis) return []
@@ -423,15 +493,53 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
     )
   }
 
-  const renderImportingStep = () => (
-    <div className="flex flex-col items-center justify-center py-12 space-y-4">
-      <Loader2 className="w-12 h-12 text-[var(--chidi-accent)] animate-spin" />
-      <div className="text-center">
-        <p className="text-lg font-medium text-[var(--chidi-text-primary)]">Importing products...</p>
-        <p className="text-sm text-[var(--chidi-text-muted)]">This may take a moment</p>
+  const renderImportingStep = () => {
+    const total = jobStatus?.total || analysis?.total_rows || 0
+    const progress = jobStatus?.progress || 0
+    const imported = jobStatus?.imported || 0
+    const failed = jobStatus?.failed || 0
+    const percentage = total > 0 ? Math.round((progress / total) * 100) : 0
+    const isProcessing = jobStatus?.status === "processing"
+    const isFinalizing = percentage >= 100 && isProcessing
+
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-6">
+        <div className="relative">
+          <Loader2 className="w-12 h-12 text-[var(--chidi-accent)] animate-spin" />
+        </div>
+        
+        <div className="text-center space-y-1">
+          <p className="text-lg font-medium text-[var(--chidi-text-primary)]">
+            {isFinalizing ? "Finalizing import..." : "Importing products..."}
+          </p>
+          <p className="text-sm text-[var(--chidi-text-muted)]">
+            {progress > 0 ? (
+              <>
+                {progress} of {total} products processed
+                {failed > 0 && <span className="text-[var(--chidi-danger)]"> ({failed} failed)</span>}
+              </>
+            ) : (
+              "Starting import..."
+            )}
+          </p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full max-w-xs space-y-2">
+          <div className="h-2 bg-[var(--chidi-surface)] rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-[var(--chidi-accent)] rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${Math.min(percentage, 100)}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-[var(--chidi-text-muted)]">
+            <span>{imported} imported</span>
+            <span>{percentage}%</span>
+          </div>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderCompleteStep = () => {
     if (!importResult) return null
