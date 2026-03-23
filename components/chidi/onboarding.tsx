@@ -140,6 +140,8 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     currency: DEFAULT_CURRENCY,
   })
   const [nameError, setNameError] = useState("")
+  const [businessNameError, setBusinessNameError] = useState("")
+  const [apiError, setApiError] = useState("")
   
   // Cycle through setup phases when loading
   useEffect(() => {
@@ -218,17 +220,26 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           inventory_id: response.inventory_id,
           businessSlug: response.businessSlug
         })
-      } catch (error) {
+      } catch (error: any) {
         console.error('Onboarding completion failed:', error)
-        // Fallback to local completion if API fails
-        onComplete({
-          ...user,
-          ...userData,
-          categories: selectedCategories,
-          ownerName: user.name,
-        })
-      } finally {
         setIsLoading(false)
+        
+        // Handle duplicate business name error (409 Conflict)
+        if (error?.response?.status === 409) {
+          const detail = error?.response?.data?.detail
+          const suggestions = detail?.suggestions
+          if (suggestions && suggestions.length > 0) {
+            setBusinessNameError(`This business name is taken. Try: ${suggestions.join(', ')}`)
+          } else {
+            setBusinessNameError('This business name is already taken. Please choose another.')
+          }
+          // Go back to step 2 where business name is entered
+          setStep(2)
+          return
+        }
+        
+        // For other errors, show a generic error message
+        setApiError(error?.response?.data?.detail || error?.message || 'Failed to complete setup. Please try again.')
       }
     }
   }
@@ -249,6 +260,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         ? prev.filter(id => id !== categoryId)
         : [...prev, categoryId]
     )
+    setApiError("")  // Clear any API error when user interacts
   }
 
   const handleSkip = () => {
@@ -348,6 +360,13 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
             subtitle={needsNameUpdate ? "First, tell us your name, then about your business" : "This helps Chidi personalize your experience"}
           />
 
+          {/* API Error Banner */}
+          {apiError && (
+            <div className="mb-6 p-4 bg-[var(--chidi-danger)]/10 border border-[var(--chidi-danger)]/20 rounded-xl">
+              <p className="text-sm text-[var(--chidi-danger)]">{apiError}</p>
+            </div>
+          )}
+
           {/* Form */}
           <div className="space-y-5">
             {/* Name field - shown for magic link users who need to set their name */}
@@ -383,9 +402,19 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
                 id="businessName"
                 placeholder="e.g., Bella's Fashion Store"
                 value={userData.businessName}
-                onChange={(e) => handleInputChange("businessName", e.target.value)}
-                className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12"
+                onChange={(e) => {
+                  handleInputChange("businessName", e.target.value)
+                  setBusinessNameError("")  // Clear error when user types
+                  setApiError("")  // Clear any API error
+                }}
+                className={cn(
+                  "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12",
+                  businessNameError && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
+                )}
               />
+              {businessNameError && (
+                <p className="text-xs text-[var(--chidi-danger)] mt-1">{businessNameError}</p>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -481,6 +510,13 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
             title="What type of business do you run?"
             subtitle="We'll set up relevant product categories for you"
           />
+
+          {/* API Error Banner */}
+          {apiError && (
+            <div className="mb-6 p-4 bg-[var(--chidi-danger)]/10 border border-[var(--chidi-danger)]/20 rounded-xl">
+              <p className="text-sm text-[var(--chidi-danger)]">{apiError}</p>
+            </div>
+          )}
 
           {/* Business Types Grid */}
           <div className="grid grid-cols-2 gap-3 mb-8">
