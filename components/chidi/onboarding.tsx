@@ -50,10 +50,83 @@ function OnboardingHeader({ title, subtitle }: { title: string; subtitle: string
   )
 }
 
+// Setup progress phases
+const SETUP_PHASES = [
+  { label: "Creating your business...", icon: Store },
+  { label: "Setting up inventory...", icon: Store },
+  { label: "Configuring categories...", icon: Store },
+  { label: "Almost ready...", icon: Check },
+] as const
+
+// Setup progress animation component
+function SetupProgress({ currentPhase }: { currentPhase: number }) {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="w-full max-w-lg animate-in fade-in duration-500">
+        <div className="text-center mb-12">
+          <div className="w-16 h-16 bg-[var(--chidi-accent)]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin" />
+          </div>
+          <h1 className="text-2xl font-bold text-[var(--chidi-text-primary)] tracking-tight mb-2">
+            Setting up your workspace
+          </h1>
+          <p className="text-[var(--chidi-text-secondary)] text-sm">
+            This will only take a moment
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {SETUP_PHASES.map((phase, index) => {
+            const isCompleted = index < currentPhase
+            const isCurrent = index === currentPhase
+            const isPending = index > currentPhase
+            
+            return (
+              <div
+                key={index}
+                className={cn(
+                  "flex items-center p-4 rounded-xl border transition-all duration-300",
+                  isCompleted && "bg-[var(--chidi-success)]/5 border-[var(--chidi-success)]/20",
+                  isCurrent && "bg-[var(--chidi-accent)]/5 border-[var(--chidi-accent)]/30",
+                  isPending && "bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] opacity-50"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center mr-4 transition-all duration-300",
+                  isCompleted && "bg-[var(--chidi-success)] text-white",
+                  isCurrent && "bg-[var(--chidi-accent)] text-white",
+                  isPending && "bg-[var(--chidi-border-subtle)] text-[var(--chidi-text-muted)]"
+                )}>
+                  {isCompleted ? (
+                    <Check className="w-4 h-4 animate-in zoom-in duration-200" />
+                  ) : isCurrent ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span className="text-xs font-medium">{index + 1}</span>
+                  )}
+                </div>
+                <span className={cn(
+                  "font-medium text-sm transition-colors duration-300",
+                  isCompleted && "text-[var(--chidi-success)]",
+                  isCurrent && "text-[var(--chidi-text-primary)]",
+                  isPending && "text-[var(--chidi-text-muted)]"
+                )}>
+                  {phase.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function Onboarding({ user, onComplete }: OnboardingProps) {
   const [step, setStep] = useState(1)
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [setupPhase, setSetupPhase] = useState(0)
   
   // Check if user needs to set their name (magic link users have placeholder name)
   const needsNameUpdate = user.name === PLACEHOLDER_NAME || 
@@ -67,6 +140,25 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     currency: DEFAULT_CURRENCY,
   })
   const [nameError, setNameError] = useState("")
+  
+  // Cycle through setup phases when loading
+  useEffect(() => {
+    if (!isLoading) {
+      setSetupPhase(0)
+      return
+    }
+    
+    const interval = setInterval(() => {
+      setSetupPhase(prev => {
+        if (prev < SETUP_PHASES.length - 1) {
+          return prev + 1
+        }
+        return prev
+      })
+    }, 600)
+    
+    return () => clearInterval(interval)
+  }, [isLoading])
   
   // Clear the needs_name_update flag when component unmounts or user completes onboarding
   useEffect(() => {
@@ -366,6 +458,11 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   // Step 3: Business Type Selection
   // This determines the default product categories seeded for the business
   if (step === 3) {
+    // Show stepped progress animation when loading
+    if (isLoading) {
+      return <SetupProgress currentPhase={setupPhase} />
+    }
+    
     const businessTypes = [
       { id: "fashion", label: "Fashion & Clothing", icon: "👗" },
       { id: "electronics", label: "Electronics", icon: "📱" },
@@ -411,26 +508,16 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
               onClick={handleBack}
               variant="outline"
               className="flex-1 h-12 font-medium rounded-xl border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
-              disabled={isLoading}
             >
               Back
             </Button>
             <Button
               onClick={handleNext}
               className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
-              disabled={selectedCategories.length === 0 || isLoading}
+              disabled={selectedCategories.length === 0}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Setting up...
-                </>
-              ) : (
-                <>
-                  Complete Setup
-                  <Check className="w-4 h-4 ml-2" />
-                </>
-              )}
+              Complete Setup
+              <Check className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </div>
