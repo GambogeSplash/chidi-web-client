@@ -161,7 +161,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         }
         return prev  // Stay on "Almost ready..." until API returns
       })
-    }, 1000)  // 1 second per phase = ~7 seconds total before reaching final phase
+    }, 1500)  // 1.5 seconds per phase = ~10.5 seconds total before reaching final phase
     
     return () => clearInterval(interval)
   }, [isLoading])
