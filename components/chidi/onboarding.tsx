@@ -42,7 +42,7 @@ function ProgressBar({ currentStep, totalSteps }: { currentStep: number; totalSt
 function OnboardingHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="text-center mb-8">
-      <h1 className="text-2xl font-bold text-[var(--chidi-text-primary)] tracking-tight mb-2">
+      <h1 className="text-2xl font-serif text-[var(--chidi-text-primary)] tracking-tight mb-2">
         {title}
       </h1>
       <p className="text-[var(--chidi-text-secondary)] text-sm">{subtitle}</p>
@@ -64,7 +64,7 @@ const SETUP_PHASES = [
 // Setup progress animation component
 function SetupProgress({ currentPhase }: { currentPhase: number }) {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
       <div className="w-full max-w-lg animate-in fade-in duration-500">
         <div className="text-center mb-12">
           <div className="w-16 h-16 bg-[var(--chidi-accent)]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -285,7 +285,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
       : `Welcome to Chidi, ${user.name}!`
     
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
@@ -338,7 +338,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
 
           <Button
             onClick={handleNext}
-            className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+            className="w-full btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
           >
             Get Started
             <ArrowRight className="w-4 h-4 ml-2" />
@@ -355,7 +355,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
       (!needsNameUpdate || (userData.name.trim().length >= 2 && userData.name.trim() !== PLACEHOLDER_NAME))
     
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
@@ -475,7 +475,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
               </Button>
               <Button
                 onClick={handleNext}
-                className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+                className="flex-1 btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
                 disabled={!isStep2Valid}
               >
                 Continue
@@ -506,7 +506,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     ]
 
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
@@ -553,7 +553,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
             </Button>
             <Button
               onClick={handleNext}
-              className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+              className="flex-1 btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
               disabled={selectedCategories.length === 0}
             >
               Complete Setup

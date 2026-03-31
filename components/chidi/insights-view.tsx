@@ -11,9 +11,9 @@ export function InsightsView() {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("overview")
 
   return (
-    <div className="flex-1 flex flex-col bg-white h-full">
+    <div className="flex-1 flex flex-col bg-[var(--background)] h-full">
       {/* Sub-tab navigation */}
-      <div className="flex-shrink-0 border-b border-gray-100 bg-white px-4">
+      <div className="flex-shrink-0 border-b border-gray-100 bg-[var(--background)] px-4">
         <div className="flex gap-1">
           <SubTabButton
             active={activeSubTab === "overview"}

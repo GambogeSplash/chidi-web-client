@@ -1,65 +1,123 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  /* Base colors - Light theme only */
-  --background: oklch(0.995 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.965 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.965 0 0);
-  --muted-foreground: oklch(0.45 0 0);
-  --accent: oklch(0.965 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Warm paper palette — adapted from v0 marketing site */
+  --background: #F7F5F3;
+  --foreground: #37322F;
+  --card: #FFFFFF;
+  --card-foreground: #37322F;
+  --popover: #FFFFFF;
+  --popover-foreground: #37322F;
+  --primary: #37322F;
+  --primary-foreground: #F7F5F3;
+  --secondary: #F0EEEB;
+  --secondary-foreground: #37322F;
+  --muted: #F0EEEB;
+  --muted-foreground: #605A57;
+  --accent: #F0EEEB;
+  --accent-foreground: #37322F;
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.91 0 0);
-  --input: oklch(0.91 0 0);
-  --ring: oklch(0.708 0 0);
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(55, 50, 47, 0.12);
+  --input: rgba(55, 50, 47, 0.12);
+  --ring: rgba(55, 50, 47, 0.25);
   --radius: 0.625rem;
 
-  /* Sidebar (kept for compatibility) */
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.965 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.91 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Sidebar */
+  --sidebar: #F7F5F3;
+  --sidebar-foreground: #37322F;
+  --sidebar-primary: #37322F;
+  --sidebar-primary-foreground: #F7F5F3;
+  --sidebar-accent: #F0EEEB;
+  --sidebar-accent-foreground: #37322F;
+  --sidebar-border: rgba(55, 50, 47, 0.12);
+  --sidebar-ring: rgba(55, 50, 47, 0.25);
 
-  /* Chart colors */
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  /* Chart colors — warm-toned accents */
+  --chart-1: #8B6F47;
+  --chart-2: #5B8A72;
+  --chart-3: #49423D;
+  --chart-4: #C4956A;
+  --chart-5: #7A9E7E;
 
-  /* Chidi-specific design tokens */
-  --chidi-accent: oklch(0.205 0 0);
-  --chidi-accent-foreground: oklch(0.985 0 0);
-  --chidi-surface: oklch(0.975 0 0);
-  --chidi-surface-elevated: oklch(1 0 0);
-  --chidi-success: oklch(0.59 0.16 145);
-  --chidi-success-foreground: oklch(1 0 0);
-  --chidi-warning: oklch(0.75 0.18 55);
-  --chidi-warning-foreground: oklch(0.25 0 0);
+  /* Chidi-specific design tokens — warm palette */
+  --chidi-accent: #37322F;
+  --chidi-accent-foreground: #F7F5F3;
+  --chidi-bg-primary: #F7F5F3;
+  --chidi-surface: #F0EEEB;
+  --chidi-surface-elevated: #FFFFFF;
+  --chidi-success: #5B8A72;
+  --chidi-success-foreground: #FFFFFF;
+  --chidi-warning: #C4956A;
+  --chidi-warning-foreground: #2A2520;
   --chidi-danger: oklch(0.577 0.245 27.325);
-  --chidi-danger-foreground: oklch(1 0 0);
-  --chidi-text-primary: oklch(0.145 0 0);
-  --chidi-text-secondary: oklch(0.45 0 0);
-  --chidi-text-muted: oklch(0.55 0 0);
-  --chidi-border-subtle: oklch(0.93 0 0);
-  --chidi-border-default: oklch(0.88 0 0);
+  --chidi-danger-foreground: #FFFFFF;
+  --chidi-text-primary: #37322F;
+  --chidi-text-secondary: #605A57;
+  --chidi-text-muted: #8A8380;
+  --chidi-border-subtle: rgba(55, 50, 47, 0.06);
+  --chidi-border-default: rgba(55, 50, 47, 0.12);
+
+  /* Font stacks */
+  --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-instrument-serif: "Instrument Serif", ui-serif, Georgia, serif;
+}
+
+.dark {
+  --background: #1C1917;
+  --foreground: #E7E5E4;
+  --card: #292524;
+  --card-foreground: #E7E5E4;
+  --popover: #292524;
+  --popover-foreground: #E7E5E4;
+  --primary: #E7E5E4;
+  --primary-foreground: #1C1917;
+  --secondary: #292524;
+  --secondary-foreground: #E7E5E4;
+  --muted: #292524;
+  --muted-foreground: #A8A29E;
+  --accent: #292524;
+  --accent-foreground: #E7E5E4;
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(231, 229, 228, 0.12);
+  --input: rgba(231, 229, 228, 0.12);
+  --ring: rgba(231, 229, 228, 0.25);
+
+  --sidebar: #1C1917;
+  --sidebar-foreground: #E7E5E4;
+  --sidebar-primary: #E7E5E4;
+  --sidebar-primary-foreground: #1C1917;
+  --sidebar-accent: #292524;
+  --sidebar-accent-foreground: #E7E5E4;
+  --sidebar-border: rgba(231, 229, 228, 0.12);
+  --sidebar-ring: rgba(231, 229, 228, 0.25);
+
+  --chidi-accent: #E7E5E4;
+  --chidi-accent-foreground: #1C1917;
+  --chidi-bg-primary: #1C1917;
+  --chidi-surface: #292524;
+  --chidi-surface-elevated: #3D3835;
+  --chidi-success: #7AB89A;
+  --chidi-success-foreground: #1C1917;
+  --chidi-warning: #D4A574;
+  --chidi-warning-foreground: #1C1917;
+  --chidi-danger: oklch(0.577 0.245 27.325);
+  --chidi-danger-foreground: #FFFFFF;
+  --chidi-text-primary: #E7E5E4;
+  --chidi-text-secondary: #A8A29E;
+  --chidi-text-muted: #78716C;
+  --chidi-border-subtle: rgba(231, 229, 228, 0.06);
+  --chidi-border-default: rgba(231, 229, 228, 0.12);
 }
 
 @theme inline {
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-instrument-serif);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -236,7 +294,7 @@
   background: linear-gradient(
     90deg,
     var(--chidi-accent) 0%,
-    oklch(0.35 0 0) 50%,
+    #49423D 50%,
     var(--chidi-accent) 100%
   );
   background-size: 200% 100%;
@@ -312,4 +370,50 @@
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
+}
+
+/* v0-style text utilities */
+.text-balance {
+  text-wrap: balance;
+}
+
+.text-pretty {
+  text-wrap: pretty;
+}
+
+/* v0-style card shadow */
+.shadow-card {
+  box-shadow: 0px 0px 0px 0.9px rgba(0, 0, 0, 0.08),
+    0px 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-card-hover {
+  box-shadow: 0px 0px 0px 0.9px rgba(0, 0, 0, 0.08),
+    0px 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+/* v0-style CTA button with inset shine */
+.btn-cta {
+  background-color: var(--chidi-accent);
+  color: var(--chidi-accent-foreground);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0px 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.btn-cta:hover {
+  background-color: #2A2520;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0px 2px 8px rgba(0, 0, 0, 0.16);
+}
+
+/* Instrument Serif display utility */
+.font-instrument-serif {
+  font-family: var(--font-instrument-serif);
+  font-display: swap;
+}
+
+.mix-blend-multiply {
+  mix-blend-mode: multiply;
 }

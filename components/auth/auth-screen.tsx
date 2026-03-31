@@ -344,7 +344,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo and Header */}
         <div className="text-center mb-8 animate-in fade-in duration-500">
@@ -356,7 +356,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
             className="mx-auto mb-3"
             priority
           />
-          <p className="text-base font-medium text-[var(--chidi-text-primary)] tracking-wide">
+          <p className="text-lg font-serif text-[var(--chidi-text-primary)] tracking-tight">
             Your AI business assistant for WhatsApp & Instagram
           </p>
         </div>
@@ -380,7 +380,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
             className={cn(
               "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200",
               activeTab === 'signin'
-                ? 'bg-white text-[var(--chidi-text-primary)] shadow-sm'
+                ? 'bg-white text-[var(--chidi-text-primary)] shadow-card'
                 : 'text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]'
             )}
           >
@@ -395,7 +395,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
             className={cn(
               "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200",
               activeTab === 'signup'
-                ? 'bg-white text-[var(--chidi-text-primary)] shadow-sm'
+                ? 'bg-white text-[var(--chidi-text-primary)] shadow-card'
                 : 'text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]'
             )}
           >
@@ -480,7 +480,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
 
               <Button
                 type="submit"
-                className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+                className="w-full btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -563,7 +563,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
 
               <Button
                 type="submit"
-                className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+                className="w-full btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
                 disabled={isLoading || isSendingMagicLink}
               >
                 {isLoading ? (
@@ -581,7 +581,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
                   <div className="w-full border-t border-[var(--chidi-border-default)]" />
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white text-[var(--chidi-text-muted)]">or</span>
+                  <span className="px-2 bg-[var(--background)] text-[var(--chidi-text-muted)]">or</span>
                 </div>
               </div>
 
@@ -589,7 +589,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
                 type="button"
                 variant="outline"
                 onClick={handleSendMagicLink}
-                className="w-full border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] h-12 font-medium transition-all duration-200 rounded-xl"
+                className="w-full border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] h-12 font-medium transition-all duration-300 rounded-xl shadow-card"
                 disabled={isLoading || isSendingMagicLink}
               >
                 {isSendingMagicLink ? (

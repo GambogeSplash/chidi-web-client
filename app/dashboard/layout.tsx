@@ -8,7 +8,7 @@ import { AuthContext } from '@/lib/providers/dashboard-auth-context'
 
 function AuthLoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-[var(--chidi-bg-primary)] flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-[var(--background)] flex flex-col items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-[var(--chidi-accent)]" />
         <p className="text-[var(--chidi-text-secondary)] text-sm">Loading...</p>

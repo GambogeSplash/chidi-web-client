@@ -32,7 +32,7 @@ export function EmailVerificationPending({ email, onBackToSignIn }: EmailVerific
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center animate-in fade-in duration-500">
           <div className="w-16 h-16 bg-[var(--chidi-accent)]/10 rounded-full flex items-center justify-center mx-auto mb-6">

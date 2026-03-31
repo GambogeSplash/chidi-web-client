@@ -369,7 +369,7 @@ export function CopilotView({
                 className={cn(
                   "absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg transition-opacity",
                   inputValue.trim() 
-                    ? "bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] opacity-100" 
+                    ? "btn-cta opacity-100" 
                     : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50"
                 )}
               >
@@ -498,7 +498,7 @@ export function CopilotView({
               className={cn(
                 "absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg transition-opacity",
                 inputValue.trim() && !isSending
-                  ? "bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] opacity-100" 
+                  ? "btn-cta opacity-100" 
                   : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50"
               )}
             >

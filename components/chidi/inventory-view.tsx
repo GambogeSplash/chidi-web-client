@@ -75,7 +75,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[var(--background)] min-h-0 overflow-hidden">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-[var(--chidi-border-subtle)]">
         <div className="flex items-center justify-between mb-3">
@@ -106,7 +106,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             <Button 
               onClick={onAddProduct}
               size="sm"
-              className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+              className="btn-cta"
             >
               <Plus className="w-4 h-4 mr-1" />
               Add
@@ -175,7 +175,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               !searchQuery && (
                 <Button 
                   onClick={onAddProduct}
-                  className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+                  className="btn-cta"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Add Product

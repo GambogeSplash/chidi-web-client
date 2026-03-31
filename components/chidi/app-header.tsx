@@ -46,7 +46,7 @@ export function AppHeader({
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-[var(--chidi-border-subtle)] safe-area-top">
+    <header className="sticky top-0 z-40 bg-[var(--background)] border-b border-[var(--chidi-border-default)] safe-area-top">
       <div className="flex items-center justify-between h-14 px-4 max-w-lg mx-auto">
         <Image
           src="/logo.png"

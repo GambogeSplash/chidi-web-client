@@ -450,7 +450,7 @@ function PolicyForm({
         <Button
           onClick={onSave}
           disabled={saving || !formData.title.trim() || !formData.content.trim()}
-          className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]"
+          className="btn-cta"
         >
           {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Save

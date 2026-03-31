@@ -5,20 +5,20 @@ import { Home } from 'lucide-react'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#fafafa]">
+    <div className="min-h-screen relative overflow-hidden bg-[var(--background)]">
       {/* Subtle background */}
       <div className="absolute inset-0 z-0">
         <div 
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(-45deg, #fafafa, #f5f5f0, #faf8f5, #f8f8f8)',
+            background: 'linear-gradient(-45deg, #F7F5F3, #F0EEEB, #F5F0E8, #F7F5F3)',
             backgroundSize: '400% 400%',
           }}
         />
         <div 
-          className="absolute inset-0 opacity-[0.3]"
+          className="absolute inset-0 opacity-[0.2]"
           style={{
-            backgroundImage: `radial-gradient(circle, #d4d4d4 1px, transparent 1px)`,
+            backgroundImage: `radial-gradient(circle, rgba(55, 50, 47, 0.3) 1px, transparent 1px)`,
             backgroundSize: '24px 24px',
           }}
         />
@@ -55,7 +55,7 @@ export default function NotFound() {
           {/* CTA */}
           <Button 
             asChild
-            className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+            className="btn-cta transition-all duration-300"
           >
             <Link href="/" className="inline-flex items-center gap-2">
               <Home className="w-4 h-4" />

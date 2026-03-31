@@ -220,7 +220,7 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
   // Loading state is handled by the dashboard layout - we're guaranteed to have user here
 
   return (
-    <div className="flex flex-col h-screen w-full bg-white">
+    <div className="flex flex-col h-screen w-full bg-[var(--background)]">
       {/* Header - consistent across all tabs */}
       <AppHeader 
         notifications={notifications}

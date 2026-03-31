@@ -246,7 +246,7 @@ export function InboxView() {
   // Show loading state while checking connection
   if (checkingConnection) {
     return (
-      <div className="flex-1 flex flex-col bg-white items-center justify-center">
+      <div className="flex-1 flex flex-col bg-[var(--background)] items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-[var(--chidi-text-muted)]" />
       </div>
     )
@@ -255,7 +255,7 @@ export function InboxView() {
   // Show connect channel state if no connections
   if (!hasAnyConnection) {
     return (
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
         {/* Header section */}
         <div className="px-4 pt-4 pb-3 border-b border-[var(--chidi-border-subtle)]">
           <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Inbox</h2>
@@ -277,7 +277,7 @@ export function InboxView() {
 
           <Button
             onClick={() => setShowChannelPicker(true)}
-            className="bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-white px-6 h-11 rounded-xl font-medium"
+            className="btn-cta px-6 h-11 rounded-xl font-medium"
           >
             <MessageCircle className="w-4 h-4 mr-2" />
             Connect Channel
@@ -352,7 +352,7 @@ export function InboxView() {
                 <DialogFooter>
                   <Button 
                     onClick={handleCloseConnectDialog}
-                    className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-white"
+                    className="btn-cta w-full"
                   >
                     Done
                   </Button>
@@ -469,7 +469,7 @@ export function InboxView() {
                   <Button 
                     onClick={handleConnect}
                     disabled={isConnecting || (connectChannelType === 'WHATSAPP' ? !phoneNumber : connectChannelType === 'TELEGRAM' ? !botToken : true)}
-                    className="bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-white"
+                    className="btn-cta"
                   >
                     {isConnecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Connect
@@ -500,7 +500,7 @@ export function InboxView() {
   const connectedChannels = connections?.connections.map(c => c.channel_type) || []
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-[var(--background)]">
       {/* Header section */}
       <div className="px-4 pt-4 pb-3 border-b border-[var(--chidi-border-subtle)]">
         <div className="flex items-center justify-between mb-3">

@@ -168,7 +168,7 @@ function AuthPageContent() {
 
   if (isProcessingCallback) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
           <p className="text-[var(--chidi-text-muted)]">Setting up your account...</p>
@@ -198,7 +198,7 @@ function AuthPageContent() {
   // Show auth error if one occurred (e.g., expired link)
   if (authError) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
         <div className="w-full max-w-md text-center">
           <div className="w-16 h-16 bg-[var(--chidi-danger)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8 text-[var(--chidi-danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -216,7 +216,7 @@ function AuthPageContent() {
               setAuthError(null)
               router.push('/auth?tab=signin')
             }}
-            className="w-full py-3 px-4 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] font-medium rounded-xl transition-colors"
+            className="w-full py-3 px-4 btn-cta font-medium rounded-xl transition-all duration-300"
           >
             Back to Sign In
           </button>
@@ -231,7 +231,7 @@ function AuthPageContent() {
 export default function AuthPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
           <p className="text-[var(--chidi-text-muted)]">Loading...</p>

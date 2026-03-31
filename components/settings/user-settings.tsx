@@ -453,7 +453,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   onClick={handleSaveAccount}
                   disabled={updateAccountMutation.isPending}
                   size="sm"
-                  className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+                  className="btn-cta"
                 >
                   {updateAccountMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                   Save
@@ -661,7 +661,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                     onClick={handleSaveLowStockThreshold}
                     disabled={updateBizPreferencesMutation.isPending}
                     size="sm"
-                    className="ml-auto bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+                    className="ml-auto btn-cta"
                   >
                     {updateBizPreferencesMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Save
@@ -838,7 +838,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               <Button 
                 onClick={handleChangePassword}
                 disabled={changePasswordMutation.isPending || !passwordForm.currentPassword || !passwordForm.newPassword}
-                className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+                className="btn-cta"
               >
                 {changePasswordMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Change Password
@@ -928,7 +928,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                 setShowBusinessHoursModal(false)
                 setTimeout(() => setSuccess(""), 3000)
               }}
-              className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+              className="btn-cta"
             >
               Save Hours
             </Button>
@@ -1054,7 +1054,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               <Button 
                 onClick={handleSavePaymentSettings}
                 disabled={updatePaymentMutation.isPending || !paymentForm.bank_name || !paymentForm.account_name || !paymentForm.account_number}
-                className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+                className="btn-cta"
               >
                 {updatePaymentMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Save Payment Details

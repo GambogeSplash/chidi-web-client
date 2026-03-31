@@ -20,7 +20,7 @@ const navItems: { id: TabId; label: string; icon: typeof MessageSquare }[] = [
 
 export function BottomNavigation({ activeTab, onTabChange }: BottomNavigationProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[var(--chidi-border-subtle)] safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-[var(--chidi-border-default)] safe-area-bottom">
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
         {navItems.map((item) => {
           const isActive = activeTab === item.id

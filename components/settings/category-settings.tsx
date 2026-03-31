@@ -301,7 +301,7 @@ export function CategorySettings() {
               resetForm()
               setShowAddDialog(true)
             }}
-            className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+            className="btn-cta"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Category
@@ -467,7 +467,7 @@ export function CategorySettings() {
             <Button
               onClick={handleAddCategory}
               disabled={isSaving || !formData.name.trim()}
-              className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+              className="btn-cta"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Add Category
@@ -550,7 +550,7 @@ export function CategorySettings() {
             <Button
               onClick={handleEditCategory}
               disabled={isSaving || !formData.name.trim()}
-              className="bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] hover:bg-[var(--chidi-accent)]/90"
+              className="btn-cta"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Save Changes

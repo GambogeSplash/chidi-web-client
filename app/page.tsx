@@ -107,7 +107,7 @@ export default function HomePage() {
   // Loading state
   if (isChecking) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
           <p className="text-[var(--chidi-text-muted)]">Loading...</p>
@@ -119,41 +119,40 @@ export default function HomePage() {
   // Welcome screen with animated warm gradient background
   if (showWelcome) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-[#fafafa]">
-        {/* Animated Background - warm, light, professional */}
+      <div className="min-h-screen relative overflow-hidden bg-[var(--background)]">
+        {/* Animated Background — warm paper tones */}
         <div className="absolute inset-0 z-0">
-          {/* Soft warm gradient base */}
           <div 
             className="absolute inset-0 animate-gradient-shift"
             style={{
-              background: 'linear-gradient(-45deg, #fafafa, #f5f5f0, #faf8f5, #f8f8f8, #f5f0e8)',
+              background: 'linear-gradient(-45deg, #F7F5F3, #F0EEEB, #F5F0E8, #F7F5F3, #EDE8E1)',
               backgroundSize: '400% 400%',
             }}
           />
           
-          {/* Floating orbs - warm neutrals and subtle accents */}
+          {/* Floating orbs — warm earth tones */}
           <div 
-            className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-amber-200/30 to-orange-100/20 blur-3xl animate-floating-orb"
+            className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-[#C4956A]/20 to-[#E0DEDB]/15 blur-3xl animate-floating-orb"
             style={{ animationDelay: '0s' }}
           />
           <div 
-            className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-stone-200/40 to-neutral-100/30 blur-3xl animate-floating-orb"
+            className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-[#E0DEDB]/30 to-[#F0EEEB]/20 blur-3xl animate-floating-orb"
             style={{ animationDelay: '-5s' }}
           />
           <div 
-            className="absolute top-1/2 right-1/3 w-[350px] h-[350px] rounded-full bg-gradient-to-br from-rose-100/25 to-pink-50/20 blur-3xl animate-floating-orb"
+            className="absolute top-1/2 right-1/3 w-[350px] h-[350px] rounded-full bg-gradient-to-br from-[#D4C4B0]/20 to-[#F0EEEB]/15 blur-3xl animate-floating-orb"
             style={{ animationDelay: '-10s' }}
           />
           <div 
-            className="absolute bottom-1/4 left-1/3 w-[450px] h-[450px] rounded-full bg-gradient-to-br from-emerald-100/20 to-teal-50/15 blur-3xl animate-floating-orb"
+            className="absolute bottom-1/4 left-1/3 w-[450px] h-[450px] rounded-full bg-gradient-to-br from-[#5B8A72]/10 to-[#7AB89A]/08 blur-3xl animate-floating-orb"
             style={{ animationDelay: '-15s' }}
           />
           
           {/* Subtle dot pattern overlay */}
           <div 
-            className="absolute inset-0 opacity-[0.4]"
+            className="absolute inset-0 opacity-[0.25]"
             style={{
-              backgroundImage: `radial-gradient(circle, #d4d4d4 1px, transparent 1px)`,
+              backgroundImage: `radial-gradient(circle, rgba(55, 50, 47, 0.3) 1px, transparent 1px)`,
               backgroundSize: '24px 24px',
             }}
           />
@@ -178,9 +177,9 @@ export default function HomePage() {
               />
             </div>
             
-            {/* Statement */}
+            {/* Statement — serif headline */}
             <p 
-              className="text-xl sm:text-2xl text-[var(--chidi-text-primary)] font-medium mb-3 animate-fade-slide-up"
+              className="text-2xl sm:text-3xl font-serif text-[var(--chidi-text-primary)] mb-3 animate-fade-slide-up tracking-tight"
               style={{ animationDelay: '200ms' }}
             >
               Let's do business the Chidi way.
@@ -202,10 +201,9 @@ export default function HomePage() {
           >
             <Link
               href="/auth?tab=signup"
-              className="group relative block w-full py-4 px-6 text-center rounded-xl bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] font-semibold text-base overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-black/10 hover:scale-[1.02] active:scale-[0.98]"
+              className="group relative block w-full py-4 px-6 text-center rounded-xl btn-cta font-semibold text-base overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
             >
               <span className="relative z-10">Get Started</span>
-              {/* Subtle shine effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
             </Link>
           </div>
@@ -230,7 +228,7 @@ export default function HomePage() {
           >
             <div 
               key={activityKey}
-              className="flex items-center gap-2.5 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-[var(--chidi-border-subtle)] shadow-sm animate-toast-cycle"
+              className="flex items-center gap-2.5 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-card animate-toast-cycle"
             >
               <ActivityIcon type={ACTIVITY_MESSAGES[activityIndex].icon} />
               <span className="text-sm text-[var(--chidi-text-secondary)] font-medium">

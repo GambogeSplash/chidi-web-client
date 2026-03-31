@@ -128,14 +128,14 @@ export function OrdersView({ initialOrderId, onOrderSelected }: OrdersViewProps)
 
   if (isLoading && orders.length === 0) {
     return (
-      <div className="flex-1 bg-white flex items-center justify-center">
+      <div className="flex-1 bg-[var(--background)] flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--chidi-accent)]" />
       </div>
     )
   }
 
   return (
-    <div className="flex-1 bg-white flex">
+    <div className="flex-1 bg-[var(--background)] flex">
       {/* Orders List - Hidden on mobile when order is selected */}
       <div className={`${selectedOrder ? 'hidden md:flex md:w-1/2 md:border-r border-[var(--chidi-border-subtle)]' : 'w-full'} flex flex-col`}>
         {/* Header */}

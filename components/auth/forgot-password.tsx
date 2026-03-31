@@ -48,7 +48,7 @@ export function ForgotPassword({ onBackToSignIn }: ForgotPasswordProps) {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center animate-in fade-in duration-500">
             <div className="w-16 h-16 bg-[var(--chidi-success)]/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -73,7 +73,7 @@ export function ForgotPassword({ onBackToSignIn }: ForgotPasswordProps) {
 
             <Button
               onClick={onBackToSignIn}
-              className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+              className="w-full btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
             >
               Back to sign in
             </Button>
@@ -96,7 +96,7 @@ export function ForgotPassword({ onBackToSignIn }: ForgotPasswordProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="animate-in fade-in duration-500">
           <div className="text-center mb-8">
@@ -139,7 +139,7 @@ export function ForgotPassword({ onBackToSignIn }: ForgotPasswordProps) {
 
             <Button
               type="submit"
-              className="w-full bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] h-12 font-medium transition-all duration-200 rounded-xl"
+              className="w-full btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
               disabled={isLoading}
             >
               {isLoading ? (
