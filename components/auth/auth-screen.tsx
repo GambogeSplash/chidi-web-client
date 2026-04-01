@@ -105,7 +105,7 @@ function PasswordRequirements({ password = "" }: { password: string }) {
 
 export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenProps) {
   const searchParams = useSearchParams()
-  const initialTab = searchParams.get('tab') === 'signin' ? 'signin' : 'signup'
+  const initialTab = searchParams.get('tab') === 'signup' ? 'signup' : 'signin'
   
   const [activeTab, setActiveTab] = useState<"signin" | "signup">(initialTab)
   const [isLoading, setIsLoading] = useState(false)
