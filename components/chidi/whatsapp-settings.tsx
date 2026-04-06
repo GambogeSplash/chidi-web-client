@@ -306,7 +306,7 @@ export function WhatsAppSettings() {
           </div>
           <div>
             <p className="font-medium text-sm text-[var(--chidi-text-primary)]">WhatsApp</p>
-            <p className="text-xs text-[var(--chidi-text-muted)]">{status.phone_number}</p>
+            <p className="text-xs text-[var(--chidi-text-muted)]">{status.channel_identifier}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">

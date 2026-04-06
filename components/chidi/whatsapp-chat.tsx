@@ -178,10 +178,10 @@ export function WhatsAppChat({ conversation, onBack, onConversationUpdate }: Wha
           </div>
           <div>
             <p className="text-white font-medium">
-              {conversation.customer_name || formatPhoneNumber(conversation.customer_phone)}
+              {conversation.customer_name || formatPhoneNumber(conversation.customer_id)}
             </p>
             <p className="text-sm text-gray-500">
-              {formatPhoneNumber(conversation.customer_phone)}
+              {formatPhoneNumber(conversation.customer_id)}
             </p>
           </div>
         </div>

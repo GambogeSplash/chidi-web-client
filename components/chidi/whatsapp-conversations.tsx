@@ -119,7 +119,7 @@ export function WhatsAppConversations({ onConversationSelect }: WhatsAppConversa
 
   const filteredConversations = conversations.filter(conv => {
     if (!searchQuery) return true
-    const phone = formatPhoneNumber(conv.customer_phone).toLowerCase()
+    const phone = formatPhoneNumber(conv.customer_id).toLowerCase()
     const name = (conv.customer_name || '').toLowerCase()
     const query = searchQuery.toLowerCase()
     return phone.includes(query) || name.includes(query)
@@ -234,7 +234,7 @@ export function WhatsAppConversations({ onConversationSelect }: WhatsAppConversa
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-white font-medium truncate">
-                          {conversation.customer_name || formatPhoneNumber(conversation.customer_phone)}
+                          {conversation.customer_name || formatPhoneNumber(conversation.customer_id)}
                         </p>
                         {conversation.unread_count > 0 && (
                           <Badge className="bg-indigo-500 text-white text-xs px-1.5 py-0.5">
@@ -244,7 +244,7 @@ export function WhatsAppConversations({ onConversationSelect }: WhatsAppConversa
                       </div>
                       {conversation.customer_name && (
                         <p className="text-sm text-gray-500 truncate">
-                          {formatPhoneNumber(conversation.customer_phone)}
+                          {formatPhoneNumber(conversation.customer_id)}
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-1">
