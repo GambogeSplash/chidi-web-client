@@ -1,10 +1,12 @@
 /**
- * WhatsApp API compatibility layer.
+ * WhatsApp API client for Chidi web client.
  * 
- * Delegates all operations to the universal messaging API at /api/messaging/*.
- * Types are re-exported from the messaging module for backward compatibility.
+ * Includes:
+ * - Tech Provider / Embedded Signup endpoints (provider-config, complete-setup, setup-status)
+ * - Conversation and message operations via the universal messaging API
  */
 
+import { apiClient } from './client';
 import {
   messagingAPI,
   type ConnectionStatusResponse,
@@ -16,7 +18,39 @@ import {
   type UpdateChannelSettingsRequest,
 } from './messaging';
 
-// Re-export messaging types under WhatsApp-specific aliases
+// ============================================
+// Tech Provider / Embedded Signup Types
+// ============================================
+
+export interface WhatsAppProviderConfig {
+  meta_app_id: string;
+  embedded_signup_config_id: string;
+  twilio_partner_solution_id: string;
+}
+
+export interface CompleteWhatsAppSetupRequest {
+  waba_id: string;
+  phone_number: string;
+  meta_phone_number_id: string;
+  display_name: string;
+  ai_enabled?: boolean;
+  after_hours_only?: boolean;
+}
+
+export interface WhatsAppSetupStatus {
+  connection_id: string;
+  sender_status: string;
+  twilio_sender_sid?: string;
+  phone_number: string;
+  display_name?: string;
+  connected: boolean;
+  error_message?: string;
+}
+
+// ============================================
+// Re-export messaging types for compatibility
+// ============================================
+
 export type WhatsAppStatus = ConnectionStatusResponse;
 export type WhatsAppConversation = ChannelConversation;
 export type WhatsAppMessage = ChannelMessage;
@@ -25,22 +59,43 @@ export type WhatsAppConversationStatus = ConversationStatus;
 export type { ConversationListResponse, MessageListResponse };
 
 // ============================================
-// API Functions (delegating to messaging API)
+// Tech Provider / Embedded Signup API Functions
+// ============================================
+
+/**
+ * Get WhatsApp Tech Provider configuration for Embedded Signup.
+ * Returns the Meta App ID and config IDs needed by the Facebook SDK.
+ */
+export async function getProviderConfig(): Promise<WhatsAppProviderConfig> {
+  return apiClient.get<WhatsAppProviderConfig>('/api/whatsapp/provider-config');
+}
+
+/**
+ * Complete WhatsApp setup after Meta Embedded Signup.
+ * 
+ * This creates a Twilio subaccount, registers the WhatsApp sender,
+ * and stores the connection. Poll getSetupStatus() until connected.
+ */
+export async function completeSetup(request: CompleteWhatsAppSetupRequest): Promise<WhatsAppSetupStatus> {
+  return apiClient.post<WhatsAppSetupStatus>('/api/whatsapp/complete-setup', request);
+}
+
+/**
+ * Get WhatsApp setup/registration status.
+ * 
+ * Poll this endpoint after completeSetup() until sender_status is "ONLINE"
+ * or connected is true.
+ */
+export async function getSetupStatus(): Promise<WhatsAppSetupStatus> {
+  return apiClient.get<WhatsAppSetupStatus>('/api/whatsapp/setup-status');
+}
+
+// ============================================
+// Connection Status & Settings (via messaging API)
 // ============================================
 
 export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
   return messagingAPI.getConnectionStatus('WHATSAPP');
-}
-
-export async function connectWhatsApp(request: {
-  twilio_phone_number: string;
-  ai_enabled?: boolean;
-  after_hours_only?: boolean;
-}): Promise<unknown> {
-  return messagingAPI.connectWhatsApp(
-    { phone_number: request.twilio_phone_number },
-    { aiEnabled: request.ai_enabled, afterHoursOnly: request.after_hours_only },
-  );
 }
 
 export async function updateWhatsAppSettings(request: UpdateChannelSettingsRequest): Promise<unknown> {
@@ -50,6 +105,10 @@ export async function updateWhatsAppSettings(request: UpdateChannelSettingsReque
 export async function disconnectWhatsApp(): Promise<void> {
   return messagingAPI.disconnectChannel('WHATSAPP');
 }
+
+// ============================================
+// Conversations & Messages (via messaging API)
+// ============================================
 
 export async function getConversations(
   status?: WhatsAppConversationStatus,
@@ -92,12 +151,20 @@ export async function markConversationRead(
   return messagingAPI.markConversationRead(conversationId);
 }
 
+// ============================================
 // Export as namespace for convenience
+// ============================================
+
 export const whatsappAPI = {
+  // Tech Provider / Embedded Signup
+  getProviderConfig,
+  completeSetup,
+  getSetupStatus,
+  // Connection status & settings
   getStatus: getWhatsAppStatus,
-  connect: connectWhatsApp,
   updateSettings: updateWhatsAppSettings,
   disconnect: disconnectWhatsApp,
+  // Conversations & messages
   getConversations,
   getMessages: getConversationMessages,
   sendReply,

@@ -55,11 +55,11 @@ import {
 import {
   useConnections,
   useConversations,
-  useConnectWhatsApp,
   useConnectTelegram,
   messagingKeys,
 } from "@/lib/hooks/use-messaging"
 import { ChannelChat } from "./channel-chat"
+import { WhatsAppConnectDialog } from "./whatsapp-connect-dialog"
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/channel-icons"
 import { cn } from "@/lib/utils"
 
@@ -72,9 +72,8 @@ export function InboxView() {
   
   // Connection dialog state
   const [showChannelPicker, setShowChannelPicker] = useState(false)
-  const [showConnectDialog, setShowConnectDialog] = useState(false)
-  const [connectChannelType, setConnectChannelType] = useState<ChannelType | null>(null)
-  const [phoneNumber, setPhoneNumber] = useState('')
+  const [showWhatsAppConnectDialog, setShowWhatsAppConnectDialog] = useState(false)
+  const [showTelegramConnectDialog, setShowTelegramConnectDialog] = useState(false)
   const [botToken, setBotToken] = useState('')
   const [connectError, setConnectError] = useState<string | null>(null)
   const [connectionSuccess, setConnectionSuccess] = useState(false)
@@ -92,7 +91,6 @@ export function InboxView() {
     isRefetching 
   } = useConversations(status, channel)
   
-  const connectWhatsApp = useConnectWhatsApp()
   const connectTelegram = useConnectTelegram()
 
   const conversations = conversationsData?.conversations ?? []
@@ -109,56 +107,43 @@ export function InboxView() {
   }
 
   const handleSelectChannel = (channelType: ChannelType) => {
-    setConnectChannelType(channelType)
     setShowChannelPicker(false)
-    setShowConnectDialog(true)
-    setConnectError(null)
+    if (channelType === 'WHATSAPP') {
+      setShowWhatsAppConnectDialog(true)
+    } else if (channelType === 'TELEGRAM') {
+      setShowTelegramConnectDialog(true)
+      setConnectError(null)
+    }
   }
 
-  const handleConnect = async () => {
-    if (!connectChannelType) return
-    
-    if (connectChannelType === 'WHATSAPP' && !phoneNumber) {
-      setConnectError('Please enter your WhatsApp number')
-      return
-    }
-    if (connectChannelType === 'TELEGRAM' && !botToken) {
+  const handleTelegramConnect = async () => {
+    if (!botToken) {
       setConnectError('Please enter your Telegram bot token')
       return
     }
 
     setConnectError(null)
 
-    if (connectChannelType === 'WHATSAPP') {
-      connectWhatsApp.mutate(phoneNumber, {
-        onSuccess: () => {
-          setConnectionSuccess(true)
-          setPhoneNumber('')
-        },
-        onError: (err: any) => {
-          setConnectError(err.response?.data?.detail || 'Failed to connect WhatsApp')
-        },
-      })
-    } else if (connectChannelType === 'TELEGRAM') {
-      connectTelegram.mutate(botToken, {
-        onSuccess: () => {
-          setConnectionSuccess(true)
-          setBotToken('')
-        },
-        onError: (err: any) => {
-          setConnectError(err.response?.data?.detail || 'Failed to connect Telegram')
-        },
-      })
-    }
+    connectTelegram.mutate(botToken, {
+      onSuccess: () => {
+        setConnectionSuccess(true)
+        setBotToken('')
+      },
+      onError: (err: any) => {
+        setConnectError(err.response?.data?.detail || 'Failed to connect Telegram')
+      },
+    })
   }
 
-  const handleCloseConnectDialog = () => {
-    setShowConnectDialog(false)
-    setConnectChannelType(null)
+  const handleCloseTelegramConnectDialog = () => {
+    setShowTelegramConnectDialog(false)
     setConnectError(null)
     setConnectionSuccess(false)
-    setPhoneNumber('')
     setBotToken('')
+  }
+
+  const handleWhatsAppConnectionSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: messagingKeys.connections() })
   }
 
   const handleConversationClick = (conversation: ChannelConversation) => {
@@ -240,7 +225,7 @@ export function InboxView() {
     return customerId.includes(query) || name.includes(query)
   })
 
-  const isConnecting = connectWhatsApp.isPending || connectTelegram.isPending
+  const isConnecting = connectTelegram.isPending
   const loading = loadingConversations && conversations.length === 0
 
   // Show loading state while checking connection
@@ -324,8 +309,15 @@ export function InboxView() {
           </DialogContent>
         </Dialog>
 
-        {/* Connect Form Dialog */}
-        <Dialog open={showConnectDialog} onOpenChange={handleCloseConnectDialog}>
+        {/* WhatsApp Connect Dialog - uses Embedded Signup */}
+        <WhatsAppConnectDialog
+          open={showWhatsAppConnectDialog}
+          onOpenChange={setShowWhatsAppConnectDialog}
+          onSuccess={handleWhatsAppConnectionSuccess}
+        />
+
+        {/* Telegram Connect Dialog */}
+        <Dialog open={showTelegramConnectDialog} onOpenChange={handleCloseTelegramConnectDialog}>
           <DialogContent className="bg-white border-[var(--chidi-border-subtle)]">
             {connectionSuccess ? (
               <>
@@ -334,13 +326,10 @@ export function InboxView() {
                     <CheckCircle2 className="w-8 h-8 text-green-600" />
                   </div>
                   <h3 className="text-lg font-semibold text-[var(--chidi-text-primary)] mb-2">
-                    {connectChannelType === 'WHATSAPP' ? 'WhatsApp' : 'Telegram'} Connected!
+                    Telegram Connected!
                   </h3>
                   <p className="text-sm text-[var(--chidi-text-secondary)] max-w-xs mb-4">
-                    {connectChannelType === 'WHATSAPP' 
-                      ? 'Your WhatsApp Business number is ready to receive messages from customers.'
-                      : 'Your bot is ready to receive messages. Share your bot link with customers to start conversations.'
-                    }
+                    Your bot is ready to receive messages. Share your bot link with customers to start conversations.
                   </p>
                   <div className="bg-[var(--chidi-surface)] rounded-lg p-3 w-full mb-4">
                     <p className="text-xs text-[var(--chidi-text-muted)] mb-1">Next step</p>
@@ -351,7 +340,7 @@ export function InboxView() {
                 </div>
                 <DialogFooter>
                   <Button 
-                    onClick={handleCloseConnectDialog}
+                    onClick={handleCloseTelegramConnectDialog}
                     className="btn-cta w-full"
                   >
                     Done
@@ -362,15 +351,10 @@ export function InboxView() {
               <>
                 <DialogHeader>
                   <DialogTitle className="text-[var(--chidi-text-primary)]">
-                    Connect {connectChannelType === 'WHATSAPP' ? 'WhatsApp' : connectChannelType === 'TELEGRAM' ? 'Telegram' : ''}
+                    Connect Telegram
                   </DialogTitle>
                   <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                    {connectChannelType === 'WHATSAPP' 
-                      ? 'Enter your WhatsApp Business phone number to start receiving messages.'
-                      : connectChannelType === 'TELEGRAM'
-                      ? 'Enter your Telegram bot token to start receiving messages.'
-                      : ''
-                    }
+                    Enter your Telegram bot token to start receiving messages.
                   </DialogDescription>
                 </DialogHeader>
                 
@@ -382,93 +366,52 @@ export function InboxView() {
                 )}
 
                 <div className="space-y-4 py-4">
-                  {connectChannelType === 'WHATSAPP' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="phoneNumber" className="text-[var(--chidi-text-primary)]">WhatsApp Number</Label>
-                      <Input
-                        id="phoneNumber"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="+1234567890"
-                        className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] h-11"
-                      />
-                      <Collapsible>
-                        <CollapsibleTrigger className="flex items-center gap-1 text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] transition-colors group">
-                          <HelpCircle className="w-3 h-3" />
-                          <span>How to get a WhatsApp number</span>
-                          <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180" />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <p className="text-xs text-[var(--chidi-text-secondary)] mt-2 mb-1.5">
-                            Chidi uses Twilio to connect to WhatsApp Business. You'll need a Twilio account with a WhatsApp-enabled number.
-                          </p>
-                          <ol className="text-xs text-[var(--chidi-text-secondary)] space-y-1.5 pl-4 list-decimal">
-                            <li>Create a <strong>Twilio account</strong> if you don't have one</li>
-                            <li>Get a <strong>WhatsApp-enabled phone number</strong> from Twilio</li>
-                            <li>Complete the WhatsApp Business Profile setup in Twilio</li>
-                            <li>Copy your WhatsApp number (with country code) and paste it here</li>
-                          </ol>
-                          <a 
-                            href="https://www.twilio.com/docs/whatsapp" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-[var(--chidi-accent)] hover:underline mt-2"
-                          >
-                            Twilio WhatsApp Setup Guide
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  )}
-                  {connectChannelType === 'TELEGRAM' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="botToken" className="text-[var(--chidi-text-primary)]">Bot Token</Label>
-                      <Input
-                        id="botToken"
-                        value={botToken}
-                        onChange={(e) => setBotToken(e.target.value)}
-                        placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                        className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] h-11 font-mono text-sm"
-                      />
-                      <Collapsible>
-                        <CollapsibleTrigger className="flex items-center gap-1 text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] transition-colors group">
-                          <HelpCircle className="w-3 h-3" />
-                          <span>How to get your bot token</span>
-                          <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180" />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <ol className="text-xs text-[var(--chidi-text-secondary)] space-y-1.5 mt-2 pl-4 list-decimal">
-                            <li>Open Telegram and search for <strong>@BotFather</strong></li>
-                            <li>Send <code className="bg-[var(--chidi-surface)] px-1 py-0.5 rounded">/newbot</code> and follow the prompts to name your bot</li>
-                            <li>BotFather will reply with a token like <code className="bg-[var(--chidi-surface)] px-1 py-0.5 rounded">123456789:ABC...</code></li>
-                            <li>Copy that token and paste it here</li>
-                          </ol>
-                          <a 
-                            href="https://t.me/BotFather" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-[var(--chidi-accent)] hover:underline mt-2"
-                          >
-                            Open BotFather
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="botToken" className="text-[var(--chidi-text-primary)]">Bot Token</Label>
+                    <Input
+                      id="botToken"
+                      value={botToken}
+                      onChange={(e) => setBotToken(e.target.value)}
+                      placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+                      className="bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] h-11 font-mono text-sm"
+                    />
+                    <Collapsible>
+                      <CollapsibleTrigger className="flex items-center gap-1 text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] transition-colors group">
+                        <HelpCircle className="w-3 h-3" />
+                        <span>How to get your bot token</span>
+                        <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <ol className="text-xs text-[var(--chidi-text-secondary)] space-y-1.5 mt-2 pl-4 list-decimal">
+                          <li>Open Telegram and search for <strong>@BotFather</strong></li>
+                          <li>Send <code className="bg-[var(--chidi-surface)] px-1 py-0.5 rounded">/newbot</code> and follow the prompts to name your bot</li>
+                          <li>BotFather will reply with a token like <code className="bg-[var(--chidi-surface)] px-1 py-0.5 rounded">123456789:ABC...</code></li>
+                          <li>Copy that token and paste it here</li>
+                        </ol>
+                        <a 
+                          href="https://t.me/BotFather" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-[var(--chidi-accent)] hover:underline mt-2"
+                        >
+                          Open BotFather
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button 
                     variant="outline" 
-                    onClick={handleCloseConnectDialog}
+                    onClick={handleCloseTelegramConnectDialog}
                     className="border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)]"
                   >
                     Cancel
                   </Button>
                   <Button 
-                    onClick={handleConnect}
-                    disabled={isConnecting || (connectChannelType === 'WHATSAPP' ? !phoneNumber : connectChannelType === 'TELEGRAM' ? !botToken : true)}
+                    onClick={handleTelegramConnect}
+                    disabled={isConnecting || !botToken}
                     className="btn-cta"
                   >
                     {isConnecting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

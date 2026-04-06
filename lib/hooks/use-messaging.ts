@@ -153,21 +153,6 @@ export function useResolveConversation() {
 }
 
 /**
- * Hook for connecting WhatsApp
- */
-export function useConnectWhatsApp() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: (phoneNumber: string) =>
-      messagingAPI.connectWhatsApp({ phone_number: phoneNumber }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: messagingKeys.connections() })
-    },
-  })
-}
-
-/**
  * Hook for connecting Telegram
  */
 export function useConnectTelegram() {

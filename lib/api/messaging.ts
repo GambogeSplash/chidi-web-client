@@ -136,15 +136,6 @@ export interface SendMessageRequest {
 }
 
 // Channel-specific credential helpers
-export interface WhatsAppCredentials {
-  account_sid?: string;
-  auth_token?: string;
-  phone_number: string;
-  subaccount_sid?: string;
-  subaccount_token?: string;
-  [key: string]: string | undefined;
-}
-
 export interface TelegramCredentials {
   bot_token: string;
   [key: string]: string | undefined;
@@ -280,26 +271,6 @@ export async function markConversationRead(conversationId: string): Promise<Chan
 // ============================================
 
 /**
- * Connect WhatsApp using the universal messaging API
- */
-export async function connectWhatsApp(
-  credentials: WhatsAppCredentials,
-  options?: {
-    aiEnabled?: boolean;
-    afterHoursOnly?: boolean;
-    businessHours?: BusinessHours;
-  }
-): Promise<ChannelConnection> {
-  return connectChannel('WHATSAPP', {
-    credentials,
-    channel_identifier: credentials.phone_number,
-    ai_enabled: options?.aiEnabled ?? true,
-    after_hours_only: options?.afterHoursOnly ?? false,
-    business_hours: options?.businessHours,
-  });
-}
-
-/**
  * Connect Telegram bot
  */
 export async function connectTelegram(
@@ -376,7 +347,6 @@ export const messagingAPI = {
   sendReply,
   resolveConversation,
   markConversationRead,
-  connectWhatsApp,
   connectTelegram,
   getChannelInfo,
   formatCustomerId,
