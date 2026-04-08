@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,6 +9,7 @@ import type { User } from "@/lib/api"
 import { authAPI } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { CURRENCIES, DEFAULT_CURRENCY, type CurrencyInfo } from "@/lib/utils/currency"
+import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 
 const PLACEHOLDER_NAME = "Chidi User"
 
@@ -126,8 +127,6 @@ function SetupProgress({ currentPhase }: { currentPhase: number }) {
 }
 
 export function Onboarding({ user, onComplete }: OnboardingProps) {
-  const [step, setStep] = useState(1)
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [setupPhase, setSetupPhase] = useState(0)
   
@@ -135,13 +134,23 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   const needsNameUpdate = user.name === PLACEHOLDER_NAME || 
     (typeof window !== 'undefined' && localStorage.getItem('chidi_needs_name_update') === 'true')
   
-  const [userData, setUserData] = useState({
+  // Use persisted state for form data - survives page navigation
+  const [step, setStep, clearStep] = usePersistedState('onboarding:step', 1)
+  const [selectedCategories, setSelectedCategories, clearCategories] = usePersistedState<string[]>('onboarding:categories', [])
+  const [userData, setUserData, clearUserData] = usePersistedState('onboarding:userData', {
     name: user.name === PLACEHOLDER_NAME ? "" : user.name,  // Empty if placeholder, otherwise prefill
     businessName: "",
     phone: "",
     categories: [] as string[],
     currency: DEFAULT_CURRENCY,
   })
+  
+  // Clear all persisted onboarding drafts
+  const clearAllDrafts = useCallback(() => {
+    clearStep()
+    clearCategories()
+    clearUserData()
+  }, [clearStep, clearCategories, clearUserData])
   const [nameError, setNameError] = useState("")
   const [businessNameError, setBusinessNameError] = useState("")
   const [apiError, setApiError] = useState("")
@@ -210,6 +219,9 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           default_currency: userData.currency,
         })
         
+        // Clear persisted drafts on successful completion
+        clearAllDrafts()
+        
         // Call the parent completion handler with the API response
         // This will redirect directly to the dashboard
         // Use updated name if user needed to set it, otherwise use original name
@@ -268,6 +280,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
   }
 
   const handleSkip = () => {
+    clearAllDrafts()
     onComplete({
       ...user,
       ownerName: user.name,

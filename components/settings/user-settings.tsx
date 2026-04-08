@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -60,6 +60,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { HelpSheet } from "./help-sheet"
+import { usePersistedState, hasDraft } from "@/lib/hooks/use-persisted-state"
 
 interface UserSettingsProps {
   onClose?: () => void
@@ -112,10 +113,10 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
   const updatePaymentMutation = useUpdatePaymentSettings()
   const changePasswordMutation = useChangePassword()
 
-  // Form states
-  const [accountForm, setAccountForm] = useState({ name: "", avatar_url: "" })
+  // Form states - persisted to survive navigation
+  const [accountForm, setAccountForm, clearAccountDraft] = usePersistedState('settings:account', { name: "", avatar_url: "" })
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(10)
-  const [paymentForm, setPaymentForm] = useState({
+  const [paymentForm, setPaymentForm, clearPaymentDraft] = usePersistedState('settings:payment', {
     bank_name: "",
     account_name: "",
     account_number: "",
@@ -136,15 +137,15 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
     setBusinessId(storedBusinessId)
   }, [])
 
-  // Sync form with account data
+  // Sync form with account data (only if no draft exists)
   useEffect(() => {
-    if (account) {
+    if (account && !hasDraft('settings:account')) {
       setAccountForm({
         name: account.name,
         avatar_url: account.avatar_url || ""
       })
     }
-  }, [account])
+  }, [account, setAccountForm])
 
   // Sync form with business preferences
   useEffect(() => {
@@ -153,9 +154,9 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
     }
   }, [bizPreferences])
 
-  // Sync form with payment settings
+  // Sync form with payment settings (only if no draft exists)
   useEffect(() => {
-    if (paymentData) {
+    if (paymentData && !hasDraft('settings:payment')) {
       setPaymentForm({
         bank_name: paymentData.bank_name || "",
         account_name: paymentData.account_name || "",
@@ -163,7 +164,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
         payment_instructions: paymentData.payment_instructions || "",
       })
     }
-  }, [paymentData])
+  }, [paymentData, setPaymentForm])
 
   // Scroll to section if specified
   useEffect(() => {
@@ -194,6 +195,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
       { name: accountForm.name, avatar_url: accountForm.avatar_url || undefined },
       {
         onSuccess: () => {
+          clearAccountDraft()
           setSuccess("Account updated successfully")
           setTimeout(() => setSuccess(""), 3000)
         },
@@ -269,6 +271,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
       },
       {
         onSuccess: () => {
+          clearPaymentDraft()
           setSuccess("Payment details saved. Chidi will share these with customers ready to pay.")
           setShowPaymentModal(false)
           setTimeout(() => setSuccess(""), 5000)
