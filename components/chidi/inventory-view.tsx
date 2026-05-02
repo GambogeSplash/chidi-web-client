@@ -1,10 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { CurrencyAmount } from "./currency-amount"
+import { productsAPI } from "@/lib/api/products"
+import { useQueryClient } from "@tanstack/react-query"
+import { productsKeys } from "@/lib/hooks/use-products"
+import { getStoredInventoryId } from "@/lib/api/products"
+import { hapticSoft } from "@/lib/chidi/haptics"
+import { EditableCell } from "./editable-cell"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "./empty-state"
 import { ManageVariationsSheet } from "./manage-variations-sheet"
@@ -26,7 +34,125 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
-  
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all")
+  void showFilters; void setShowFilters // unused after categories shelf refactor; left for now
+  // Bulk select state. Selecting one product reveals the actions toolbar.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Sort state for the list view.
+  type SortKey = "name" | "price" | "stock" | "recent" | "custom"
+  const [sortKey, setSortKey] = useState<SortKey>("recent")
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  // Custom display order — only respected when sortKey === "custom".
+  // Persists across the session in localStorage.
+  const [customOrder, setCustomOrder] = useState<string[]>(() => {
+    if (typeof window === "undefined") return []
+    try {
+      return JSON.parse(localStorage.getItem("chidi_inventory_order") || "[]")
+    } catch {
+      return []
+    }
+  })
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+  const clearSelection = () => setSelectedIds(new Set())
+  const selectAll = () => setSelectedIds(new Set(products.map((p) => p.id)))
+  const selectedCount = selectedIds.size
+
+  const handleBulkDelete = async () => {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId || selectedCount === 0) return
+    if (!confirm(`Delete ${selectedCount} product${selectedCount === 1 ? "" : "s"}? This can't be undone.`)) return
+    await Promise.all(
+      Array.from(selectedIds).map((id) => productsAPI.deleteProduct(inventoryId, id).catch(() => null)),
+    )
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    clearSelection()
+  }
+
+  // Bulk discount + archive — open inline popovers from the toolbar.
+  const [discountPopoverOpen, setDiscountPopoverOpen] = useState(false)
+  const [discountPercent, setDiscountPercent] = useState("10")
+
+  const handleBulkDiscount = async () => {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId || selectedCount === 0) return
+    const pct = parseInt(discountPercent, 10)
+    if (!Number.isFinite(pct) || pct <= 0 || pct >= 100) return
+    // Apply discount to each selected product. Stub: backend bulk endpoint
+    // would replace this Promise.all once available.
+    await Promise.all(
+      Array.from(selectedIds).map((id) => {
+        const p = products.find((x) => x.id === id)
+        if (!p) return null
+        const discounted = Math.round(p.sellingPrice * (1 - pct / 100))
+        return productsAPI
+          .updateProduct(inventoryId, id, { discount_price: discounted })
+          .catch(() => null)
+      }),
+    )
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    setDiscountPopoverOpen(false)
+    clearSelection()
+  }
+
+  const handleBulkArchive = async () => {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId || selectedCount === 0) return
+    if (!confirm(`Archive ${selectedCount} product${selectedCount === 1 ? "" : "s"}? They'll stop showing to customers but stay in your records.`)) return
+    await Promise.all(
+      Array.from(selectedIds).map((id) =>
+        productsAPI.updateProduct(inventoryId, id, { status: "INACTIVE" as any }).catch(() => null),
+      ),
+    )
+    queryClient.invalidateQueries({ queryKey: productsKeys.all })
+    clearSelection()
+  }
+
+  const setSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+    } else {
+      setSortKey(key)
+      setSortDir(key === "name" ? "asc" : "desc")
+    }
+  }
+
+  // Inline-edit handler. Optimistic via React Query refetch on success.
+  const handleInlineEdit = async (productId: string, field: "selling_price" | "stock_quantity", raw: string) => {
+    const inventoryId = getStoredInventoryId()
+    if (!inventoryId) return
+    const value = field === "selling_price" ? parseFloat(raw) : parseInt(raw, 10)
+    if (!Number.isFinite(value)) return
+    try {
+      if (field === "stock_quantity") {
+        await productsAPI.updateStock(inventoryId, productId, value)
+      } else {
+        await productsAPI.updateProduct(inventoryId, productId, { selling_price: value })
+      }
+      queryClient.invalidateQueries({ queryKey: productsKeys.all })
+      hapticSoft()
+    } catch (e) {
+      // Roll back is handled by EditableCell; nothing to do here
+      throw e
+    }
+  }
+
+  // Inventory totals — surfaced as header chips for the merchant's "what do I own?"
+  const totalValue = products.reduce((sum, p) => sum + (p.costPrice || 0) * p.stock, 0)
+  const lowStockCount = products.filter((p) => p.stock > 0 && p.stock <= p.reorderLevel).length
+  const outOfStockCount = products.filter((p) => p.stock === 0).length
+
   // Variations sheet state
   const [variationsSheetOpen, setVariationsSheetOpen] = useState(false)
   const [selectedProductForVariations, setSelectedProductForVariations] = useState<DisplayProduct | null>(null)
@@ -48,14 +174,82 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     onProductsUpdated?.()
   }
 
-  // Derive categories dynamically from actual product data
-  const categories = ["all", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
+  // Derive categories dynamically from actual product data, with counts
+  const categoryCounts = products.reduce<Record<string, number>>((acc, p) => {
+    if (!p.category) return acc
+    acc[p.category] = (acc[p.category] ?? 0) + 1
+    return acc
+  }, {})
+  const categories = ["all", ...Object.keys(categoryCounts).sort()]
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
+  const filteredProducts = products
+    .filter((product) => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
+      const matchesStock =
+        stockFilter === "all" ||
+        (stockFilter === "low" && product.stock > 0 && product.stock <= product.reorderLevel) ||
+        (stockFilter === "out" && product.stock === 0)
+      return matchesSearch && matchesCategory && matchesStock
+    })
+    .sort((a, b) => {
+      if (sortKey === "custom") {
+        // Items in customOrder come first in their saved order; the rest fall to the back
+        const ai = customOrder.indexOf(a.id)
+        const bi = customOrder.indexOf(b.id)
+        if (ai === -1 && bi === -1) return a.name.localeCompare(b.name)
+        if (ai === -1) return 1
+        if (bi === -1) return -1
+        return ai - bi
+      }
+      const dir = sortDir === "asc" ? 1 : -1
+      if (sortKey === "name") return a.name.localeCompare(b.name) * dir
+      if (sortKey === "price") return (a.sellingPrice - b.sellingPrice) * dir
+      if (sortKey === "stock") return (a.stock - b.stock) * dir
+      // recent
+      return (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * dir
+    })
+
+  const persistCustomOrder = (order: string[]) => {
+    setCustomOrder(order)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("chidi_inventory_order", JSON.stringify(order))
+    }
+  }
+
+  const handleDragStart = (e: React.DragEvent, productId: string) => {
+    setDraggingId(productId)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", productId)
+  }
+  const handleDragOver = (e: React.DragEvent, productId: string) => {
+    e.preventDefault()
+    if (draggingId && draggingId !== productId) setDragOverId(productId)
+  }
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    const sourceId = draggingId
+    setDraggingId(null)
+    setDragOverId(null)
+    if (!sourceId || sourceId === targetId) return
+
+    // Build new order based on filteredProducts current visual position
+    const currentIds = filteredProducts.map((p) => p.id)
+    const sourceIdx = currentIds.indexOf(sourceId)
+    const targetIdx = currentIds.indexOf(targetId)
+    if (sourceIdx === -1 || targetIdx === -1) return
+    const next = [...currentIds]
+    next.splice(sourceIdx, 1)
+    next.splice(targetIdx, 0, sourceId)
+    // Switch into custom mode and persist
+    setSortKey("custom")
+    persistCustomOrder(next)
+    hapticSoft()
+  }
+  const handleDragEnd = () => {
+    setDraggingId(null)
+    setDragOverId(null)
+  }
 
   const getStockStatus = (stock: number, reorderLevel: number) => {
     if (stock === 0) return { label: "Out of stock", variant: "danger" as const }
@@ -76,24 +270,93 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
 
   return (
     <div className="flex-1 flex flex-col bg-[var(--background)] min-h-0 overflow-hidden">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-[var(--chidi-border-subtle)]">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Inventory</h2>
-            <p className="text-xs text-[var(--chidi-text-muted)]">
-              {products.length} product{products.length !== 1 ? "s" : ""}
-              {(() => {
-                const outOfStockCount = products.filter(p => p.stock === 0).length
-                return outOfStockCount > 0 ? (
-                  <span className="text-[var(--chidi-danger)]"> · {outOfStockCount} out of stock</span>
-                ) : null
-              })()}
-            </p>
+      {/* Header — noun title + summary chips. No conversational subtitle. */}
+      <div className="px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
+        <div className="flex items-start justify-between mb-3 gap-3">
+          <div className="min-w-0">
+            <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inventory</h1>
+            {/* Summary chips — clickable to filter */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-3">
+              <span className="inline-flex items-center gap-1 text-[11px] font-chidi-voice text-[var(--chidi-text-secondary)] bg-[var(--chidi-surface)] px-2 py-1 rounded-md">
+                <span className="font-medium tabular-nums">{products.length}</span>
+                <span className="text-[var(--chidi-text-muted)]">{products.length === 1 ? "product" : "products"}</span>
+              </span>
+              {totalValue > 0 && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-chidi-voice text-[var(--chidi-text-secondary)] bg-[var(--chidi-surface)] px-2 py-1 rounded-md">
+                  <TrendingUp className="w-2.5 h-2.5" />
+                  <span className="text-[var(--chidi-text-muted)]">worth</span>
+                  <CurrencyAmount
+                    amount={totalValue}
+                    currency="NGN"
+                    compact
+                    showDualHover={false}
+                    className="font-medium tabular-nums"
+                  />
+                </span>
+              )}
+              {lowStockCount > 0 && (
+                <button
+                  onClick={() => setStockFilter(stockFilter === "low" ? "all" : "low")}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97]",
+                    stockFilter === "low"
+                      ? "bg-[var(--chidi-warning)] text-[var(--chidi-warning-foreground)]"
+                      : "bg-[var(--chidi-warning)]/10 text-[var(--chidi-warning)]"
+                  )}
+                >
+                  <span className="font-medium tabular-nums">{lowStockCount}</span>
+                  low stock
+                </button>
+              )}
+              {outOfStockCount > 0 && (
+                <button
+                  onClick={() => setStockFilter(stockFilter === "out" ? "all" : "out")}
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97]",
+                    stockFilter === "out"
+                      ? "bg-[var(--chidi-danger)] text-white"
+                      : "bg-[var(--chidi-danger)]/10 text-[var(--chidi-danger)]"
+                  )}
+                >
+                  <span className="font-medium tabular-nums">{outOfStockCount}</span>
+                  out of stock
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-0.5 bg-[var(--chidi-surface)] rounded-lg p-0.5 border border-[var(--chidi-border-subtle)]" role="tablist" aria-label="View mode">
+              <button
+                role="tab"
+                aria-selected={viewMode === "grid"}
+                onClick={() => setViewMode("grid")}
+                className={cn(
+                  "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+                  viewMode === "grid"
+                    ? "bg-white text-[var(--chidi-text-primary)] shadow-sm"
+                    : "text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)]"
+                )}
+                title="Grid view"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+              <button
+                role="tab"
+                aria-selected={viewMode === "list"}
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+                  viewMode === "list"
+                    ? "bg-white text-[var(--chidi-text-primary)] shadow-sm"
+                    : "text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)]"
+                )}
+                title="List view"
+              >
+                <List className="w-3.5 h-3.5" />
+              </button>
+            </div>
             {onBulkImport && (
-              <Button 
+              <Button
                 onClick={onBulkImport}
                 size="sm"
                 variant="outline"
@@ -103,13 +366,14 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 Import
               </Button>
             )}
-            <Button 
+            <Button
               onClick={onAddProduct}
               size="sm"
               className="btn-cta"
+              title="Open the full new-product form"
             >
               <Plus className="w-4 h-4 mr-1" />
-              Add
+              Add product
             </Button>
           </div>
         </div>
@@ -125,60 +389,136 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               className="pl-9 h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)]"
             />
           </div>
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(
-              "h-9 w-9 border-[var(--chidi-border-subtle)]",
-              showFilters && "bg-[var(--chidi-surface)]"
-            )}
-          >
-            <Filter className="w-4 h-4" />
-          </Button>
         </div>
 
-        {showFilters && (
-          <div className="flex gap-2 flex-wrap mt-3">
-            {categories.map((category) => (
-              <Button
-                key={category}
-                variant={selectedCategory === category ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedCategory(category)}
-                className={cn(
-                  "capitalize h-7 text-xs",
-                  selectedCategory === category 
-                    ? "bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]" 
-                    : "border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)]"
-                )}
-              >
-                {category}
-              </Button>
-            ))}
+        {/* Categories shelf — always visible, horizontal scroll on mobile.
+            Each chip shows the count so the merchant sees their inventory shape. */}
+        {categories.length > 1 && (
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none mt-3 -mx-1 px-1">
+            {categories.map((category) => {
+              const isActive = selectedCategory === category
+              const count = category === "all" ? products.length : (categoryCounts[category] ?? 0)
+              return (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={cn(
+                    "flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-chidi-voice transition-colors active:scale-[0.97]",
+                    isActive
+                      ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]"
+                      : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] hover:bg-white border border-[var(--chidi-border-subtle)]",
+                  )}
+                >
+                  <span className="capitalize">{category}</span>
+                  <span className={cn(
+                    "tabular-nums text-[10px] px-1.5 py-0.5 rounded-full",
+                    isActive ? "bg-white/15" : "bg-[var(--chidi-border-subtle)]/60",
+                  )}>
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
+
+      {/* Bulk actions toolbar — slides in from top when items are selected */}
+      {selectedCount > 0 && (
+        <div className="px-4 py-2.5 bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] flex items-center gap-3 border-b border-[var(--chidi-border-default)] chidi-tab-in">
+          <span className="ty-card-title font-chidi-voice tabular-nums">
+            {selectedCount} selected
+          </span>
+          <div className="flex-1" />
+          <button
+            onClick={selectAll}
+            className="text-xs font-chidi-voice opacity-80 hover:opacity-100 px-2 py-1 rounded"
+          >
+            Select all
+          </button>
+          <button
+            onClick={handleBulkDelete}
+            className="inline-flex items-center gap-1.5 text-xs font-chidi-voice px-2.5 py-1.5 rounded hover:bg-white/10 active:scale-[0.97]"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+          <Popover open={discountPopoverOpen} onOpenChange={setDiscountPopoverOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="inline-flex items-center gap-1.5 text-xs font-chidi-voice px-2.5 py-1.5 rounded hover:bg-white/10 active:scale-[0.97]"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                Discount
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-64 p-3 bg-[var(--card)] border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)]"
+              sideOffset={8}
+            >
+              <p className="ty-meta mb-2">Apply a discount</p>
+              <div className="flex items-center gap-2 mb-3">
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(e.target.value.replace(/[^0-9]/g, ""))}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleBulkDiscount() }}
+                  className="h-9 w-20 text-center tabular-nums bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)]"
+                  autoFocus
+                />
+                <span className="text-sm text-[var(--chidi-text-muted)] font-chidi-voice">% off</span>
+                <span className="ml-auto text-xs text-[var(--chidi-text-muted)] font-chidi-voice">
+                  for {selectedCount}
+                </span>
+              </div>
+              <button
+                onClick={handleBulkDiscount}
+                disabled={!discountPercent || parseInt(discountPercent) <= 0 || parseInt(discountPercent) >= 100}
+                className="w-full btn-cta py-2 rounded-md text-sm font-medium font-chidi-voice"
+              >
+                Apply
+              </button>
+            </PopoverContent>
+          </Popover>
+          <button
+            onClick={handleBulkArchive}
+            className="inline-flex items-center gap-1.5 text-xs font-chidi-voice px-2.5 py-1.5 rounded hover:bg-white/10 active:scale-[0.97]"
+          >
+            <Archive className="w-3.5 h-3.5" />
+            Archive
+          </button>
+          <button
+            onClick={clearSelection}
+            className="p-1.5 rounded hover:bg-white/10 active:scale-[0.97]"
+            aria-label="Clear selection"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Product Grid */}
       <div className="flex-1 overflow-y-auto min-h-0 p-4">
         {filteredProducts.length === 0 ? (
           <EmptyState
-            icon={Package}
-            title={searchQuery ? "No products found" : "No products yet"}
+            art={searchQuery ? "search" : "inventory"}
+            title={searchQuery ? "Nothing matched that." : "Let's stock the shop."}
             description={
-              searchQuery 
-                ? "Try adjusting your search or filter"
-                : "Products you add here are what your AI uses to answer customer questions and take orders."
+              searchQuery
+                ? "Try a different search term or clear the filter."
+                : "Add the products you sell. The more I know about them, the better I can answer your customers."
             }
             action={
               !searchQuery && (
-                <Button 
+                <Button
                   onClick={onAddProduct}
                   className="btn-cta"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Product
+                  Add your first product
                 </Button>
               )
             }
@@ -192,20 +532,210 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               </HintBanner>
             )}
             
-            <div className="grid grid-cols-2 gap-3">
+            {/* Sortable column headers — list view only */}
+            {viewMode === "list" && (
+              <div className="flex items-center gap-3 px-3 py-2 bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] rounded-t-xl text-[10px] uppercase tracking-wider font-chidi-voice text-[var(--chidi-text-muted)]">
+                <span className="w-4" /> {/* drag handle column */}
+                <span className="w-5" />
+                <span className="w-10" />
+                <SortHeader label="Name" active={sortKey === "name"} dir={sortDir} onClick={() => setSort("name")} className="flex-1" />
+                <SortHeader label="Price" active={sortKey === "price"} dir={sortDir} onClick={() => setSort("price")} className="hidden sm:flex w-20 justify-end" />
+                <SortHeader label="Stock" active={sortKey === "stock"} dir={sortDir} onClick={() => setSort("stock")} className="hidden sm:flex w-16 justify-end" />
+                <SortHeader label="Updated" active={sortKey === "recent"} dir={sortDir} onClick={() => setSort("recent")} className="hidden md:flex w-20 justify-end" />
+                <span className="w-7" />
+              </div>
+            )}
+
+            {/* Custom-order indicator — shown when sort is custom, lets user reset */}
+            {viewMode === "list" && sortKey === "custom" && customOrder.length > 0 && (
+              <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-[var(--chidi-win-soft)]/50 border-x border-[var(--chidi-border-subtle)] text-[11px] font-chidi-voice text-[var(--chidi-text-secondary)]">
+                <span className="inline-flex items-center gap-1.5">
+                  <GripVertical className="w-3 h-3 text-[var(--chidi-win)]" />
+                  Custom order — drag to rearrange
+                </span>
+                <button
+                  onClick={() => { persistCustomOrder([]); setSortKey("recent") }}
+                  className="text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] active:scale-[0.97]"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
+
+            <div className={cn(
+              viewMode === "grid"
+                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
+                : "flex flex-col divide-y divide-[var(--chidi-border-subtle)] bg-white border border-[var(--chidi-border-subtle)] border-t-0 rounded-b-xl overflow-hidden"
+            )}>
             {filteredProducts.map((product) => {
               const stockStatus = getStockStatus(product.stock, product.reorderLevel)
+              const isSelected = selectedIds.has(product.id)
+
+              if (viewMode === "list") {
+                const updatedAgo = (() => {
+                  const days = Math.floor((Date.now() - new Date(product.updatedAt).getTime()) / 86400000)
+                  if (days < 1) return "today"
+                  if (days < 7) return `${days}d`
+                  if (days < 30) return `${Math.floor(days / 7)}w`
+                  return `${Math.floor(days / 30)}mo`
+                })()
+                return (
+                  <div
+                    key={product.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, product.id)}
+                    onDragOver={(e) => handleDragOver(e, product.id)}
+                    onDrop={(e) => handleDrop(e, product.id)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[var(--chidi-surface)] transition-colors text-left cursor-pointer group",
+                      isSelected && "bg-[var(--chidi-win-soft)]/40",
+                      draggingId === product.id && "opacity-40",
+                      dragOverId === product.id && "border-t-2 border-t-[var(--chidi-win)]",
+                    )}
+                    onClick={() => onViewProduct(product)}
+                  >
+                    {/* Drag handle — shows on row hover */}
+                    <span
+                      className="w-4 flex items-center justify-center text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+                      onClick={(e) => e.stopPropagation()}
+                      title="Drag to reorder"
+                    >
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => { e.stopPropagation(); toggleSelected(product.id) }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 rounded border-[var(--chidi-border-default)] accent-[var(--chidi-win)] cursor-pointer"
+                      aria-label={`Select ${product.name}`}
+                    />
+                    <div className="flex-shrink-0 w-10 h-10 rounded-md overflow-hidden bg-[var(--chidi-surface)] flex items-center justify-center">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-[var(--chidi-text-primary)] truncate">{product.name}</p>
+                        {product.stock <= product.reorderLevel && (
+                          <Badge className={cn("text-[9px] border-0 flex-shrink-0", getStockBadgeClasses(stockStatus.variant))}>
+                            {stockStatus.label}
+                          </Badge>
+                        )}
+                        {product.hasVariants && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleManageVariations(product) }}
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/5 active:scale-[0.97] font-chidi-voice flex-shrink-0"
+                            title="Manage variations"
+                          >
+                            <Layers className="w-2.5 h-2.5" />
+                            Variants
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice">{product.category}</p>
+                    </div>
+                    <span className="hidden sm:block w-20 text-right text-sm font-semibold text-[var(--chidi-text-primary)]">
+                      <EditableCell
+                        value={product.sellingPrice}
+                        prefix="₦"
+                        inputMode="decimal"
+                        align="right"
+                        hint="Click to edit price"
+                        onCommit={(v) => handleInlineEdit(product.id, "selling_price", v)}
+                        className="text-sm font-semibold text-[var(--chidi-text-primary)]"
+                      />
+                    </span>
+                    <span className="hidden sm:block w-16 text-right text-sm text-[var(--chidi-text-secondary)] font-chidi-voice">
+                      <EditableCell
+                        value={product.stock}
+                        inputMode="numeric"
+                        align="right"
+                        hint="Click to edit stock"
+                        onCommit={(v) => handleInlineEdit(product.id, "stock_quantity", v)}
+                        className="text-sm text-[var(--chidi-text-secondary)]"
+                      />
+                    </span>
+                    <span className="hidden md:block w-20 text-right text-[11px] text-[var(--chidi-text-muted)] tabular-nums font-chidi-voice">{updatedAgo}</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-7 h-7 flex items-center justify-center rounded hover:bg-white text-[var(--chidi-text-muted)]"
+                          aria-label="More actions"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewProduct(product) }}>View details</DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditProduct(product) }}>Edit product</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleManageVariations(product) }}>
+                          <Layers className="w-4 h-4 mr-2" />
+                          Manage variations
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )
+              }
 
               return (
                 <div
                   key={product.id}
-                  className="bg-white border border-[var(--chidi-border-subtle)] rounded-xl overflow-hidden hover:border-[var(--chidi-border-default)] transition-colors"
+                  className={cn(
+                    "group bg-white border rounded-xl overflow-hidden transition-all relative",
+                    "hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] hover:-translate-y-0.5",
+                    isSelected
+                      ? "border-[var(--chidi-win)] ring-2 ring-[var(--chidi-win)]/30"
+                      : product.stock === 0
+                        ? "border-[var(--chidi-warning)]/40 ring-1 ring-[var(--chidi-warning)]/20"
+                        : product.stock <= product.reorderLevel
+                          ? "border-[var(--chidi-warning)]/25"
+                          : "border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)]",
+                  )}
                 >
+                  {/* Selection checkbox — top-left, only visible on hover or when selected */}
+                  <label
+                    className={cn(
+                      "absolute top-2 left-2 z-20 w-6 h-6 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity cursor-pointer",
+                      isSelected || selectedCount > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:opacity-100",
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelected(product.id)}
+                      className="w-3.5 h-3.5 rounded border-[var(--chidi-border-default)] accent-[var(--chidi-win)] cursor-pointer"
+                      aria-label={`Select ${product.name}`}
+                    />
+                  </label>
+
                   {/* Product Image */}
-                  <div 
-                    className="relative aspect-square bg-[var(--chidi-surface)] cursor-pointer"
+                  <div
+                    className="relative aspect-square bg-[#F4DDC2] overflow-hidden cursor-pointer chidi-paper"
                     onClick={() => onViewProduct(product)}
                   >
+                    {/* Stock status pill — top-right, prominent */}
+                    {product.stock <= product.reorderLevel && (
+                      <div className="absolute top-2 right-10 z-10">
+                        <span className={cn(
+                          "inline-flex items-center gap-1 text-[10px] font-medium font-chidi-voice px-2 py-0.5 rounded-full backdrop-blur-sm",
+                          product.stock === 0
+                            ? "bg-[var(--chidi-warning)]/95 text-white"
+                            : "bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] border border-[var(--chidi-warning)]/30",
+                        )}>
+                          {product.stock === 0 ? "Out" : "Low"}
+                        </span>
+                      </div>
+                    )}
+
                     {/* More menu */}
                     <div className="absolute top-2 right-2 z-10">
                       <DropdownMenu>
@@ -213,14 +743,14 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-7 w-7 bg-white/80 backdrop-blur-sm hover:bg-white"
+                            className="h-7 w-7 bg-white/85 backdrop-blur-sm hover:bg-white"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation()
                               onViewProduct(product)
@@ -229,7 +759,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                           >
                             View details
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation()
                               onEditProduct(product)
@@ -239,7 +769,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                             Edit product
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation()
                               handleManageVariations(product)
@@ -253,25 +783,17 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                       </DropdownMenu>
                     </div>
 
-                    {/* Stock status badge - show when stock is at or below reorder level */}
-                    {product.stock <= product.reorderLevel && (
-                      <div className="absolute bottom-2 left-2 z-10">
-                        <Badge className={cn("text-[10px] border-0", getStockBadgeClasses(stockStatus.variant))}>
-                          {stockStatus.label}
-                        </Badge>
-                      </div>
-                    )}
-
-                    {/* Image */}
+                    {/* Image with hover zoom — image is the product, lean into it */}
                     {product.image ? (
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-12 h-12 text-[var(--chidi-text-muted)]" strokeWidth={1} />
+                      <div className="w-full h-full flex flex-col items-center justify-center text-[var(--chidi-text-muted)]">
+                        <Package className="w-10 h-10 mb-1.5" strokeWidth={1.2} />
+                        <span className="text-[10px] font-chidi-voice">Add image</span>
                       </div>
                     )}
                   </div>
@@ -279,33 +801,50 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                   {/* Product Info */}
                   <div className="p-3">
                     <h3
-                      className="font-medium text-sm text-[var(--chidi-text-primary)] mb-1 line-clamp-2 cursor-pointer"
+                      className="font-medium text-[13px] text-[var(--chidi-text-primary)] mb-1.5 truncate cursor-pointer"
                       onClick={() => onViewProduct(product)}
+                      title={product.name}
                     >
                       {product.name}
                     </h3>
-                    
-                    <div className="flex items-center justify-between">
-                      <p className="text-base font-semibold text-[var(--chidi-text-primary)]">
+
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <p className="font-serif text-base text-[var(--chidi-text-primary)] tabular-nums">
                         {product.displayPrice}
                       </p>
-                      <span className="text-xs text-[var(--chidi-text-muted)]">
-                        {product.stock} units
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            "w-1.5 h-1.5 rounded-full",
+                            product.stock === 0
+                              ? "bg-[var(--chidi-warning)]"
+                              : product.stock <= product.reorderLevel
+                                ? "bg-[var(--chidi-warning)]"
+                                : "bg-[var(--chidi-success)]",
+                          )}
+                        />
+                        <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
+                          {product.stock} in stock
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-[var(--chidi-text-muted)] capitalize">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice">
                         {product.category}
                       </p>
                       {product.hasVariants && (
-                        <Badge 
-                          variant="outline" 
-                          className="text-[10px] px-1.5 py-0 h-4 border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)]"
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleManageVariations(product)
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/5 active:scale-[0.97] font-chidi-voice"
+                          title="Manage variations"
                         >
-                          <Layers className="w-2.5 h-2.5 mr-0.5" />
+                          <Layers className="w-2.5 h-2.5" />
                           Variants
-                        </Badge>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -327,5 +866,30 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
         />
       )}
     </div>
+  )
+}
+
+interface SortHeaderProps {
+  label: string
+  active: boolean
+  dir: "asc" | "desc"
+  onClick: () => void
+  className?: string
+}
+
+function SortHeader({ label, active, dir, onClick, className }: SortHeaderProps) {
+  const Arrow = active ? (dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 hover:text-[var(--chidi-text-secondary)] active:scale-[0.97]",
+        active && "text-[var(--chidi-text-primary)]",
+        className,
+      )}
+    >
+      <span>{label}</span>
+      <Arrow className="w-2.5 h-2.5 opacity-60" />
+    </button>
   )
 }

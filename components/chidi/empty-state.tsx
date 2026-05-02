@@ -2,34 +2,43 @@
 
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { EmptyArt } from "./empty-art"
 
 interface EmptyStateProps {
-  icon: LucideIcon
+  /** @deprecated — prefer `art` for surface-specific illustration */
+  icon?: LucideIcon
+  /** Surface variant for the inline SVG illustration */
+  art?: "inbox" | "orders" | "inventory" | "insights" | "copilot" | "search"
   title: string
   description: string
   action?: React.ReactNode
   className?: string
 }
 
-export function EmptyState({ 
-  icon: Icon, 
-  title, 
-  description, 
+export function EmptyState({
+  icon: Icon,
+  art,
+  title,
+  description,
   action,
-  className 
+  className,
 }: EmptyStateProps) {
   return (
     <div className={cn(
       "flex flex-col items-center justify-center text-center px-6 py-16",
       className
     )}>
-      <div className="w-16 h-16 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center mb-6">
-        <Icon className="w-8 h-8 text-[var(--chidi-text-muted)]" strokeWidth={1.5} />
-      </div>
-      <h3 className="text-lg font-semibold text-[var(--chidi-text-primary)] mb-2">
+      {art ? (
+        <EmptyArt variant={art} size={120} className="text-[var(--chidi-text-muted)] mb-5" />
+      ) : Icon ? (
+        <div className="w-16 h-16 rounded-full bg-[var(--chidi-win-soft)] flex items-center justify-center mb-6">
+          <Icon className="w-8 h-8 text-[var(--chidi-win)]" strokeWidth={1.5} />
+        </div>
+      ) : null}
+      <h3 className="ty-page-title text-[var(--chidi-text-primary)] mb-2">
         {title}
       </h3>
-      <p className="text-sm text-[var(--chidi-text-secondary)] max-w-xs mb-6">
+      <p className="ty-body-voice text-[var(--chidi-text-secondary)] max-w-sm mb-6">
         {description}
       </p>
       {action}

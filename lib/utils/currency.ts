@@ -82,6 +82,11 @@ export function formatCurrency(
   const { compact = false, showDecimal = false } = options
   const info = getCurrencyInfo(currencyCode)
 
+  // Guard against NaN, Infinity, null, undefined — never render "₦NaN" to users
+  if (!Number.isFinite(amount)) {
+    return `${info.symbol}—`
+  }
+
   if (compact && Math.abs(amount) >= 1_000_000) {
     const value = amount / 1_000_000
     const formatted = value === Math.floor(value) 

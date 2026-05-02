@@ -13,6 +13,7 @@ import Image from "next/image"
 import { EmailVerificationPending } from "./email-verification-pending"
 import { MagicLinkPending } from "./magic-link-pending"
 import { ForgotPassword } from "./forgot-password"
+import { AuthShell } from "./auth-shell"
 
 interface AuthScreenProps {
   onAuthSuccess: (user: UserType, isNewUser?: boolean) => void
@@ -167,8 +168,6 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
         businessSlug: response.businessSlug || response.user.businessSlug,
       }
       
-      console.log('✅ [AUTH-SCREEN] Login successful, user:', user)
-      
       setIsLoading(false)
       onAuthSuccess(user, false)
     } catch (error: any) {
@@ -185,7 +184,6 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
       
       if (error.status === 403 && error.message?.includes('verify')) {
         // Email not verified - show verification pending screen
-        console.log('📧 [AUTH-SCREEN] Email not verified, showing verification screen')
         setPendingVerificationEmail(email.trim())
         return
       } else if (error.status === 401) {
@@ -193,7 +191,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
       } else if (error.status === 404) {
         errorMessage = 'Account not found. Please sign up first.'
       } else if (error.status === 0 || error.message?.includes('connect')) {
-        errorMessage = 'Unable to connect to the server. Please check your connection.'
+        errorMessage = "We can't reach our servers right now. Please try again in a moment."
       } else if (error.message) {
         errorMessage = error.message
       }
@@ -254,12 +252,9 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
     const email = (formData.get("email") as string) || ""
     const password = (formData.get("password") as string) || ""
 
-    console.log('🔍 [DEBUG] Form values:', { name, email, password: '***' })
-
     // Validate
     const errors = validateSignUpForm(name, email, password)
     if (Object.keys(errors).length > 0) {
-      console.log('🚨 [DEBUG] Validation errors:', errors)
       setFormErrors(errors)
       return
     }
@@ -267,20 +262,16 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
     setIsLoading(true)
 
     try {
-      console.log('🔍 [DEBUG] Starting signup process...')
       const response = await authAPI.signup({
         email: email.trim(),
         password,
         name: name.trim()
       })
-      
-      console.log('🔍 [DEBUG] Signup successful:', response)
-      
+
       setIsLoading(false)
       
       // Check if email verification is required
       if (response.needs_verification) {
-        console.log('📧 [AUTH-SCREEN] Email verification required, showing pending screen')
         setPendingVerificationEmail(response.email)
       } else {
         // Fallback for backwards compatibility (shouldn't happen with new backend)
@@ -296,11 +287,11 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
       if (error.status === 400 && error.message?.includes('already exists')) {
         errorMessage = 'An account with this email already exists. Please sign in instead.'
       } else if (error.status === 0 || error.message?.includes('connect')) {
-        errorMessage = 'Unable to connect to the server. Please check your connection.'
+        errorMessage = "We can't reach our servers right now. Please try again in a moment."
       } else if (error.message) {
         errorMessage = error.message
       }
-      
+
       setApiError(errorMessage)
     }
   }
@@ -344,23 +335,14 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo and Header */}
-        <div className="text-center mb-8 animate-in fade-in duration-500">
-          <Image
-            src="/logo.png"
-            alt="Chidi"
-            width={200}
-            height={200}
-            className="mx-auto mb-3"
-            priority
-          />
-          <p className="text-lg font-serif text-[var(--chidi-text-primary)] tracking-tight">
-            Your AI business assistant for WhatsApp & Instagram
-          </p>
-        </div>
-
+    <AuthShell
+      desktopHeading={activeTab === "signup" ? "Make Chidi yours." : "Welcome back."}
+      desktopSubheading={
+        activeTab === "signup"
+          ? "Two minutes to set up. No credit card needed."
+          : "Sign in to keep selling."
+      }
+    >
         {/* Email verified success message */}
         {showVerifiedMessage && (
           <div className="flex items-center gap-2 text-sm text-[var(--chidi-success)] bg-[var(--chidi-success)]/5 px-4 py-3 rounded-lg mb-6 animate-in fade-in duration-300">
@@ -370,8 +352,25 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
         )}
 
         {/* Tab Switcher */}
-        <div className="flex bg-[var(--chidi-surface)] rounded-xl p-1 mb-6 animate-in slide-in-from-bottom-4 duration-500 delay-100">
+        <div
+          role="tablist"
+          aria-label="Authentication"
+          className="flex bg-[var(--chidi-surface)] rounded-xl p-1 mb-6 animate-in slide-in-from-bottom-4 duration-500 delay-100"
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+              e.preventDefault()
+              setActiveTab(activeTab === 'signin' ? 'signup' : 'signin')
+              setApiError("")
+              setFormErrors({})
+            }
+          }}
+        >
           <button
+            role="tab"
+            id="auth-tab-signin"
+            aria-selected={activeTab === 'signin'}
+            aria-controls="auth-panel-signin"
+            tabIndex={activeTab === 'signin' ? 0 : -1}
             onClick={() => {
               setActiveTab('signin')
               setApiError("")
@@ -387,6 +386,11 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
             Sign In
           </button>
           <button
+            role="tab"
+            id="auth-tab-signup"
+            aria-selected={activeTab === 'signup'}
+            aria-controls="auth-panel-signup"
+            tabIndex={activeTab === 'signup' ? 0 : -1}
             onClick={() => {
               setActiveTab('signup')
               setApiError("")
@@ -404,28 +408,15 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
         </div>
 
         {/* Auth Form */}
-        <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
+        <div
+          role="tabpanel"
+          id={activeTab === 'signup' ? 'auth-panel-signup' : 'auth-panel-signin'}
+          aria-labelledby={activeTab === 'signup' ? 'auth-tab-signup' : 'auth-tab-signin'}
+          className="animate-in slide-in-from-bottom-4 duration-500 delay-200"
+        >
           {activeTab === 'signup' ? (
             <form ref={signUpFormRef} onSubmit={handleSignUp} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="signup-name" className="text-[var(--chidi-text-primary)] text-sm font-medium">
-                  Full Name
-                </Label>
-                <Input
-                  id="signup-name"
-                  name="name"
-                  type="text"
-                  placeholder="Ciroma Chukwuma Adekunle"
-                  className={cn(
-                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12",
-                    formErrors.name && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
-                  )}
-                />
-                {formErrors.name && (
-                  <p className="text-xs text-[var(--chidi-danger)] mt-1">{formErrors.name}</p>
-                )}
-              </div>
-
+              {/* Email first — lower friction, conventional pattern */}
               <div className="space-y-2">
                 <Label htmlFor="signup-email" className="text-[var(--chidi-text-primary)] text-sm font-medium">
                   Email
@@ -434,14 +425,35 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
                   id="signup-email"
                   name="email"
                   type="email"
-                  placeholder="example@email.com"
+                  placeholder="hello@example.com"
+                  autoComplete="email"
                   className={cn(
-                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)] h-12",
-                    formErrors.email && "border-[var(--chidi-danger)] focus:ring-[var(--chidi-danger)]/20 focus:border-[var(--chidi-danger)]"
+                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] h-12",
+                    formErrors.email && "border-[var(--chidi-danger)] focus-visible:ring-[var(--chidi-danger)]/20 focus-visible:border-[var(--chidi-danger)]"
                   )}
                 />
                 {formErrors.email && (
                   <p className="text-xs text-[var(--chidi-danger)] mt-1">{formErrors.email}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signup-name" className="text-[var(--chidi-text-primary)] text-sm font-medium">
+                  Your name
+                </Label>
+                <Input
+                  id="signup-name"
+                  name="name"
+                  type="text"
+                  placeholder="Ciroma Chukwuma Adekunle"
+                  autoComplete="name"
+                  className={cn(
+                    "bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] h-12",
+                    formErrors.name && "border-[var(--chidi-danger)] focus-visible:ring-[var(--chidi-danger)]/20 focus-visible:border-[var(--chidi-danger)]"
+                  )}
+                />
+                {formErrors.name && (
+                  <p className="text-xs text-[var(--chidi-danger)] mt-1">{formErrors.name}</p>
                 )}
               </div>
 
@@ -561,50 +573,48 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
                 </div>
               )}
 
-              <Button
-                type="submit"
-                className="w-full btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
-                disabled={isLoading || isSendingMagicLink}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[var(--chidi-border-default)]" />
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-[var(--background)] text-[var(--chidi-text-muted)]">or</span>
-                </div>
+              {/* Two equal-weight signin paths — password OR magic link.
+                  Side-by-side, not buried under a divider. Magic link is no
+                  longer "the secondary fallback"; both are first-class. */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="submit"
+                  className="btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
+                  disabled={isLoading || isSendingMagicLink}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Signing in
+                    </>
+                  ) : (
+                    'Sign in'
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSendMagicLink}
+                  className="border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] h-12 font-medium transition-all duration-300 rounded-xl"
+                  disabled={isLoading || isSendingMagicLink}
+                  title="Email me a sign-in link instead of a password"
+                >
+                  {isSendingMagicLink ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Emailing
+                    </>
+                  ) : (
+                    'Email me a link'
+                  )}
+                </Button>
               </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSendMagicLink}
-                className="w-full border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] h-12 font-medium transition-all duration-300 rounded-xl shadow-card"
-                disabled={isLoading || isSendingMagicLink}
-              >
-                {isSendingMagicLink ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending magic link...
-                  </>
-                ) : (
-                  'Sign in with magic link'
-                )}
-              </Button>
+              <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice text-center mt-2">
+                Either way works. Magic link skips the password.
+              </p>
             </form>
           )}
         </div>
-      </div>
-    </div>
+    </AuthShell>
   )
 }

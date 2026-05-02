@@ -1,10 +1,13 @@
 "use client"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Package, Edit3, AlertTriangle, X, Trash2, Loader2 } from "lucide-react"
+import { Package, Edit3, AlertTriangle, X, Trash2, Loader2, Sparkles, TrendingUp, Calendar, Percent, ShoppingCart, MessageCircle, ArrowUpToLine, Plus } from "lucide-react"
 import { productsAPI } from "@/lib/api"
 import type { DisplayProduct } from "@/lib/types/product"
+import { formatCurrency } from "@/lib/utils/currency"
+import { deriveProductActivity, formatRelativeTime, type ProductActivityKind } from "@/lib/chidi/product-activity"
+import { CustomerCharacter } from "./customer-character"
 
 interface ProductDetailModalProps {
   isOpen: boolean
@@ -12,9 +15,20 @@ interface ProductDetailModalProps {
   product: DisplayProduct | null
   onEditProduct: (product: DisplayProduct) => void
   onDeleteProduct?: (productId: string) => void
+  onAskChidi?: (prompt: string) => void
 }
 
-export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, onDeleteProduct }: ProductDetailModalProps) {
+// Mock sales velocity until backend serves real numbers — deterministic by ID
+function deriveSalesMetrics(product: DisplayProduct) {
+  let h = 0
+  for (let i = 0; i < product.id.length; i++) h = (h << 5) - h + product.id.charCodeAt(i)
+  const seed = Math.abs(h)
+  const unitsPerWeek = 1 + (seed % 12)
+  const lastSoldDays = seed % 14
+  return { unitsPerWeek, lastSoldDays }
+}
+
+export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, onDeleteProduct, onAskChidi }: ProductDetailModalProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -146,11 +160,78 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
               </div>
             )}
 
-            {/* Quick Stats */}
-            <div className="p-3 text-center bg-[var(--chidi-surface)] rounded-lg border border-[var(--chidi-border-subtle)]">
-              <div className="text-lg font-bold text-[var(--chidi-text-primary)]">{product.stock}</div>
-              <div className="text-xs text-[var(--chidi-text-muted)]">Units in Stock</div>
-            </div>
+            {/* Decision Surface — sales velocity, days remaining, margin */}
+            {(() => {
+              const { unitsPerWeek, lastSoldDays } = deriveSalesMetrics(product)
+              const daysRemaining = unitsPerWeek > 0 ? Math.floor((product.stock / unitsPerWeek) * 7) : 999
+              const margin = product.sellingPrice > 0
+                ? Math.round(((product.sellingPrice - product.costPrice) / product.sellingPrice) * 100)
+                : 0
+              const marginAbs = product.sellingPrice - product.costPrice
+              const restockUrgent = daysRemaining < 14 && product.stock > 0
+              return (
+                <div className="space-y-3">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-chidi-voice">
+                    What I'm seeing
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <DecisionCell
+                      icon={TrendingUp}
+                      label="Sells per week"
+                      value={String(unitsPerWeek)}
+                      sub={`Last sold ${lastSoldDays === 0 ? "today" : `${lastSoldDays}d ago`}`}
+                    />
+                    <DecisionCell
+                      icon={Calendar}
+                      label="Days at this pace"
+                      value={product.stock === 0 ? "0" : daysRemaining > 90 ? "90+" : String(daysRemaining)}
+                      sub={restockUrgent ? "Worth reordering" : product.stock === 0 ? "Restock now" : "Comfortable"}
+                      tone={product.stock === 0 ? "danger" : restockUrgent ? "warn" : "neutral"}
+                    />
+                    <DecisionCell
+                      icon={Percent}
+                      label="Margin"
+                      value={`${margin}%`}
+                      sub={`${formatCurrency(marginAbs, "NGN")} per unit`}
+                      tone={margin > 30 ? "win" : margin > 15 ? "neutral" : "warn"}
+                    />
+                    <DecisionCell
+                      icon={Package}
+                      label="In stock"
+                      value={String(product.stock)}
+                      sub={`Reorder at ${product.reorderLevel}`}
+                    />
+                  </div>
+
+                  {onAskChidi && (
+                    <button
+                      onClick={() => onAskChidi(`How is "${product.name}" doing? Should I restock?`)}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[var(--chidi-win-soft)] hover:bg-[var(--chidi-win)]/20 text-[var(--chidi-win-foreground)] text-sm font-chidi-voice transition-colors group"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[var(--chidi-win)]" />
+                      Ask Chidi about this product
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Activity log — chronological events for this product */}
+            {(() => {
+              const events = deriveProductActivity(product.id).slice(0, 6)
+              return (
+                <div className="space-y-3 pt-3 border-t border-[var(--chidi-border-subtle)]">
+                  <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-chidi-voice">
+                    Recent activity
+                  </p>
+                  <ul className="space-y-2.5">
+                    {events.map((e, idx) => (
+                      <ActivityRow key={idx} kind={e.kind} ts={e.ts} qty={e.qty} customerName={e.customerName} />
+                    ))}
+                  </ul>
+                </div>
+              )
+            })()}
 
             {/* Product Details */}
             <div className="space-y-3 pt-2">
@@ -250,6 +331,94 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+interface DecisionCellProps {
+  icon: React.ElementType
+  label: string
+  value: string
+  sub?: string
+  tone?: "win" | "warn" | "danger" | "neutral"
+}
+
+interface ActivityRowProps {
+  kind: ProductActivityKind
+  ts: number
+  qty?: number
+  customerName?: string
+}
+
+function ActivityRow({ kind, ts, qty, customerName }: ActivityRowProps) {
+  const config = {
+    created: {
+      icon: Plus,
+      tone: "text-[var(--chidi-text-muted)] bg-[var(--chidi-surface)]",
+      label: "Added to inventory",
+    },
+    restocked: {
+      icon: ArrowUpToLine,
+      tone: "text-[var(--chidi-success)] bg-[var(--chidi-success)]/10",
+      label: `Restocked ${qty} unit${qty === 1 ? "" : "s"}`,
+    },
+    sold: {
+      icon: ShoppingCart,
+      tone: "text-[var(--chidi-win)] bg-[var(--chidi-win-soft)]",
+      label: customerName
+        ? `Sold ${qty} to ${customerName}`
+        : `Sold ${qty} unit${qty === 1 ? "" : "s"}`,
+    },
+    asked: {
+      icon: MessageCircle,
+      tone: "text-[var(--chidi-accent)] bg-[var(--chidi-accent)]/8",
+      label: customerName ? `${customerName} asked about it` : "Customer asked about it",
+    },
+  }[kind]
+
+  const Icon = config.icon
+
+  return (
+    <li className="flex items-center gap-2.5 text-sm">
+      <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${config.tone}`}>
+        <Icon className="w-3.5 h-3.5" />
+      </span>
+      <span className="flex-1 min-w-0 flex items-center gap-2">
+        {kind === "sold" && customerName && (
+          <CustomerCharacter name={customerName} size="xs" />
+        )}
+        {kind === "asked" && customerName && (
+          <CustomerCharacter name={customerName} size="xs" />
+        )}
+        <span className="text-[var(--chidi-text-primary)] font-chidi-voice text-[13px] truncate">
+          {config.label}
+        </span>
+      </span>
+      <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums flex-shrink-0">
+        {formatRelativeTime(ts)}
+      </span>
+    </li>
+  )
+}
+
+function DecisionCell({ icon: Icon, label, value, sub, tone = "neutral" }: DecisionCellProps) {
+  const valueColor =
+    tone === "win" ? "text-[var(--chidi-win)]" :
+    tone === "warn" ? "text-[var(--chidi-warning)]" :
+    tone === "danger" ? "text-[var(--chidi-danger)]" :
+    "text-[var(--chidi-text-primary)]"
+  return (
+    <div className="p-3 rounded-lg bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)]">
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-chidi-voice mb-1">
+        <Icon className="w-3 h-3" />
+        {label}
+      </div>
+      <div className={`text-lg font-semibold font-chidi-voice tabular-nums ${valueColor}`}>{value}</div>
+      {sub && (
+        <div className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
+          {sub}
+        </div>
+      )}
     </div>
   )
 }

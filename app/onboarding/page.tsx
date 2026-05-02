@@ -27,7 +27,6 @@ export default function OnboardingPage() {
         
         // Check if email is verified
         if (userData.email_verified === false) {
-          console.log('📧 [ONBOARDING] Email not verified, showing verification screen')
           setNeedsVerification(true)
           setUser(userData)
           setIsLoading(false)
@@ -54,10 +53,8 @@ export default function OnboardingPage() {
 
       // Redirect to slug-based dashboard with welcome banner
       if (businessSlug) {
-        console.log('🏢 [ONBOARDING] Redirecting to dashboard with slug:', businessSlug)
         router.push(`/dashboard/${businessSlug}?welcome=true`)
       } else {
-        console.log('⚠️ [ONBOARDING] No business slug found, redirecting to default dashboard')
         router.push('/dashboard?welcome=true')
       }
     } catch (err: any) {

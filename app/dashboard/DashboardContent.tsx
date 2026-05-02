@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppHeader } from '@/components/chidi/app-header'
 import { BottomNavigation, type TabId } from '@/components/chidi/bottom-navigation'
@@ -23,18 +23,41 @@ import type { ConversationResponse } from '@/lib/types/conversation'
 import { useNotifications, mapNotificationForUI, type MappedNotification } from '@/hooks/use-notifications'
 import { getStoredInventoryId } from '@/lib/api/products'
 import { useProducts, useUpdateProduct, productsKeys } from '@/lib/hooks/use-products'
+import { useDashboardSignals } from '@/lib/chidi/use-dashboard-signals'
+import { PRIMARY_TABS } from '@/lib/chidi/navigation'
+import { cn } from '@/lib/utils'
 import { SetupChecklist } from '@/components/chidi/setup-checklist'
+import { NavRail } from '@/components/chidi/nav-rail'
+import { CommandPalette } from '@/components/chidi/command-palette'
+import { ChidiWelcome } from '@/components/chidi/chidi-welcome'
+import { ChidiDailyBrief } from '@/components/chidi/chidi-daily-brief'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
 
 interface DashboardContentProps {
   businessSlug?: string;
 }
 
+const VALID_TABS: TabId[] = ["inbox", "orders", "inventory", "insights", "chidi"]
+
 export default function DashboardContent({ businessSlug }: DashboardContentProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { user } = useDashboardAuth()
-  const [activeTab, setActiveTab] = useState<TabId>("inbox")
+
+  const initialTab = (searchParams?.get("tab") as TabId | null) || "inbox"
+  const [activeTab, setActiveTab] = useState<TabId>(
+    VALID_TABS.includes(initialTab) ? initialTab : "inbox"
+  )
+
+  // Honor ?tab=X navigation when the URL param changes (Notebook page → rail click → back here)
+  useEffect(() => {
+    const tab = searchParams?.get("tab") as TabId | null
+    if (tab && VALID_TABS.includes(tab) && tab !== activeTab) {
+      setActiveTab(tab)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
   const [localNotifications, setLocalNotifications] = useState<MappedNotification[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
@@ -217,38 +240,123 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     queryClient.invalidateQueries({ queryKey: productsKeys.all })
   }
 
+  // Per-tab count badges via the centralized signals hook. NavRail and BottomNav
+  // both consume this; if a new badge is needed, add it to PRIMARY_TABS.countSource
+  // and to useDashboardSignals — the rest is wired.
+  const signals = useDashboardSignals()
+  const tabCounts = useMemo(() => {
+    const counts: Partial<Record<TabId, number>> = {}
+    for (const tab of PRIMARY_TABS) {
+      if (!tab.countSource) continue
+      const n =
+        tab.countSource === "needsHuman" ? signals.needsHumanCount :
+        tab.countSource === "pendingPayment" ? signals.pendingPaymentCount :
+        tab.countSource === "lowStock" ? signals.lowStockCount : 0
+      if (n > 0) counts[tab.id] = n
+    }
+    return counts
+  }, [signals.needsHumanCount, signals.pendingPaymentCount, signals.lowStockCount])
+
+  // NavRail collapse state — listen for the toggle event the rail dispatches
+  // so the content's left padding stays in sync with the rail width.
+  const [railCollapsed, setRailCollapsed] = useState(false)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    setRailCollapsed(localStorage.getItem("chidi_navrail_collapsed") === "true")
+    const onToggle = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { collapsed?: boolean } | undefined
+      if (detail) setRailCollapsed(!!detail.collapsed)
+    }
+    window.addEventListener("chidi:navrail-toggle", onToggle as EventListener)
+    return () => window.removeEventListener("chidi:navrail-toggle", onToggle as EventListener)
+  }, [])
+
+  // Tab navigation events from inside child surfaces (e.g. Insights KPI cards
+  // and product rows). Detail.tab carries the target tab id.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const onNavigate = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { tab?: string } | undefined
+      if (detail?.tab) {
+        setActiveTab(detail.tab as TabId)
+      }
+    }
+    window.addEventListener("chidi:navigate-tab", onNavigate as EventListener)
+    return () => window.removeEventListener("chidi:navigate-tab", onNavigate as EventListener)
+  }, [])
+
+  // Notification dropdown anchor — when the rail's bell is clicked we open
+  // the existing notifications panel via the AppHeader trigger that already
+  // exists on mobile. Simplest: dispatch a custom event the panel listens to.
+  const handleRailNotificationsClick = () => {
+    window.dispatchEvent(new CustomEvent("chidi:open-notifications"))
+  }
+
   // Loading state is handled by the dashboard layout - we're guaranteed to have user here
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[var(--background)]">
-      {/* Header - consistent across all tabs */}
-      <AppHeader 
-        notifications={notifications}
-        onMarkAsRead={handleMarkNotificationAsRead}
-        onMarkAllAsRead={handleMarkAllNotificationsAsRead}
-        onDismiss={handleDismissNotification}
-        onNotificationClick={handleNotificationClick}
+    <div
+      className={cn(
+        "flex flex-col h-screen w-full bg-[var(--background)] transition-[padding] duration-200",
+        railCollapsed ? "lg:pl-[64px]" : "lg:pl-[224px]",
+      )}
+    >
+      {/* Desktop nav rail (≥lg) */}
+      <NavRail
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        unreadNotificationCount={unreadCount}
+        tabCounts={tabCounts}
+        onNotificationsClick={handleRailNotificationsClick}
+        onSearchClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }))}
       />
 
-      {/* Setup Checklist - shown until complete or dismissed */}
+      {/* Mobile header (<lg) */}
+      <div className="lg:hidden">
+        <AppHeader
+          notifications={notifications}
+          onMarkAsRead={handleMarkNotificationAsRead}
+          onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+          onDismiss={handleDismissNotification}
+          onNotificationClick={handleNotificationClick}
+        />
+      </div>
+
+      {/* Setup Checklist — dashboard home only, not pinned across all screens */}
       <SetupChecklist
         businessId={user?.businessId || null}
         businessSlug={businessSlug}
         products={products}
         setActiveTab={setActiveTab}
         onAddProduct={() => setShowAddProductModal(true)}
+        activeTab={activeTab}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden pb-16">
+      {/* Main Content Area — keyed wrapper so each tab gets a soft fade-in */}
+      <main className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden pb-16 lg:pb-0">
+        <div key={activeTab} className="chidi-tab-in flex-1 flex flex-col">
         {activeTab === "inbox" && (
-          <InboxView />
+          <InboxView
+            onViewCustomerOrders={() => {
+              // Surface this customer's orders. Until we have a per-customer
+              // filter on the orders view, just switch tabs — the merchant
+              // can scan from there.
+              setActiveTab("orders")
+            }}
+            onAskChidiAboutCustomer={() => {
+              setActiveTab("chidi")
+            }}
+          />
         )}
         
         {activeTab === "orders" && (
-          <OrdersView 
+          <OrdersView
             initialOrderId={selectedOrderId}
             onOrderSelected={() => setSelectedOrderId(null)}
+            onOpenConversation={(conversationId) => {
+              setActiveConversationId(conversationId)
+              setActiveTab('inbox')
+            }}
           />
         )}
         
@@ -275,13 +383,33 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             products={products}
           />
         )}
+        </div>
       </main>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+      {/* Bottom Navigation — mobile only */}
+      <div className="lg:hidden">
+        <BottomNavigation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          tabCounts={tabCounts}
+        />
+      </div>
+
+      {/* Cmd+K command palette — desktop power-user surface */}
+      <CommandPalette
+        onTabChange={setActiveTab}
+        onAddProduct={() => setShowAddProductModal(true)}
       />
+
+      {/* First-launch Chidi introduction — fires once ever per merchant */}
+      <ChidiWelcome
+        ownerName={user?.name}
+        businessName={(user as any)?.businessName}
+      />
+
+      {/* Daily brief — Spotify-Wrapped-style cinematic morning moment.
+          Fires once per calendar day on first dashboard load. The wow. */}
+      <ChidiDailyBrief ownerName={user?.name} />
 
       {/* Modals */}
       {showAddProductModal && (
@@ -317,6 +445,10 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
             setShowEditProductModal(true)
           }}
           onDeleteProduct={handleProductDeleted}
+          onAskChidi={() => {
+            setShowProductDetailModal(false)
+            setActiveTab('chidi')
+          }}
         />
       )}
 

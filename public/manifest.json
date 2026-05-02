@@ -1,11 +1,11 @@
 {
-  "name": "chidi - AI Business Assistant",
-  "short_name": "chidi",
-  "description": "AI-powered business assistant for African entrepreneurs managing WhatsApp & Instagram sales",
+  "name": "Chidi — AI assistant for WhatsApp commerce",
+  "short_name": "Chidi",
+  "description": "I reply to your customers, track every order, and flag the ones that need you. Built in Lagos, for the people who sell on WhatsApp.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#F7F5F3",
+  "theme_color": "#F7F5F3",
   "orientation": "portrait-primary",
   "icons": [
     {

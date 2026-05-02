@@ -5,32 +5,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  LogOut, 
-  Loader2, 
+import {
+  Shield,
+  LogOut,
+  Loader2,
   AlertTriangle,
   Eye,
   EyeOff,
   Check,
-  ArrowLeft,
-  Plug,
   Instagram,
   Folder,
   Download,
   Clock,
   ChevronRight,
   HelpCircle,
-  Bot,
   ScrollText,
   Brain,
   Landmark,
-  CreditCard
 } from "lucide-react"
+import { BusinessAvatar } from "@/components/chidi/business-avatar"
+import { useDashboardAuth } from "@/lib/providers/dashboard-auth-context"
 import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
 import { TelegramSettings } from "@/components/chidi/telegram-settings"
 import { CategorySettings } from "@/components/settings/category-settings"
@@ -60,6 +54,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { HelpSheet } from "./help-sheet"
+import { SettingsSectionCard } from "./settings-section-card"
 import { usePersistedState, hasDraft } from "@/lib/hooks/use-persisted-state"
 
 interface UserSettingsProps {
@@ -69,6 +64,8 @@ interface UserSettingsProps {
 
 export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
   const router = useRouter()
+  const { user: authUser } = useDashboardAuth()
+  const businessName = (authUser as any)?.businessName || "Your business"
   const [error, setError] = useState("")
   
   // Section refs for scrolling
@@ -360,30 +357,10 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
   }
 
   return (
-    <div className="max-w-xl mx-auto pb-12">
-      {/* Header */}
-      <div className="sticky top-0 bg-[var(--chidi-surface)] z-10 px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
-        <div className="flex items-center gap-4">
-          {onClose && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={onClose}
-              className="h-9 w-9 text-[var(--chidi-text-secondary)]"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          )}
-          <div>
-            <h1 className="text-2xl font-semibold text-[var(--chidi-text-primary)]">Settings</h1>
-            <p className="text-sm text-[var(--chidi-text-muted)]">Manage your account and preferences</p>
-          </div>
-        </div>
-      </div>
-
+    <div className="pb-12">
       {/* Status Messages */}
       {(error || success) && (
-        <div className="px-6 pt-4">
+        <div className="pt-4">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -399,353 +376,332 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
         </div>
       )}
 
-      <div className="px-6 space-y-1">
-        {/* PROFILE SECTION */}
-        <section className="py-6">
-          <div className="flex items-start gap-2 mb-4">
-            <User className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Profile</span>
-          </div>
-          
-          {/* User Card */}
-          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4">
-            <div className="flex items-center gap-4">
-              <Avatar className="w-12 h-12 bg-[var(--chidi-accent)]">
-                <AvatarFallback className="text-lg text-[var(--chidi-accent-foreground)] bg-[var(--chidi-accent)]">
-                  {account ? getInitials(account.name) : "U"}
-                </AvatarFallback>
-              </Avatar>
+      <div>
+        {/* PROFILE — leads with the business identity (same source as the
+            sidebar workspace card) so the two surfaces don't diverge. The
+            personal account row sits below as secondary. */}
+        <section id="settings-profile" className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Profile" title="Your shop">
+            <div className="flex items-center gap-3 mb-5">
+              <BusinessAvatar name={businessName} size="lg" />
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-[var(--chidi-text-primary)] truncate">{account?.name}</p>
-                <p className="text-sm text-[var(--chidi-text-muted)] truncate">{account?.email}</p>
-                <p className="text-xs text-[var(--chidi-text-muted)]">
-                  {getAuthProviderLabel(account?.auth_provider)}
+                <p className="text-[15px] font-semibold text-[var(--chidi-text-primary)] truncate">
+                  {businessName}
+                </p>
+                <p className="text-[12px] text-[var(--chidi-text-muted)] truncate">
+                  Shown to customers and across the app.
                 </p>
               </div>
             </div>
 
-            <Separator className="my-4 bg-[var(--chidi-border-subtle)]" />
+            <div className="space-y-3 pt-4 border-t border-[var(--chidi-border-subtle)]">
+              <div>
+                <Label htmlFor="name" className="text-[12px] text-[var(--chidi-text-muted)]">Your name</Label>
+                <Input
+                  id="name"
+                  value={accountForm.name}
+                  onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
+                  className="mt-1 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)]"
+                  placeholder="Your name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email" className="text-[12px] text-[var(--chidi-text-muted)]">Email</Label>
+                <Input
+                  id="email"
+                  value={account?.email || ""}
+                  disabled
+                  className="mt-1 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-muted)]"
+                />
+              </div>
 
-            {/* Name Input */}
+              {accountForm.name !== account?.name && (
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSaveAccount}
+                    disabled={updateAccountMutation.isPending}
+                    size="sm"
+                    className="btn-cta"
+                  >
+                    {updateAccountMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Save
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-[var(--chidi-border-subtle)] space-y-1">
+              <button
+                onClick={() => setShowCategoryModal(true)}
+                className="w-full p-2.5 -mx-2.5 rounded-lg flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <Folder className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+                  <p className="text-[14px] text-[var(--chidi-text-primary)]">Product categories</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+              </button>
+
+              <button
+                onClick={() => setShowBusinessHoursModal(true)}
+                className="w-full p-2.5 -mx-2.5 rounded-lg flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <Clock className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+                  <p className="text-[14px] text-[var(--chidi-text-primary)]">Business hours</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+              </button>
+            </div>
+          </SettingsSectionCard>
+        </section>
+
+        {/* CHANNELS */}
+        <section id="settings-integrations" ref={integrationsSectionRef} className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Channels" title="Connected channels">
+            <div className="divide-y divide-[var(--chidi-border-subtle)]">
+              <div className="py-4 first:pt-0">
+                <WhatsAppSettings />
+              </div>
+              <div className="py-4">
+                <TelegramSettings />
+              </div>
+              <div className="py-4 last:pb-0 flex items-center justify-between gap-3 opacity-65">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center flex-shrink-0">
+                    <Instagram className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Instagram</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
+                      DM commerce on the way.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-chidi-voice px-2 py-1 rounded-full bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] uppercase tracking-wider whitespace-nowrap">
+                  Soon
+                </span>
+              </div>
+            </div>
+          </SettingsSectionCard>
+        </section>
+
+        {/* AI ASSISTANT — sub-card under the Chidi nav entry. The view-swap CSS
+            reveals both #settings-chidi (ChidiPreferences) and this #settings-ai
+            when the Chidi tab is active. */}
+        <section id="settings-ai" ref={aiSectionRef} className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Behavior" title="Policies and memory">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm text-[var(--chidi-text-secondary)]">Full Name</Label>
-              <Input
-                id="name"
-                value={accountForm.name}
-                onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })}
-                className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
-                placeholder="Enter your name"
-              />
-            </div>
+              <button
+                onClick={() => setShowPolicyModal(true)}
+                className="w-full p-3 -mx-3 rounded-lg flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <ScrollText className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+                  <div>
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Business policies</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">FAQs, returns, and rules that shape my replies</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+              </button>
 
-            {/* Email (read-only) */}
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="email" className="text-sm text-[var(--chidi-text-secondary)]">Email</Label>
-              <Input
-                id="email"
-                value={account?.email || ""}
-                disabled
-                className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-muted)]"
-              />
-              <p className="text-xs text-[var(--chidi-text-muted)]">Email cannot be changed</p>
+              <button
+                onClick={() => setShowMemoryModal(true)}
+                className="w-full p-3 -mx-3 rounded-lg flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <Brain className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+                  <div>
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Memory</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Things I've learned from your conversations</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+              </button>
             </div>
-
-            {accountForm.name !== account?.name && (
-              <div className="flex justify-end mt-4">
-                <Button 
-                  onClick={handleSaveAccount}
-                  disabled={updateAccountMutation.isPending}
-                  size="sm"
-                  className="btn-cta"
-                >
-                  {updateAccountMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Save
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Categories Row */}
-          <button
-            onClick={() => setShowCategoryModal(true)}
-            className="w-full mt-3 bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Folder className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-              <div className="text-left">
-                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Product Categories</p>
-                <p className="text-xs text-[var(--chidi-text-muted)]">Manage your inventory categories</p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-          </button>
-
-          {/* Business Hours Row */}
-          <button
-            onClick={() => setShowBusinessHoursModal(true)}
-            className="w-full mt-3 bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-              <div className="text-left">
-                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Business Hours</p>
-                <p className="text-xs text-[var(--chidi-text-muted)]">Set when you're available</p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-          </button>
+          </SettingsSectionCard>
         </section>
 
-        <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-        {/* INTEGRATIONS SECTION */}
-        <section ref={integrationsSectionRef} className="py-6">
-          <div className="flex items-start gap-2 mb-4">
-            <Plug className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Integrations</span>
-          </div>
-
-          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
-            <div className="p-4">
-              <WhatsAppSettings />
-            </div>
-            <div className="p-4">
-              <TelegramSettings />
-            </div>
-            <div className="p-4 flex items-center justify-between opacity-60">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center">
-                  <Instagram className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Instagram</p>
-                  <p className="text-xs text-[var(--chidi-text-muted)]">Not connected</p>
-                </div>
-              </div>
-              <span className="text-xs font-medium text-[var(--chidi-text-muted)] bg-[var(--chidi-surface)] px-2 py-1 rounded">
-                Coming Soon
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-        {/* AI ASSISTANT SECTION */}
-        <section ref={aiSectionRef} className="py-6">
-          <div className="flex items-start gap-2 mb-4">
-            <Bot className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">AI Assistant</span>
-          </div>
-
-          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
-            <button
-              onClick={() => setShowPolicyModal(true)}
-              className="w-full p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <ScrollText className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-                <div className="text-left">
-                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Business Policies</p>
-                  <p className="text-xs text-[var(--chidi-text-muted)]">FAQs, return policies, and rules that shape your AI's responses</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-            </button>
-
-            <button
-              onClick={() => setShowMemoryModal(true)}
-              className="w-full p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <Brain className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-                <div className="text-left">
-                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">AI Memory</p>
-                  <p className="text-xs text-[var(--chidi-text-muted)]">Things Chidi has learned from your conversations</p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-            </button>
-          </div>
-        </section>
-
-        <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-        {/* PAYMENT SETTINGS SECTION */}
-        <section ref={paymentSectionRef} className="py-6">
-          <div className="flex items-start gap-2 mb-2">
-            <CreditCard className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Payment Settings</span>
-          </div>
-          <p className="text-xs text-[var(--chidi-text-muted)] mb-4 ml-6">
-            These details are shared with customers when they're ready to pay.
-          </p>
-
+        {/* PAYMENT */}
+        <section id="settings-payment" ref={paymentSectionRef} className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Payments" title="Bank account">
           <button
             onClick={() => setShowPaymentModal(true)}
-            className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
+            className="w-full bg-[var(--chidi-surface)]/40 rounded-xl border border-[var(--chidi-border-subtle)] p-5 flex items-center justify-between hover:bg-[var(--chidi-surface)] hover:border-[var(--chidi-border-default)] transition-colors text-left active:scale-[0.998]"
           >
-            <div className="flex items-center gap-3">
-              <Landmark className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-              <div className="text-left">
-                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Bank Details</p>
-                <p className="text-xs text-[var(--chidi-text-muted)]">
-                  {paymentData?.bank_name && paymentData?.account_number
-                    ? `${paymentData.bank_name} - ${paymentData.account_number}`
-                    : "Set up your payment details for orders"}
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-[var(--chidi-win)]/10 flex items-center justify-center flex-shrink-0">
+                <Landmark className="w-5 h-5 text-[var(--chidi-win)]" strokeWidth={1.8} />
+              </div>
+              <div className="min-w-0">
+                {paymentData?.bank_name && paymentData?.account_number ? (
+                  <>
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">
+                      {paymentData.bank_name}
+                    </p>
+                    <p className="text-[13px] text-[var(--chidi-text-secondary)] font-mono tabular-nums tracking-wider mt-0.5">
+                      {paymentData.account_number.replace(/(\d{4})(?=\d)/g, "$1 ")}
+                    </p>
+                    <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mt-1.5">
+                      Tap to update
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">
+                      No payment details yet
+                    </p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
+                      Add a bank account or mobile money so I can share it with customers.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)] flex-shrink-0" />
+          </button>
+          </SettingsSectionCard>
+        </section>
+
+        {/* DATA */}
+        <section id="settings-data" className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Data" title="Export">
+          <div className="bg-[var(--chidi-surface)]/40 rounded-xl border border-[var(--chidi-border-subtle)] p-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center flex-shrink-0">
+                <Download className="w-4 h-4 text-[var(--chidi-text-secondary)]" strokeWidth={1.8} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">
+                  Export everything
+                </p>
+                <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
+                  Customers, orders, products, conversations. CSV bundle.
                 </p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-          </button>
-        </section>
-
-        <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-        {/* DATA MANAGEMENT SECTION */}
-        <section className="py-6">
-          <div className="flex items-start gap-2 mb-4">
-            <Download className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Data Management</span>
-          </div>
-
-          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Export Data</p>
-              <p className="text-xs text-[var(--chidi-text-muted)]">Backup your business information</p>
-            </div>
-            <Button variant="outline" size="sm" className="border-[var(--chidi-border-default)]">
+            <Button variant="outline" size="sm" className="border-[var(--chidi-border-default)] flex-shrink-0">
               Export
             </Button>
           </div>
+          </SettingsSectionCard>
         </section>
 
-        <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-        {/* NOTIFICATIONS SECTION */}
-        <section ref={notificationsSectionRef} className="py-6">
-          <div className="flex items-start gap-2 mb-4">
-            <Bell className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Notifications</span>
-          </div>
-
-          <div className="bg-white rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)]">
-            <div className="p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Stock Alerts</p>
-                <p className="text-xs text-[var(--chidi-text-muted)]">Get notified when items are low</p>
+        {/* NOTIFICATIONS */}
+        <section id="settings-notifications" ref={notificationsSectionRef} className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Notifications" title="What to alert you about">
+            <div className="space-y-1 -mx-1">
+              <div className="px-1 py-3 flex items-center justify-between">
+                <div className="min-w-0 pr-3">
+                  <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Stock alerts</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Get notified when items are low</p>
+                </div>
+                <Switch
+                  checked={notificationForm.stock_alerts}
+                  onCheckedChange={(checked) => handleNotificationChange('stock_alerts', checked)}
+                />
               </div>
-              <Switch
-                checked={notificationForm.stock_alerts}
-                onCheckedChange={(checked) => handleNotificationChange('stock_alerts', checked)}
-              />
-            </div>
 
-            {/* Low Stock Threshold Setting */}
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Low Stock Threshold</p>
-                  <p className="text-xs text-[var(--chidi-text-muted)]">Alert when product stock falls to this level</p>
+              <div className="px-1 py-3 border-t border-[var(--chidi-border-subtle)]">
+                <div className="flex items-center justify-between mb-2.5">
+                  <div>
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Low-stock threshold</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Alert when stock falls to this level</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="1000"
+                    value={lowStockThreshold}
+                    onChange={(e) => setLowStockThreshold(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-24 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                  />
+                  <span className="text-sm text-[var(--chidi-text-muted)]">units</span>
+                  {lowStockThreshold !== (bizPreferences?.low_stock_threshold ?? 10) && (
+                    <Button
+                      onClick={handleSaveLowStockThreshold}
+                      disabled={updateBizPreferencesMutation.isPending}
+                      size="sm"
+                      className="ml-auto btn-cta"
+                    >
+                      {updateBizPreferencesMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                      Save
+                    </Button>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={lowStockThreshold}
-                  onChange={(e) => setLowStockThreshold(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-24 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+
+              <div className="px-1 py-3 flex items-center justify-between border-t border-[var(--chidi-border-subtle)]">
+                <div className="min-w-0 pr-3">
+                  <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">New messages</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Customer inquiries and orders</p>
+                </div>
+                <Switch
+                  checked={notificationForm.order_updates}
+                  onCheckedChange={(checked) => handleNotificationChange('order_updates', checked)}
                 />
-                <span className="text-sm text-[var(--chidi-text-muted)]">units</span>
-                {lowStockThreshold !== (bizPreferences?.low_stock_threshold ?? 10) && (
-                  <Button 
-                    onClick={handleSaveLowStockThreshold}
-                    disabled={updateBizPreferencesMutation.isPending}
-                    size="sm"
-                    className="ml-auto btn-cta"
-                  >
-                    {updateBizPreferencesMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                    Save
-                  </Button>
-                )}
               </div>
-              <p className="text-xs text-[var(--chidi-text-muted)] mt-2">
-                This is the default threshold for new products. You can set individual thresholds per product.
-              </p>
-            </div>
 
-            <div className="p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">New Messages</p>
-                <p className="text-xs text-[var(--chidi-text-muted)]">Customer inquiries and orders</p>
+              <div className="px-1 py-3 flex items-center justify-between border-t border-[var(--chidi-border-subtle)]">
+                <div className="min-w-0 pr-3">
+                  <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Morning brief</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">A daily summary before you open the app</p>
+                </div>
+                <Switch
+                  checked={notificationForm.daily_summary}
+                  onCheckedChange={(checked) => handleNotificationChange('daily_summary', checked)}
+                />
               </div>
-              <Switch
-                checked={notificationForm.order_updates}
-                onCheckedChange={(checked) => handleNotificationChange('order_updates', checked)}
-              />
             </div>
-
-            <div className="p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Daily Summary</p>
-                <p className="text-xs text-[var(--chidi-text-muted)]">Daily business performance</p>
-              </div>
-              <Switch
-                checked={notificationForm.daily_summary}
-                onCheckedChange={(checked) => handleNotificationChange('daily_summary', checked)}
-              />
-            </div>
-          </div>
+          </SettingsSectionCard>
         </section>
 
-        <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-        {/* SECURITY SECTION */}
-        <section className="py-6">
-          <div className="flex items-start gap-2 mb-4">
-            <Shield className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--chidi-text-muted)] uppercase tracking-wider">Security</span>
-          </div>
-
-          <button
-            onClick={() => setShowSecurityModal(true)}
-            className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors"
-          >
-            <div className="text-left">
-              <p className="font-medium text-sm text-[var(--chidi-text-primary)]">Change Password</p>
-              <p className="text-xs text-[var(--chidi-text-muted)]">Update your account password</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-          </button>
+        {/* SECURITY */}
+        <section id="settings-security" className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Security" title="Sign-in">
+            <button
+              onClick={() => setShowSecurityModal(true)}
+              className="w-full p-3 -mx-3 rounded-lg flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <Shield className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+                <div>
+                  <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Change password</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Update your account password</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+            </button>
+          </SettingsSectionCard>
         </section>
 
-        <Separator className="bg-[var(--chidi-border-subtle)]" />
-
-        {/* HELP & SIGN OUT SECTION */}
-        <section className="py-6 space-y-3">
+        {/* HELP + SIGN OUT — anchored under #settings-security-extras so the
+            view-swap CSS hides them when other sections are active. */}
+        <div id="settings-security-extras" className="space-y-3">
           <button
             onClick={() => setShowHelpSheet(true)}
-            className="w-full bg-white rounded-xl border border-[var(--chidi-border-subtle)] p-4 flex items-center gap-3 hover:bg-[var(--chidi-surface)] transition-colors"
+            className="w-full chidi-paper bg-[var(--card)] rounded-2xl border border-[var(--chidi-border-default)] p-4 flex items-center gap-3 hover:bg-[var(--chidi-surface)] transition-colors"
           >
-            <HelpCircle className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-            <span className="font-medium text-sm text-[var(--chidi-text-primary)]">Help & Support</span>
+            <HelpCircle className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+            <span className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Help &amp; Support</span>
           </button>
 
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-full bg-white rounded-xl border border-red-200 p-4 flex items-center gap-3 hover:bg-red-50 transition-colors"
+            className="w-full chidi-paper bg-[var(--card)] rounded-2xl border border-red-200 p-4 flex items-center gap-3 hover:bg-red-50 transition-colors"
           >
             {isLoggingOut ? (
-              <Loader2 className="w-5 h-5 text-red-600 animate-spin" />
+              <Loader2 className="w-4 h-4 text-red-600 animate-spin" />
             ) : (
-              <LogOut className="w-5 h-5 text-red-600" />
+              <LogOut className="w-4 h-4 text-red-600" strokeWidth={1.8} />
             )}
-            <span className="font-medium text-sm text-red-600">Sign Out</span>
+            <span className="font-medium text-[14px] text-red-600">Sign out</span>
           </button>
-        </section>
+        </div>
       </div>
 
       {/* CATEGORY MODAL */}

@@ -23,8 +23,15 @@ import {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+// Skip when env vars are placeholders — otherwise the WS subscription spams CHANNEL_ERROR
+const isPlaceholderConfig =
+  !supabaseUrl ||
+  !supabaseAnonKey ||
+  supabaseUrl.includes('placeholder') ||
+  supabaseAnonKey.includes('placeholder')
+
+const supabase = !isPlaceholderConfig
+  ? createClient(supabaseUrl!, supabaseAnonKey!)
   : null
 
 export interface UseNotificationsOptions {
@@ -245,8 +252,6 @@ export function useNotifications({
       return
     }
 
-    console.log('🔔 [NOTIFICATIONS] Setting up realtime subscription for user:', userId)
-
     // Subscribe to new notifications for this user
     const channel = supabase
       .channel(`notifications:${userId}`)
@@ -259,8 +264,6 @@ export function useNotifications({
           filter: `user_id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<Notification>) => {
-          console.log('🔔 [NOTIFICATIONS] Received realtime notification:', payload)
-          
           const newNotification = payload.new as Notification
           
           // Add to state (prepend to show newest first)
@@ -286,8 +289,6 @@ export function useNotifications({
           filter: `user_id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<Notification>) => {
-          console.log('🔔 [NOTIFICATIONS] Notification updated:', payload)
-          
           const updatedNotification = payload.new as Notification
           
           setNotifications(prev =>
@@ -302,14 +303,11 @@ export function useNotifications({
           })
         }
       )
-      .subscribe((status: string) => {
-        console.log('🔔 [NOTIFICATIONS] Subscription status:', status)
-      })
+      .subscribe()
 
     channelRef.current = channel
 
     return () => {
-      console.log('🔔 [NOTIFICATIONS] Cleaning up realtime subscription')
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current)
         channelRef.current = null

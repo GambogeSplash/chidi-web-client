@@ -1,5 +1,7 @@
 // API Client - Base HTTP client for external backend integration
 
+import { tryMock } from '@/lib/chidi/mock-data'
+
 // Debug logging helper - only logs in development
 const isDev = process.env.NODE_ENV === 'development'
 const debugLog = (...args: any[]) => { if (isDev) console.log(...args) }
@@ -137,7 +139,16 @@ class APIClient {
 
   async request<T>(endpoint: string, options: RequestConfig = {}): Promise<T> {
     const { method = 'GET', headers = {}, body } = options
-    
+
+    // Dev-bypass mock layer: when no backend is running, intercept requests
+    // and return realistic data so the dashboard isn't a sea of empty states.
+    const mocked = tryMock(endpoint, method as any, body)
+    if (mocked.matched) {
+      // Tiny artificial latency so loading states have a moment to show.
+      await new Promise((resolve) => setTimeout(resolve, 80 + Math.random() * 120))
+      return mocked.data as T
+    }
+
     debugLog(`🚀 ${method} ${endpoint}`)
 
     const url = `${this.baseURL}${endpoint}`

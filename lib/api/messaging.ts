@@ -75,6 +75,8 @@ export interface ChannelConversation {
   last_activity: string;
   context_expires_at: string;
   last_intent?: MessageIntent;
+  last_message_preview?: string;
+  last_message_at?: string;
   unread_count: number;
   metadata?: Record<string, unknown>;
   channel_type?: ChannelType;

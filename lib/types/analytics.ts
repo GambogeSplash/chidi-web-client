@@ -34,6 +34,7 @@ export interface TopProduct {
   product_id: string | null
   units_sold: number
   revenue: number
+  image_url?: string | null
 }
 
 export interface StaleProduct {

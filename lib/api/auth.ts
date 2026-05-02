@@ -2,6 +2,13 @@
 import { apiClient } from './client'
 import { setStoredInventoryId, clearStoredInventoryId } from './products'
 import { setStoredBusinessId, clearStoredBusinessId } from './categories'
+import {
+  isDevBypassActive,
+  buildDevBypassUser,
+  setDevBypassSession,
+  getDevBypassUser,
+  clearDevBypassSession,
+} from '@/lib/chidi/dev-bypass'
 
 export interface BusinessProfile {
   business_category?: string
@@ -125,8 +132,22 @@ export interface ResetPasswordResponse {
 
 export const authAPI = {
   async login(credentials: LoginRequest): Promise<AuthResponse> {
-    console.log(' [AUTH] Attempting login for:', credentials.email)
-    
+    if (isDevBypassActive()) {
+      const user = buildDevBypassUser(credentials.email)
+      setDevBypassSession(credentials.email)
+      return {
+        user,
+        access_token: 'dev-bypass-token',
+        refresh_token: 'dev-bypass-refresh',
+        token_type: 'bearer',
+        expires_in: 86400,
+        business_id: user.businessId,
+        businessName: user.businessName,
+        businessSlug: user.businessSlug,
+        inventory_id: 'dev-inventory',
+      } as AuthResponse
+    }
+
     try {
       const response = await apiClient.post<AuthResponse>('/auth/signin', credentials)
       
@@ -152,8 +173,19 @@ export const authAPI = {
   },
 
   async signup(userData: SignupRequest): Promise<SignupResponse> {
-    console.log(' [AUTH] Attempting signup for:', userData.email)
-    
+    if (isDevBypassActive()) {
+      // Stash the email so the verification screen can find it; full session
+      // gets written when the OTP is "verified" in EmailVerificationPending.
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('chidi_dev_pending_email', userData.email)
+      }
+      return {
+        needs_verification: true,
+        email: userData.email,
+        message: 'Verification code sent (dev bypass — any code works)',
+      } as SignupResponse
+    }
+
     try {
       // Include redirect_url if not provided (defaults to current origin)
       const requestData = {
@@ -254,7 +286,14 @@ export const authAPI = {
   },
 
   async getMe(): Promise<User> {
-    console.log('👤 [AUTH] Fetching current user data...')
+    if (isDevBypassActive()) {
+      const cached = getDevBypassUser()
+      if (cached) return cached as User
+      const fallback = buildDevBypassUser('demo@chidi.app')
+      setDevBypassSession(fallback.email)
+      return fallback as User
+    }
+
     try {
       // Backend returns CompleteUserResponse with nested user object
       const response = await apiClient.get<CompleteUserResponse>('/auth/me')
@@ -295,6 +334,10 @@ export const authAPI = {
   },
 
   async logout(): Promise<void> {
+    if (isDevBypassActive()) {
+      clearDevBypassSession()
+      return
+    }
     try {
       // Call backend to clear httpOnly cookies
       await apiClient.post('/auth/logout')

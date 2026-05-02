@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useState, useRef, useEffect, useCallback } from "react"
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus } from "lucide-react"
+import { ChidiAvatar } from "./chidi-mark"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,7 +11,12 @@ import { useConversationList } from "@/hooks/use-conversation-list"
 import { conversationsAPI } from "@/lib/api/conversations"
 import { CopilotHistoryPanel } from "./copilot-history-panel"
 import { CopilotMessageContent } from "./copilot-blocks"
+import { VoiceButton } from "./voice-button"
 import { useFirstTimeHint } from "@/lib/hooks/use-first-time-hint"
+import { useSalesOverview } from "@/lib/hooks/use-analytics"
+import { useOrders } from "@/lib/hooks/use-orders"
+import { useConversations as useMessagingConversations } from "@/lib/hooks/use-messaging"
+import { formatCurrency } from "@/lib/utils/currency"
 import Image from "next/image"
 import type { ConversationResponse, ChatMessage } from "@/lib/types/conversation"
 import type { DisplayProduct } from "@/lib/types/product"
@@ -261,95 +267,17 @@ export function CopilotView({
     )
   }
 
-  // Empty state (new chat)
+  // Empty state (new chat) — proactive briefing seeded from real business state
   if (messages.length === 0 && !isLoading) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
-        {/* History button - top right corner */}
-        <div className="absolute top-4 right-4 z-10">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowHistory(true)}
-            className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white rounded-full"
-          >
-            <History className="w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Centered content */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 min-h-0 overflow-auto">
-          <Image
-            src="/logo.png"
-            alt="Chidi"
-            width={200}
-            height={200}
-            className="mb-2 drop-shadow-md mix-blend-multiply"
-          />
-          <p className="text-2xl font-semibold text-[var(--chidi-text-primary)] text-center mb-2">
-            How can I help today?
-          </p>
-          
-          {/* First-time hint */}
-          {showCopilotHint ? (
-            <button 
-              onClick={dismissCopilotHint}
-              className="text-xs text-[var(--chidi-text-muted)] text-center mb-4 hover:text-[var(--chidi-text-secondary)] transition-colors"
-            >
-              My answers draw from your inventory, orders, conversations and more.
-            </button>
-          ) : (
-            <div className="mb-4" />
-          )}
-
-          {/* Prompt categories */}
-          <div className="w-full max-w-sm flex flex-col gap-1">
-            {PROMPT_CATEGORIES.map((category) => {
-              const Icon = category.icon
-              const isExpanded = expandedCategory === category.id
-              return (
-                <div key={category.id} className="flex flex-col">
-                  <button
-                    onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
-                    className="flex items-center gap-2 px-2 py-2 rounded-lg text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors group"
-                  >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-base flex-1 text-left">
-                      {category.label}
-                    </span>
-                    <ChevronDown 
-                      className={cn(
-                        "w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-all duration-200",
-                        isExpanded && "rotate-180"
-                      )} 
-                    />
-                  </button>
-                  <div
-                    className={cn(
-                      "grid transition-all duration-200 ease-out",
-                      isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                    )}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="flex flex-col gap-0.5 pt-1 ml-6">
-                        {category.prompts.map((prompt) => (
-                          <button
-                            key={prompt}
-                            onClick={() => handlePromptChipClick(prompt)}
-                            className="text-base text-[var(--chidi-text-secondary)] text-left py-1.5 px-2 rounded-lg hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors"
-                          >
-                            {prompt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
+      <CopilotEmptyState
+        onPromptClick={handlePromptChipClick}
+        onShowHistory={() => setShowHistory(true)}
+        showCopilotHint={showCopilotHint}
+        dismissCopilotHint={dismissCopilotHint}
+        expandedCategory={expandedCategory}
+        setExpandedCategory={setExpandedCategory}
+      >
         {/* Input - fixed at bottom */}
         <div className="flex-shrink-0 p-4 pb-4 bg-[var(--chidi-surface)] border-t border-[var(--chidi-border-subtle)]">
           <form onSubmit={handleSubmit} className="max-w-lg mx-auto">
@@ -359,25 +287,35 @@ export function CopilotView({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask Chidi about your business..."
-                className="pr-12 h-12 bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] rounded-xl"
+                placeholder="Ask Chidi anything about your business..."
+                className="pr-24 pl-4 h-12 bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] rounded-xl font-chidi-voice"
               />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!inputValue.trim()}
-                className={cn(
-                  "absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg transition-opacity",
-                  inputValue.trim() 
-                    ? "btn-cta opacity-100" 
-                    : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50"
-                )}
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <VoiceButton
+                  size="sm"
+                  onTranscript={(t) => setInputValue(t)}
+                  onCommit={(t) => {
+                    setInputValue(t)
+                    setTimeout(() => handleSendMessage(t), 100)
+                  }}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!inputValue.trim()}
+                  className={cn(
+                    "h-8 w-8 rounded-lg transition-opacity",
+                    inputValue.trim()
+                      ? "btn-cta opacity-100"
+                      : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50"
+                  )}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-[var(--chidi-text-muted)] text-center mt-2">
-              Uses your inventory, orders, and conversations.
+            <p className="text-xs text-[var(--chidi-text-muted)] text-center mt-2 font-chidi-voice">
+              Hold the mic to speak. I draw from your inventory, orders, and conversations.
             </p>
           </form>
         </div>
@@ -393,118 +331,138 @@ export function CopilotView({
           onNewConversation={handleNewConversation}
           onDeleteConversation={handleDeleteConversation}
         />
-      </div>
+      </CopilotEmptyState>
     )
   }
 
+  // History panel mounted alongside conversation state too
   // Conversation state
   return (
-    <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
-      {/* Top right controls */}
+    <div className="flex-1 flex flex-col bg-[var(--background)] min-h-0 overflow-hidden relative">
+      {/* Top right controls — quiet glyph buttons */}
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
         <Button
           variant="ghost"
           size="icon"
           onClick={handleNewConversation}
-          className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/80 backdrop-blur-sm rounded-full shadow-sm"
+          aria-label="New conversation"
+          title="New conversation"
+          className="h-9 w-9 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg"
         >
-          <Plus className="w-5 h-5" />
+          <Plus className="w-4 h-4" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setShowHistory(true)}
-          className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/80 backdrop-blur-sm rounded-full shadow-sm"
+          aria-label="Chat history"
+          title="Chat history"
+          className="h-9 w-9 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg"
         >
-          <History className="w-5 h-5" />
+          <History className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 pt-14 space-y-4 min-h-0">
-        {messages
-          // Don't render streaming messages with no content yet (show loading instead)
-          .filter(m => !(m.isStreaming && m.content.length === 0))
-          .map((message) => (
-          <div
-            key={message.id}
-            className={cn(
-              "flex",
-              message.role === "user" ? "justify-end" : "justify-start"
-            )}
-          >
-            <div
-              className={cn(
-                "rounded-2xl px-4 py-3",
-                message.role === "user"
-                  ? "max-w-[80%] bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)]"
-                  : "max-w-[95%] bg-transparent"
-              )}
-            >
-              <CopilotMessageContent 
-                content={message.content} 
-                role={message.role}
-                products={products}
-                isStreaming={message.isStreaming}
-              />
-              {/* Only show timestamp when not streaming */}
-              {!message.isStreaming && (
-                <p className={cn(
-                  "text-[10px] mt-2",
-                  message.role === "user" 
-                    ? "text-[var(--chidi-accent-foreground)]/70" 
-                    : "text-[var(--chidi-text-muted)]"
-                )}>
-                  {formatTimestamp(message.timestamp)}
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
+      {/* Messages — centered column (Claude pattern) */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="max-w-3xl mx-auto px-4 lg:px-6 py-6 pt-14 space-y-6">
+          {messages
+            .filter(m => !(m.isStreaming && m.content.length === 0))
+            .map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex",
+                  message.role === "user" ? "justify-end" : "justify-start gap-3",
+                )}
+              >
+                {/* Assistant identity glyph on the left, user has nothing */}
+                {message.role !== "user" && (
+                  <div className="flex-shrink-0 mt-0.5">
+                    <ChidiAvatar size="sm" />
+                  </div>
+                )}
 
-        {/* Typing indicator - show when sending and no content has arrived yet */}
-        {isSending && !messages.some(m => m.isStreaming && m.content.length > 0) && (
-          <div className="flex justify-start">
-            <div className="bg-white border border-[var(--chidi-border-subtle)] rounded-2xl px-4 py-3">
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-[var(--chidi-text-muted)]" />
-                <span className="text-sm text-[var(--chidi-text-secondary)]">
+                <div
+                  className={cn(
+                    message.role === "user"
+                      ? "max-w-[78%] bg-[var(--chidi-surface)] text-[var(--chidi-text-primary)] rounded-2xl px-4 py-2.5 border border-[var(--chidi-border-subtle)]"
+                      : "max-w-[calc(100%-2.5rem)] bg-transparent",
+                  )}
+                >
+                  <CopilotMessageContent
+                    content={message.content}
+                    role={message.role}
+                    products={products}
+                    isStreaming={message.isStreaming}
+                  />
+                  {!message.isStreaming && (
+                    <p
+                      className={cn(
+                        "text-[10px] mt-2 font-chidi-voice tabular-nums",
+                        message.role === "user"
+                          ? "text-[var(--chidi-text-muted)] text-right"
+                          : "text-[var(--chidi-text-muted)]",
+                      )}
+                    >
+                      {formatTimestamp(message.timestamp)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+
+          {/* Typing indicator — three dots beside Chidi's avatar (Claude pattern) */}
+          {isSending && !messages.some(m => m.isStreaming && m.content.length > 0) && (
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">
+                <ChidiAvatar size="sm" expression="thinking" />
+              </div>
+              <div className="flex items-center gap-1.5 pt-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-text-muted)] chidi-typing-dot" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-text-muted)] chidi-typing-dot" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-text-muted)] chidi-typing-dot" style={{ animationDelay: "300ms" }} />
+                <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice ml-2">
                   {loadingMessage}
                 </span>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      {/* Input */}
-      <div className="flex-shrink-0 p-4 border-t border-[var(--chidi-border-subtle)] bg-white">
-        <form onSubmit={handleSubmit} className="max-w-lg mx-auto">
-          <div className="relative">
+      {/* Input — Claude-style large rounded bubble with send inside */}
+      <div className="flex-shrink-0 px-4 lg:px-6 pb-6 pt-2 bg-[var(--background)]">
+        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
+          <div className="relative bg-white border border-[var(--chidi-border-default)] rounded-2xl shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] focus-within:border-[var(--chidi-text-muted)]/40 focus-within:shadow-[0_4px_18px_-4px_rgba(0,0,0,0.10)] transition-all">
             <Input
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Ask Chidi about your business..."
-              className="pr-12 h-12 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] rounded-xl"
+              className="pr-14 pl-4 py-4 h-14 bg-transparent border-0 text-[15px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus-visible:ring-0 font-chidi-voice"
             />
             <Button
               type="submit"
               size="icon"
               disabled={!inputValue.trim() || isSending}
+              aria-label="Send"
               className={cn(
-                "absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg transition-opacity",
+                "absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg transition-all",
                 inputValue.trim() && !isSending
-                  ? "btn-cta opacity-100" 
-                  : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50"
+                  ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] hover:opacity-90"
+                  : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50 cursor-not-allowed",
               )}
             >
               <Send className="w-4 h-4" />
             </Button>
           </div>
+          <p className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice text-center mt-2">
+            Chidi can make mistakes. Verify anything important.
+          </p>
         </form>
       </div>
 
@@ -522,3 +480,200 @@ export function CopilotView({
     </div>
   )
 }
+
+// =============================================================================
+// CopilotEmptyState — proactive briefing instead of "How can I help today?"
+// =============================================================================
+
+interface CopilotEmptyStateProps {
+  onPromptClick: (prompt: string) => void
+  onShowHistory: () => void
+  showCopilotHint: boolean
+  dismissCopilotHint: () => void
+  expandedCategory: string | null
+  setExpandedCategory: (id: string | null) => void
+  children: React.ReactNode
+}
+
+function CopilotEmptyState({
+  onPromptClick,
+  onShowHistory,
+  showCopilotHint,
+  dismissCopilotHint,
+  expandedCategory,
+  setExpandedCategory,
+  children,
+}: CopilotEmptyStateProps) {
+  const sales = useSalesOverview("7d")
+  const pending = useOrders("PENDING_PAYMENT")
+  const needsHuman = useMessagingConversations("NEEDS_HUMAN", undefined)
+
+  const pendingCount = pending.data?.orders.length ?? 0
+  const needsHumanCount = needsHuman.data?.needs_human_count ?? 0
+  const revenueWeek = sales.data?.revenue.current
+  const percentChange = sales.data?.revenue.percent_change
+
+  // Build proactive prompts derived from real state. These are the questions
+  // a thoughtful assistant would offer to ask, not generic topics.
+  const proactivePrompts = useMemo(() => {
+    const items: { id: string; emoji: string; text: string; ask: string; tone: "win" | "warn" | "neutral" }[] = []
+
+    if (needsHumanCount > 0) {
+      items.push({
+        id: "needs-human",
+        emoji: "👋",
+        text: `${needsHumanCount} customer${needsHumanCount === 1 ? "" : "s"} ${needsHumanCount === 1 ? "is" : "are"} waiting for you. Want me to summarise what they need?`,
+        ask: `Summarise the conversations that need my attention.`,
+        tone: "warn",
+      })
+    }
+    if (pendingCount > 0) {
+      items.push({
+        id: "pending-payments",
+        emoji: "💳",
+        text: `${pendingCount} order${pendingCount === 1 ? "" : "s"} pending payment. Should I draft polite chase messages?`,
+        ask: `Draft chase messages for the pending payments.`,
+        tone: "warn",
+      })
+    }
+    if (typeof revenueWeek === "number" && revenueWeek > 0) {
+      items.push({
+        id: "revenue",
+        emoji: "📈",
+        text:
+          percentChange != null && percentChange < -5
+            ? `You're at ${formatCurrency(revenueWeek, "NGN", { compact: true })} this week — that's down ${Math.abs(Math.round(percentChange))}%. Want to dig into why?`
+            : percentChange != null && percentChange > 5
+            ? `You're at ${formatCurrency(revenueWeek, "NGN", { compact: true })} this week — up ${Math.round(percentChange)}%. Want to know what's driving it?`
+            : `You're at ${formatCurrency(revenueWeek, "NGN", { compact: true })} this week. Want a breakdown?`,
+        ask: `Walk me through what's driving sales this week.`,
+        tone: percentChange != null && percentChange < -5 ? "warn" : "win",
+      })
+    }
+    items.push({
+      id: "low-stock",
+      emoji: "📦",
+      text: "Some items might be running low. Want a restock list?",
+      ask: "What should I restock soon?",
+      tone: "neutral",
+    })
+    items.push({
+      id: "rhythm",
+      emoji: "🕒",
+      text: "I've been watching your business rhythm. Want a 60-second briefing?",
+      ask: "Give me a 60-second briefing on my business right now.",
+      tone: "neutral",
+    })
+    return items
+  }, [needsHumanCount, pendingCount, revenueWeek, percentChange])
+
+  return (
+    <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
+      <div className="absolute top-4 right-4 z-10">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onShowHistory}
+          className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white rounded-full"
+        >
+          <History className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* Briefing area */}
+      <div className="flex-1 overflow-y-auto px-5 sm:px-8 pt-12 pb-6">
+        <div className="max-w-xl mx-auto">
+          {/* Greeting */}
+          <div className="flex items-start gap-3 mb-6">
+            <ChidiAvatar size="md" tone="default" />
+            <div>
+              <h2 className="ty-page-title text-[var(--chidi-text-primary)] chidi-brief-card">
+                Here's what's on my mind.
+              </h2>
+              <p className="ty-body-voice text-[var(--chidi-text-secondary)] mt-1 leading-relaxed chidi-brief-card" style={{ animationDelay: "100ms" }}>
+                Pick one to start, or ask me anything.
+              </p>
+            </div>
+          </div>
+
+          {/* Proactive prompts */}
+          <ul className="space-y-2 mb-8">
+            {proactivePrompts.map((p, idx) => (
+              <li key={p.id} className="chidi-brief-card" style={{ animationDelay: `${200 + idx * 60}ms` }}>
+                <button
+                  onClick={() => onPromptClick(p.ask)}
+                  className={cn(
+                    "w-full text-left p-4 rounded-xl bg-white border border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)] hover:shadow-card transition-all duration-200",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)] focus-visible:ring-offset-2"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl flex-shrink-0 mt-0.5" aria-hidden>
+                      {p.emoji}
+                    </span>
+                    <p className="text-sm sm:text-[15px] font-chidi-voice text-[var(--chidi-text-primary)] leading-relaxed">
+                      {p.text}
+                    </p>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {/* Secondary topic categories */}
+          <div className="border-t border-[var(--chidi-border-subtle)] pt-5">
+            <p className="text-[11px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-chidi-voice mb-2">
+              Or ask about
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {PROMPT_CATEGORIES.map((category) => {
+                const Icon = category.icon
+                const isExpanded = expandedCategory === category.id
+                return (
+                  <div key={category.id} className="flex flex-col">
+                    <button
+                      onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
+                      className="flex items-center gap-2 px-2 py-2 rounded-lg text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors group font-chidi-voice text-sm"
+                    >
+                      <Icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="flex-1 text-left">{category.label}</span>
+                      <ChevronDown
+                        className={cn(
+                          "w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-all duration-200",
+                          isExpanded && "rotate-180"
+                        )}
+                      />
+                    </button>
+                    <div
+                      className={cn(
+                        "grid transition-all duration-200 ease-out",
+                        isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                      )}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="flex flex-col gap-0.5 pt-1 ml-6">
+                          {category.prompts.map((prompt) => (
+                            <button
+                              key={prompt}
+                              onClick={() => onPromptClick(prompt)}
+                              className="text-sm font-chidi-voice text-[var(--chidi-text-secondary)] text-left py-1.5 px-2 rounded-lg hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors"
+                            >
+                              {prompt}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {children}
+    </div>
+  )
+}
+

@@ -1,13 +1,8 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { 
-  MessageSquare, 
-  User, 
-  Clock, 
-  AlertTriangle,
-  CheckCircle,
+import {
   CheckCircle2,
   Loader2,
   Search,
@@ -17,6 +12,7 @@ import {
   ChevronDown,
   HelpCircle,
   ExternalLink,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -44,9 +40,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { AlertCircle } from "lucide-react"
-import { 
-  type ChannelConversation, 
+import {
+  type ChannelConversation,
   type ConversationStatus,
   type ChannelType,
   getChannelInfo,
@@ -62,8 +57,19 @@ import { ChannelChat } from "./channel-chat"
 import { WhatsAppConnectDialog } from "./whatsapp-connect-dialog"
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/channel-icons"
 import { cn } from "@/lib/utils"
+import { buildVoiceContext, emptyInboxMood } from "@/lib/chidi/voice"
+import { CustomerCharacter } from "./customer-character"
+import { EmptyArt } from "./empty-art"
+import { EmptyState } from "./empty-state"
+import { ChidiLoader } from "./chidi-loader"
+import { PullToRefresh } from "./pull-to-refresh"
 
-export function InboxView() {
+interface InboxViewProps {
+  onViewCustomerOrders?: (customerName: string) => void
+  onAskChidiAboutCustomer?: (customerName: string) => void
+}
+
+export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: InboxViewProps = {}) {
   const queryClient = useQueryClient()
   const [selectedConversation, setSelectedConversation] = useState<ChannelConversation | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -155,53 +161,6 @@ export function InboxView() {
     queryClient.invalidateQueries({ queryKey: messagingKeys.conversations(status, channel) })
   }
 
-  const getStatusBadge = (convStatus: ConversationStatus) => {
-    switch (convStatus) {
-      case "NEEDS_HUMAN":
-        return (
-          <Badge className="bg-[var(--chidi-warning)] text-[var(--chidi-warning-foreground)] border-0 text-[10px] px-1.5 py-0.5">
-            <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
-            Needs attention
-          </Badge>
-        )
-      case "RESOLVED":
-        return (
-          <Badge variant="secondary" className="bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] border-0 text-[10px] px-1.5 py-0.5">
-            <CheckCircle className="w-2.5 h-2.5 mr-0.5" />
-            Resolved
-          </Badge>
-        )
-      default:
-        return (
-          <Badge className="bg-[var(--chidi-success)] text-[var(--chidi-success-foreground)] border-0 text-[10px] px-1.5 py-0.5">
-            <MessageSquare className="w-2.5 h-2.5 mr-0.5" />
-            Active
-          </Badge>
-        )
-    }
-  }
-
-  const getChannelBadge = (channelType?: ChannelType) => {
-    if (!channelType) return null
-    const info = getChannelInfo(channelType)
-    
-    const IconComponent = channelType === 'WHATSAPP' 
-      ? <WhatsAppIcon size={10} className="mr-0.5" />
-      : channelType === 'TELEGRAM'
-      ? <TelegramIcon size={10} className="mr-0.5" />
-      : null
-    
-    return (
-      <span 
-        className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-full"
-        style={{ backgroundColor: `${info.color}20`, color: info.color }}
-      >
-        {IconComponent}
-        {info.name}
-      </span>
-    )
-  }
-
   const formatTime = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -225,6 +184,21 @@ export function InboxView() {
     return customerId.includes(query) || name.includes(query)
   })
 
+  // Sort: NEEDS_HUMAN pinned to top (Front pattern), then by recency.
+  // Resolved threads sink so they don't compete with live work.
+  const sortedConversations = useMemo(
+    () =>
+      [...filteredConversations].sort((a, b) => {
+        const aNeeds = a.status === "NEEDS_HUMAN" ? 0 : a.status === "RESOLVED" ? 2 : 1
+        const bNeeds = b.status === "NEEDS_HUMAN" ? 0 : b.status === "RESOLVED" ? 2 : 1
+        if (aNeeds !== bNeeds) return aNeeds - bNeeds
+        return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
+      }),
+    [filteredConversations],
+  )
+
+  const hasMultipleChannels = (connections?.connections.length ?? 0) > 1
+
   const isConnecting = connectTelegram.isPending
   const loading = loadingConversations && conversations.length === 0
 
@@ -242,69 +216,83 @@ export function InboxView() {
     return (
       <div className="flex-1 flex flex-col bg-[var(--background)]">
         {/* Header section */}
-        <div className="px-4 pt-4 pb-3 border-b border-[var(--chidi-border-subtle)]">
-          <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Inbox</h2>
-          <p className="text-xs text-[var(--chidi-text-muted)]">0 conversations</p>
+        <div className="px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
+          <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inbox</h1>
         </div>
 
-        {/* Connect Channel CTA */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
-          <div className="w-20 h-20 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center mb-6">
-            <MessageCircle className="w-10 h-10 text-[var(--chidi-accent)]" />
-          </div>
-          
-          <h3 className="text-xl font-semibold text-[var(--chidi-text-primary)] mb-2 text-center">
-            Connect a Messaging Channel
-          </h3>
-          <p className="text-sm text-[var(--chidi-text-muted)] text-center mb-8 max-w-xs">
-            Connect a messaging platform to start receiving and managing customer messages.
-          </p>
-
-          <Button
-            onClick={() => setShowChannelPicker(true)}
-            className="btn-cta px-6 h-11 rounded-xl font-medium"
-          >
-            <MessageCircle className="w-4 h-4 mr-2" />
-            Connect Channel
-          </Button>
-
-          <p className="text-xs text-[var(--chidi-text-muted)] mt-4 text-center max-w-xs">
-            You can also connect channels later from Settings
-          </p>
+        {/* Connect Channel state — uses the standardized EmptyState
+            (EmptyArt illustration + ty-page-title + ty-body-voice + btn-cta)
+            so it matches Inventory / Orders empty states across the app. */}
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState
+            art="inbox"
+            title="Let's plug in your customers."
+            description="Connect WhatsApp or Telegram and I'll start handling customer messages, drafting replies, tracking orders, and flagging anything that needs you."
+            action={
+              <div className="flex flex-col items-center gap-3">
+                <Button
+                  onClick={() => setShowChannelPicker(true)}
+                  className="btn-cta gap-1.5"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Connect a channel
+                </Button>
+                <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice">
+                  You can change channels later in Settings.
+                </p>
+              </div>
+            }
+          />
         </div>
 
-        {/* Channel Picker Dialog */}
+        {/* Channel Picker Dialog — page-style header (eyebrow + serif title)
+            matching the rest of the modals. Each channel is a tactile card
+            with its branded color band on the left as a visual anchor. */}
         <Dialog open={showChannelPicker} onOpenChange={setShowChannelPicker}>
-          <DialogContent className="bg-white border-[var(--chidi-border-subtle)] sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-[var(--chidi-text-primary)]">
-                Select a Channel
+          <DialogContent className="bg-white border-[var(--chidi-border-default)] sm:max-w-lg p-0 rounded-2xl overflow-hidden">
+            <div className="px-6 lg:px-7 pt-6 pb-4 border-b border-[var(--chidi-border-subtle)]">
+              <DialogTitle asChild>
+                <h2 className="ty-page-title text-[var(--chidi-text-primary)]">
+                  Connect a channel
+                </h2>
               </DialogTitle>
-              <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                Choose a messaging platform to connect
+              <DialogDescription asChild>
+                <p className="text-[13px] text-[var(--chidi-text-secondary)] font-chidi-voice mt-1.5">
+                  Pick where your customers reach you. You can add more later.
+                </p>
               </DialogDescription>
-            </DialogHeader>
-            
-            <div className="py-4 space-y-2">
+            </div>
+
+            <div className="px-6 lg:px-7 py-5 space-y-2">
               {availableChannels.map((channelOption) => (
                 <button
                   key={channelOption.type}
                   onClick={() => handleSelectChannel(channelOption.type)}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl border border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface)] transition-colors text-left"
+                  className="group w-full flex items-center gap-4 p-4 rounded-xl border border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface)]/50 transition-all text-left active:scale-[0.99]"
                 >
-                  <div 
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: `${channelOption.color}15` }}
                   >
                     {channelOption.icon}
                   </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-[var(--chidi-text-primary)]">{channelOption.name}</div>
-                    <div className="text-sm text-[var(--chidi-text-muted)]">{channelOption.description}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-[14px] text-[var(--chidi-text-primary)]">
+                      {channelOption.name}
+                    </div>
+                    <div className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
+                      {channelOption.description}
+                    </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-[var(--chidi-text-muted)]" />
+                  <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)] group-hover:text-[var(--chidi-text-primary)] group-hover:translate-x-0.5 transition-all flex-shrink-0" />
                 </button>
               ))}
+            </div>
+
+            <div className="px-6 lg:px-7 py-3 border-t border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/30">
+              <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice text-center">
+                Connecting takes about 2 minutes. No card on file.
+              </p>
             </div>
           </DialogContent>
         </Dialog>
@@ -429,12 +417,14 @@ export function InboxView() {
   // Show chat view if conversation is selected
   if (selectedConversation) {
     return (
-      <ChannelChat 
+      <ChannelChat
         conversation={selectedConversation}
         onBack={handleBackToList}
         onConversationUpdate={(updated) => {
           setSelectedConversation(updated)
         }}
+        onViewCustomerOrders={onViewCustomerOrders}
+        onAskChidiAboutCustomer={onAskChidiAboutCustomer}
       />
     )
   }
@@ -444,24 +434,26 @@ export function InboxView() {
 
   return (
     <div className="flex-1 flex flex-col bg-[var(--background)]">
-      {/* Header section */}
-      <div className="px-4 pt-4 pb-3 border-b border-[var(--chidi-border-subtle)]">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Inbox</h2>
-            <p className="text-xs text-[var(--chidi-text-muted)]">
-              {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
+      {/* Header — noun title + inline meta. No conversational subtitle. */}
+      <div className="px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
+        <div className="flex items-center justify-between mb-3 gap-3">
+          <div className="min-w-0 flex items-baseline gap-3">
+            <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inbox</h1>
+            <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
+              {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"}
               {needsHumanCount > 0 && (
-                <span className="text-[var(--chidi-warning)]"> · {needsHumanCount} need attention</span>
+                <span className="text-[var(--chidi-warning)]"> · {needsHumanCount} need you</span>
               )}
             </p>
           </div>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             onClick={handleRefresh}
             disabled={loading || isRefetching}
-            className="h-8 w-8 text-[var(--chidi-text-secondary)]"
+            className="h-9 w-9 text-[var(--chidi-text-secondary)] flex-shrink-0"
+            aria-label="Refresh"
+            title="Refresh"
           >
             <RefreshCw className={cn("w-4 h-4", isRefetching && "animate-spin")} />
           </Button>
@@ -515,84 +507,171 @@ export function InboxView() {
         </div>
       </div>
 
-      {/* Conversation List */}
+      {/* Conversation List — wrapped in pull-to-refresh on mobile */}
+      <PullToRefresh
+        onRefresh={async () => {
+          await queryClient.invalidateQueries({ queryKey: messagingKeys.conversations(status, channel) })
+        }}
+        disabled={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches}
+      >
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-6 h-6 animate-spin text-[var(--chidi-text-muted)]" />
+            <ChidiLoader context="inbox" size="md" />
           </div>
-        ) : filteredConversations.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-16 px-6">
-            <div className="w-16 h-16 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center mb-4">
-              <MessageSquare className="w-8 h-8 text-[var(--chidi-text-muted)]" />
+        ) : sortedConversations.length === 0 ? (
+          searchQuery ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-16 px-6">
+              <EmptyArt variant="search" size={120} className="text-[var(--chidi-text-muted)] mb-5" />
+              <h3 className="ty-page-title text-[var(--chidi-text-primary)] mb-2">
+                Nothing matched that.
+              </h3>
+              <p className="ty-body-voice text-[var(--chidi-text-secondary)] text-center max-w-sm">
+                Try a different name, number, or filter.
+              </p>
             </div>
-            <h3 className="text-base font-semibold text-[var(--chidi-text-primary)] mb-1">
-              {searchQuery ? "No results found" : "No conversations yet"}
-            </h3>
-            <p className="text-sm text-[var(--chidi-text-muted)] text-center max-w-xs">
-              {searchQuery 
-                ? "Try adjusting your search or filter"
-                : "Messages from your WhatsApp customers will appear here."
-              }
-            </p>
-          </div>
+          ) : (
+            <InboxQuietState
+              channelCount={connections?.connections.length ?? 0}
+              voiceLine={emptyInboxMood(buildVoiceContext())}
+            />
+          )
         ) : (
-          <div className="divide-y divide-[var(--chidi-border-subtle)]">
-            {filteredConversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                onClick={() => handleConversationClick(conversation)}
-                className={cn(
-                  "w-full px-4 py-3 text-left transition-colors hover:bg-[var(--chidi-surface)]",
-                  conversation.status === "NEEDS_HUMAN" && "border-l-2 border-l-[var(--chidi-warning)]"
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div className="w-10 h-10 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-[var(--chidi-text-muted)]" />
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium text-sm text-[var(--chidi-text-primary)] truncate">
-                          {conversation.customer_name || formatCustomerId(conversation.customer_id, conversation.channel_type)}
-                        </span>
-                        {conversation.unread_count > 0 && (
-                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--chidi-accent)] text-[var(--chidi-accent-foreground)] text-[10px] font-medium flex items-center justify-center">
-                            {conversation.unread_count}
-                          </span>
+          <ul className="divide-y divide-[var(--chidi-border-subtle)]">
+            {sortedConversations.map((conversation) => {
+              const isNeedsHuman = conversation.status === "NEEDS_HUMAN"
+              const isResolved = conversation.status === "RESOLVED"
+              const isUnread = conversation.unread_count > 0
+              const channelInfo = conversation.channel_type
+                ? getChannelInfo(conversation.channel_type)
+                : null
+              const displayName =
+                conversation.customer_name ||
+                formatCustomerId(conversation.customer_id, conversation.channel_type)
+              const peek = conversation.last_message_preview ||
+                (conversation.last_intent && conversation.last_intent !== "UNKNOWN"
+                  ? conversation.last_intent.replace(/_/g, " ").toLowerCase()
+                  : "")
+
+              return (
+                <li key={conversation.id}>
+                  <button
+                    onClick={() => handleConversationClick(conversation)}
+                    className={cn(
+                      "w-full px-4 py-3 text-left transition-colors group",
+                      isNeedsHuman
+                        ? "bg-[var(--chidi-warning)]/5 hover:bg-[var(--chidi-warning)]/10"
+                        : "hover:bg-[var(--chidi-surface)]/60",
+                      isResolved && "opacity-70",
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="relative flex-shrink-0">
+                        <CustomerCharacter
+                          name={conversation.customer_name}
+                          fallbackId={conversation.customer_id}
+                          size="md"
+                        />
+                        {hasMultipleChannels && channelInfo && (
+                          <span
+                            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[var(--background)] flex items-center justify-center"
+                            style={{ backgroundColor: channelInfo.color }}
+                            title={channelInfo.name}
+                            aria-label={channelInfo.name}
+                          />
                         )}
                       </div>
-                      <div className="flex items-center gap-1 text-[var(--chidi-text-muted)] text-xs flex-shrink-0">
-                        <Clock className="w-3 h-3" />
-                        {formatTime(conversation.last_activity)}
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                          <span
+                            className={cn(
+                              "text-sm truncate",
+                              isUnread
+                                ? "font-semibold text-[var(--chidi-text-primary)]"
+                                : "text-[var(--chidi-text-secondary)]",
+                            )}
+                          >
+                            {displayName}
+                          </span>
+                          <span className="text-[11px] text-[var(--chidi-text-muted)] tabular-nums flex-shrink-0">
+                            {formatTime(conversation.last_activity)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2">
+                          <p
+                            className={cn(
+                              "text-[13px] truncate min-w-0 font-chidi-voice",
+                              isUnread
+                                ? "text-[var(--chidi-text-secondary)]"
+                                : "text-[var(--chidi-text-muted)]",
+                            )}
+                          >
+                            {peek || (isResolved ? "Resolved" : "No messages yet")}
+                          </p>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {isNeedsHuman ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] font-medium font-chidi-voice whitespace-nowrap">
+                                Needs you
+                              </span>
+                            ) : isUnread ? (
+                              <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--chidi-success)] text-white text-[10px] font-medium flex items-center justify-center tabular-nums">
+                                {conversation.unread_count}
+                              </span>
+                            ) : !isResolved ? (
+                              <span
+                                className="relative flex w-1.5 h-1.5"
+                                title="Chidi handling"
+                                aria-label="Chidi handling"
+                              >
+                                <span className="absolute inset-0 rounded-full bg-[var(--chidi-success)] chidi-live-dot opacity-50" />
+                                <span className="relative w-1.5 h-1.5 rounded-full bg-[var(--chidi-success)]" />
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    
-                    {conversation.customer_name && (
-                      <p className="text-xs text-[var(--chidi-text-muted)] truncate mb-1">
-                        {formatCustomerId(conversation.customer_id, conversation.channel_type)}
-                      </p>
-                    )}
-                    
-                    <div className="flex items-center gap-2">
-                      {getChannelBadge(conversation.channel_type)}
-                      {getStatusBadge(conversation.status)}
-                      {conversation.last_intent && conversation.last_intent !== "UNKNOWN" && (
-                        <span className="text-[10px] text-[var(--chidi-text-muted)]">
-                          {conversation.last_intent.replace("_", " ")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         )}
+      </div>
+      </PullToRefresh>
+    </div>
+  )
+}
+
+interface InboxQuietStateProps {
+  channelCount: number
+  voiceLine: string
+}
+
+/**
+ * Empty inbox after channels are connected. WhatsApp + Apple Messages both
+ * use one warm sentence here, no fake content. We add a tiny live status
+ * line ("Listening on N channels") so the merchant knows the wire is hot.
+ */
+function InboxQuietState({ channelCount, voiceLine }: InboxQuietStateProps) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
+      <EmptyArt variant="inbox" size={104} className="text-[var(--chidi-text-muted)] mb-5" />
+      <h3 className="ty-page-title text-[var(--chidi-text-primary)] mb-2">All quiet.</h3>
+      <p className="ty-body-voice text-[var(--chidi-text-secondary)] max-w-sm mb-5">
+        {voiceLine}
+      </p>
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)]">
+        <span className="relative flex w-1.5 h-1.5">
+          <span className="absolute inset-0 rounded-full bg-[var(--chidi-success)] chidi-live-dot opacity-50" />
+          <span className="relative w-1.5 h-1.5 rounded-full bg-[var(--chidi-success)]" />
+        </span>
+        <span className="text-[11px] text-[var(--chidi-text-secondary)] font-chidi-voice tabular-nums">
+          Listening on {channelCount} {channelCount === 1 ? "channel" : "channels"}
+        </span>
       </div>
     </div>
   )

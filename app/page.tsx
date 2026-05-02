@@ -2,252 +2,69 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { authAPI } from '@/lib/api'
-import { Loader2, MessageCircle, Bot, Package, CreditCard, Bell, ShoppingBag } from 'lucide-react'
-import Link from 'next/link'
-import Image from 'next/image'
 
-// Activity ticker messages - updated per user feedback
-const ACTIVITY_MESSAGES = [
-  { icon: 'whatsapp', text: 'New WhatsApp order placed' },
-  { icon: 'package', text: '5 items running out of stock' },
-  { icon: 'whatsapp', text: 'New message from customer' },
-  { icon: 'bot', text: 'Product catalog shared with customer' },
-  { icon: 'payment', text: 'Payment confirmed for order: 12XXX' },
-  { icon: 'bell', text: 'Daily summary alert' },
-]
-
-function ActivityIcon({ type }: { type: string }) {
-  const iconClass = "w-3.5 h-3.5"
-  switch (type) {
-    case 'whatsapp':
-      return <MessageCircle className={`${iconClass} text-green-600`} />
-    case 'bot':
-      return <Bot className={`${iconClass} text-neutral-700`} />
-    case 'package':
-      return <Package className={`${iconClass} text-amber-600`} />
-    case 'payment':
-      return <CreditCard className={`${iconClass} text-emerald-600`} />
-    case 'bell':
-      return <Bell className={`${iconClass} text-blue-600`} />
-    case 'cart':
-      return <ShoppingBag className={`${iconClass} text-purple-600`} />
-    default:
-      return <MessageCircle className={iconClass} />
-  }
-}
-
+/**
+ * / — auth-router only. The marketing page lives at /landing.
+ *
+ *   Supabase auth callback (#access_token in hash) → /auth (preserves hash)
+ *   Signed-in, has business slug                    → /dashboard/{slug}
+ *   Signed-in, no business yet                      → /onboarding
+ *   Signed-out                                       → /landing
+ *
+ * Splitting the marketing page into its own route lets us iterate on the
+ * landing in isolation without auth-redirect getting in the way during dev,
+ * and keeps the auth-router cheap and focused.
+ */
 export default function HomePage() {
   const router = useRouter()
-  const [isChecking, setIsChecking] = useState(true)
-  const [showWelcome, setShowWelcome] = useState(false)
-  const [activityIndex, setActivityIndex] = useState(0)
-  const [activityKey, setActivityKey] = useState(0)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
-    // FIRST: Check for Supabase auth callback in URL hash
-    // This MUST happen before any localStorage checks to handle new sessions correctly
     if (typeof window !== 'undefined' && window.location.hash) {
       const hash = window.location.hash
       const params = new URLSearchParams(hash.substring(1))
-      
-      // Check if this is an auth callback (has access_token or error)
-      const hasAccessToken = params.has('access_token')
-      const hasError = params.has('error')
-      
-      if (hasAccessToken || hasError) {
-        console.log('🔀 [HOME] Auth callback detected, redirecting to /auth with hash')
-        // Redirect to /auth page with the hash preserved for proper handling
+      if (params.has('access_token') || params.has('error')) {
         router.replace('/auth' + hash)
         return
       }
     }
 
-    const checkAuthAndRedirect = async () => {
+    const route = async () => {
       try {
-        const isAuth = authAPI.isAuthenticated()
-        
-        if (!isAuth) {
-          setIsChecking(false)
-          setShowWelcome(true)
+        if (!authAPI.isAuthenticated()) {
+          router.replace('/landing')
           return
         }
 
         const user = await authAPI.getMe()
-        
         if (!user.businessName) {
-          router.push('/onboarding')
+          router.replace('/onboarding')
         } else if (user.businessSlug) {
-          router.push(`/dashboard/${user.businessSlug}`)
+          router.replace(`/dashboard/${user.businessSlug}`)
         } else {
-          router.push('/onboarding')
+          router.replace('/onboarding')
         }
-      } catch (error) {
-        console.error('Auth check failed:', error)
-        setIsChecking(false)
-        setShowWelcome(true)
+      } catch (err) {
+        console.error('Auth check failed:', err)
+        // On failure, fall back to the public landing rather than spinning forever
+        setError(true)
+        router.replace('/landing')
       }
     }
 
-    checkAuthAndRedirect()
+    route()
   }, [router])
 
-  // Cycle activity ticker
-  useEffect(() => {
-    if (!showWelcome) return
-
-    const interval = setInterval(() => {
-      setActivityIndex((prev) => (prev + 1) % ACTIVITY_MESSAGES.length)
-      setActivityKey((prev) => prev + 1)
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [showWelcome])
-
-  // Loading state
-  if (isChecking) {
-    return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
-          <p className="text-[var(--chidi-text-muted)]">Loading...</p>
-        </div>
+  return (
+    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
+        <p className="text-[var(--chidi-text-muted)]">
+          {error ? 'Redirecting…' : 'Loading…'}
+        </p>
       </div>
-    )
-  }
-
-  // Welcome screen with animated warm gradient background
-  if (showWelcome) {
-    return (
-      <div className="min-h-screen relative overflow-hidden bg-[var(--background)]">
-        {/* Animated Background — warm paper tones */}
-        <div className="absolute inset-0 z-0">
-          <div 
-            className="absolute inset-0 animate-gradient-shift"
-            style={{
-              background: 'linear-gradient(-45deg, #F7F5F3, #F0EEEB, #F5F0E8, #F7F5F3, #EDE8E1)',
-              backgroundSize: '400% 400%',
-            }}
-          />
-          
-          {/* Floating orbs — warm earth tones */}
-          <div 
-            className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-gradient-to-br from-[#C4956A]/20 to-[#E0DEDB]/15 blur-3xl animate-floating-orb"
-            style={{ animationDelay: '0s' }}
-          />
-          <div 
-            className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-[#E0DEDB]/30 to-[#F0EEEB]/20 blur-3xl animate-floating-orb"
-            style={{ animationDelay: '-5s' }}
-          />
-          <div 
-            className="absolute top-1/2 right-1/3 w-[350px] h-[350px] rounded-full bg-gradient-to-br from-[#D4C4B0]/20 to-[#F0EEEB]/15 blur-3xl animate-floating-orb"
-            style={{ animationDelay: '-10s' }}
-          />
-          <div 
-            className="absolute bottom-1/4 left-1/3 w-[450px] h-[450px] rounded-full bg-gradient-to-br from-[#5B8A72]/10 to-[#7AB89A]/08 blur-3xl animate-floating-orb"
-            style={{ animationDelay: '-15s' }}
-          />
-          
-          {/* Subtle dot pattern overlay */}
-          <div 
-            className="absolute inset-0 opacity-[0.25]"
-            style={{
-              backgroundImage: `radial-gradient(circle, rgba(55, 50, 47, 0.3) 1px, transparent 1px)`,
-              backgroundSize: '24px 24px',
-            }}
-          />
-        </div>
-
-        {/* Content */}
-        <main className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 py-8">
-          {/* Hero Section */}
-          <div className="text-center mb-8 max-w-md">
-            {/* Brand Logo */}
-            <div 
-              className="mb-6 animate-fade-scale-in"
-              style={{ animationDelay: '0ms' }}
-            >
-              <Image
-                src="/logo.png"
-                alt="Chidi"
-                width={150}
-                height={150}
-                className="mx-auto"
-                priority
-              />
-            </div>
-            
-            {/* Statement — serif headline */}
-            <p 
-              className="text-2xl sm:text-3xl font-serif text-[var(--chidi-text-primary)] mb-3 animate-fade-slide-up tracking-tight"
-              style={{ animationDelay: '200ms' }}
-            >
-              Let's do business the Chidi way.
-            </p>
-            
-            {/* Curiosity hook */}
-            <p 
-              className="text-base sm:text-lg text-[var(--chidi-text-secondary)] animate-fade-slide-up"
-              style={{ animationDelay: '500ms' }}
-            >
-              Want to know what that means?
-            </p>
-          </div>
-
-          {/* CTAs */}
-          <div 
-            className="w-full max-w-xs mb-8 animate-fade-slide-up"
-            style={{ animationDelay: '800ms' }}
-          >
-            <Link
-              href="/auth?tab=signup"
-              className="group relative block w-full py-4 px-6 text-center rounded-xl btn-cta font-semibold text-base overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <span className="relative z-10">Get Started</span>
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            </Link>
-          </div>
-
-          <p 
-            className="text-sm text-[var(--chidi-text-muted)] mb-12 animate-fade-slide-up"
-            style={{ animationDelay: '1000ms' }}
-          >
-            Already have an account?{' '}
-            <Link 
-              href="/auth?tab=signin" 
-              className="text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] underline underline-offset-2 transition-colors font-medium"
-            >
-              Sign In
-            </Link>
-          </p>
-
-          {/* Activity Ticker */}
-          <div 
-            className="w-full max-w-sm h-10 flex items-center justify-center mb-8 animate-fade-slide-up"
-            style={{ animationDelay: '1200ms' }}
-          >
-            <div 
-              key={activityKey}
-              className="flex items-center gap-2.5 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-card animate-toast-cycle"
-            >
-              <ActivityIcon type={ACTIVITY_MESSAGES[activityIndex].icon} />
-              <span className="text-sm text-[var(--chidi-text-secondary)] font-medium">
-                {ACTIVITY_MESSAGES[activityIndex].text}
-              </span>
-            </div>
-          </div>
-
-          {/* Trust Line */}
-          <p 
-            className="text-xs text-[var(--chidi-text-muted)] text-center animate-fade-slide-up"
-            style={{ animationDelay: '1400ms' }}
-          >
-            Trusted by businesses across Lagos, Accra, and Nairobi
-          </p>
-        </main>
-      </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }

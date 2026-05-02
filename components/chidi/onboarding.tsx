@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Store, MessageCircle, BarChart3, ArrowRight, Check, Clock, Loader2, Globe } from "lucide-react"
+import Image from "next/image"
+import { ChidiAvatar } from "./chidi-mark"
+import { SetupCelebration } from "./setup-celebration"
 import type { User } from "@/lib/api"
 import { authAPI } from "@/lib/api"
 import { cn } from "@/lib/utils"
@@ -46,7 +49,25 @@ function OnboardingHeader({ title, subtitle }: { title: string; subtitle: string
       <h1 className="text-2xl font-serif text-[var(--chidi-text-primary)] tracking-tight mb-2">
         {title}
       </h1>
-      <p className="text-[var(--chidi-text-secondary)] text-sm">{subtitle}</p>
+      <p className="text-[var(--chidi-text-secondary)] text-sm font-chidi-voice">{subtitle}</p>
+    </div>
+  )
+}
+
+// Conversational header — Chidi speaks at the top of each step, framing it
+// as a chat instead of a form.
+function ChidiSays({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-start gap-3 mb-6 chidi-brief-card">
+      <ChidiAvatar size="md" tone="default" />
+      <div className="flex-1 min-w-0">
+        <p className="ty-page-title text-[var(--chidi-text-primary)]">{title}</p>
+        {subtitle && (
+          <p className="ty-body-voice text-[var(--chidi-text-secondary)] mt-1.5 leading-relaxed">
+            {subtitle}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -129,6 +150,9 @@ function SetupProgress({ currentPhase }: { currentPhase: number }) {
 export function Onboarding({ user, onComplete }: OnboardingProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [setupPhase, setSetupPhase] = useState(0)
+  // Holds the completed user payload so we can render <SetupCelebration> for
+  // a beat before handing off. Null means we haven't celebrated yet.
+  const [celebratingPayload, setCelebratingPayload] = useState<any>(null)
   
   // Check if user needs to set their name (magic link users have placeholder name)
   const needsNameUpdate = user.name === PLACEHOLDER_NAME || 
@@ -222,11 +246,10 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         // Clear persisted drafts on successful completion
         clearAllDrafts()
         
-        // Call the parent completion handler with the API response
-        // This will redirect directly to the dashboard
-        // Use updated name if user needed to set it, otherwise use original name
+        // Stash the payload — render <SetupCelebration> for a beat, THEN
+        // hand off to onComplete. Makes the moment of "you're in" feel earned.
         const finalName = needsNameUpdate ? userData.name.trim() : user.name
-        onComplete({
+        setCelebratingPayload({
           ...response.user,
           name: finalName,
           businessName: userData.businessName,
@@ -234,8 +257,9 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
           business_id: response.business_id,
           workspace_id: response.workspace_id,
           inventory_id: response.inventory_id,
-          businessSlug: response.businessSlug
+          businessSlug: response.businessSlug,
         })
+        setIsLoading(false)
       } catch (error: any) {
         console.error('Onboarding completion failed:', error)
         setIsLoading(false)
@@ -290,72 +314,69 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     })
   }
 
-  // Step 1: Welcome Screen
+  // Crescendo — renders the celebration sequence once the API confirms.
+  // Then fires onComplete, handing off to the dashboard.
+  if (celebratingPayload) {
+    return (
+      <SetupCelebration
+        ownerName={celebratingPayload.ownerName || celebratingPayload.name}
+        businessName={celebratingPayload.businessName}
+        onDone={() => onComplete(celebratingPayload)}
+      />
+    )
+  }
+
+  // Step 1: Welcome — opens as a conversation with Chidi, not a 3-feature pitch
   if (step === 1) {
-    // Use generic greeting if user has placeholder name
-    const welcomeTitle = needsNameUpdate 
-      ? "Welcome to Chidi!" 
-      : `Welcome to Chidi, ${user.name}!`
-    
+    const firstName = needsNameUpdate ? "" : (user.name?.split(" ")[0] || "")
+    const greeting = firstName ? `Hi ${firstName}, I'm Chidi.` : "Hi, I'm Chidi."
+
     return (
       <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-          <OnboardingHeader 
-            title={welcomeTitle}
-            subtitle="Set up your AI business assistant in just a few steps"
+          <ChidiSays
+            title={greeting}
+            subtitle="I'm going to be your assistant. I'll handle WhatsApp messages, track orders, and learn your business. Let's get you set up — it takes about two minutes."
           />
 
-          {/* Features */}
-          <div className="grid grid-cols-1 gap-3 mb-8">
-            <div className="flex items-center p-4 bg-[var(--chidi-surface)] rounded-xl border border-[var(--chidi-border-subtle)]">
-              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mr-4 border border-[var(--chidi-border-subtle)]">
-                <Store className="w-6 h-6 text-[var(--chidi-text-secondary)]" />
-              </div>
-              <div>
-                <h3 className="font-medium text-[var(--chidi-text-primary)] mb-0.5">Manage Inventory</h3>
-                <p className="text-sm text-[var(--chidi-text-muted)]">Track products, stock levels, and get low-stock alerts</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center p-4 bg-[var(--chidi-surface)] rounded-xl border border-[var(--chidi-border-subtle)]">
-              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mr-4 border border-[var(--chidi-border-subtle)]">
-                <MessageCircle className="w-6 h-6 text-[var(--chidi-text-secondary)]" />
-              </div>
-              <div>
-                <h3 className="font-medium text-[var(--chidi-text-primary)] mb-0.5">AI Customer Chat</h3>
-                <p className="text-sm text-[var(--chidi-text-muted)]">Auto-respond to WhatsApp and Instagram messages</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center p-4 bg-[var(--chidi-surface)] rounded-xl border border-[var(--chidi-border-subtle)]">
-              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mr-4 border border-[var(--chidi-border-subtle)]">
-                <BarChart3 className="w-6 h-6 text-[var(--chidi-text-secondary)]" />
-              </div>
-              <div>
-                <h3 className="font-medium text-[var(--chidi-text-primary)] mb-0.5">Sales Analytics</h3>
-                <p className="text-sm text-[var(--chidi-text-muted)]">Real-time insights on revenue and customer behavior</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Setup Notice */}
-          <div className="flex items-center p-4 bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] rounded-xl mb-8">
-            <Clock className="w-5 h-5 text-[var(--chidi-text-muted)] mr-3 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium text-[var(--chidi-text-primary)] text-sm mb-0.5">Quick Setup</h4>
-              <p className="text-xs text-[var(--chidi-text-muted)]">This will only take 2 minutes. You can always customize later.</p>
-            </div>
-          </div>
+          {/* Step preview — what's coming, in plain language */}
+          <ol className="space-y-2.5 mb-8">
+            {[
+              { n: 1, label: "Tell me about your business", time: "30 seconds" },
+              { n: 2, label: "Pick what you sell so I know your inventory shape", time: "30 seconds" },
+              { n: 3, label: "Connect WhatsApp so I can start helping", time: "1 minute" },
+            ].map((s, idx) => (
+              <li
+                key={s.n}
+                className="flex items-center gap-3 p-3 rounded-xl bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] chidi-brief-card"
+                style={{ animationDelay: `${150 + idx * 80}ms` }}
+              >
+                <span className="flex-shrink-0 w-7 h-7 rounded-full bg-white border border-[var(--chidi-border-subtle)] flex items-center justify-center text-xs font-medium font-chidi-voice text-[var(--chidi-text-secondary)] tabular-nums">
+                  {s.n}
+                </span>
+                <span className="flex-1 text-sm text-[var(--chidi-text-primary)] font-chidi-voice">
+                  {s.label}
+                </span>
+                <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
+                  {s.time}
+                </span>
+              </li>
+            ))}
+          </ol>
 
           <Button
             onClick={handleNext}
             className="w-full btn-cta h-12 font-medium transition-all duration-300 rounded-xl"
           >
-            Get Started
+            Let's go
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
+
+          <p className="text-xs text-[var(--chidi-text-muted)] font-chidi-voice text-center mt-4">
+            You can change anything later. Nothing here is final.
+          </p>
         </div>
       </div>
     )
@@ -372,9 +393,11 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-          <OnboardingHeader 
-            title={needsNameUpdate ? "Let's get to know you" : "Tell us about your business"}
-            subtitle={needsNameUpdate ? "First, tell us your name, then about your business" : "This helps Chidi personalize your experience"}
+          <ChidiSays
+            title={needsNameUpdate ? "First — what should I call you?" : "Tell me about your business."}
+            subtitle={needsNameUpdate
+              ? "Your name, your business name, and where you're based. Quick stuff."
+              : "What you call it, your phone number, and which currency you sell in."}
           />
 
           {/* API Error Banner */}
@@ -523,9 +546,9 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
-          <OnboardingHeader 
-            title="What type of business do you run?"
-            subtitle="We'll set up relevant product categories for you"
+          <ChidiSays
+            title="What kind of business?"
+            subtitle="Pick whatever fits — I'll set up the right product categories for you. You can pick more than one."
           />
 
           {/* API Error Banner */}

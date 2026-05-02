@@ -20,7 +20,6 @@ function AuthPageContent() {
     const handleAuthCallback = async () => {
       // Check for verified=true param (user already processed, just showing success)
       if (searchParams.get('verified') === 'true') {
-        console.log('✅ [AUTH-PAGE] Email verified via query param')
         setShowVerified(true)
         return
       }
@@ -35,7 +34,6 @@ function AuthPageContent() {
         const errorDescription = params.get('error_description')
         
         if (error) {
-          console.log('❌ [AUTH-PAGE] Auth error in hash:', error, errorDescription)
           // Clear the hash from URL
           window.history.replaceState(null, '', window.location.pathname)
           // Show user-friendly error message
@@ -43,20 +41,13 @@ function AuthPageContent() {
           setAuthError(friendlyError)
           return
         }
-        
+
         const accessToken = params.get('access_token')
         const refreshToken = params.get('refresh_token')
         const type = params.get('type')
 
-        console.log('🔍 [AUTH-PAGE] Hash params:', { 
-          hasAccessToken: !!accessToken, 
-          hasRefreshToken: !!refreshToken, 
-          type 
-        })
-
         // Handle password recovery callback
         if (accessToken && type === 'recovery') {
-          console.log('🔑 [AUTH-PAGE] Password recovery callback detected')
           setResetPasswordToken(accessToken)
           // Clear the hash from URL
           window.history.replaceState(null, '', window.location.pathname)
@@ -65,32 +56,25 @@ function AuthPageContent() {
 
         // Handle auth callbacks (signup verification, magiclink, etc.)
         if (accessToken) {
-          console.log('✅ [AUTH-PAGE] Auth callback detected, type:', type)
           setIsProcessingCallback(true)
 
           try {
             // 1. Clear any existing session first
             authAPI.clearAllAuthData()
-            console.log('🧹 [AUTH-PAGE] Cleared old auth data')
 
             // 2. Store the new tokens
             localStorage.setItem('chidi_auth_token', accessToken)
             if (refreshToken) {
               localStorage.setItem('chidi_refresh_token', refreshToken)
             }
-            console.log('💾 [AUTH-PAGE] Stored new tokens')
 
             // 3. For magic link users, call backend to create/get user record
             if (type === 'magiclink') {
-              console.log('🔗 [AUTH-PAGE] Processing magic link callback...')
-              
               // Decode the JWT to get user info
               const tokenPayload = JSON.parse(atob(accessToken.split('.')[1]))
               const authProviderId = tokenPayload.sub
               const email = tokenPayload.email
-              
-              console.log('🔍 [AUTH-PAGE] Magic link user:', { authProviderId, email })
-              
+
               // Call backend to create/get user record
               const callbackResponse = await authAPI.processMagicLinkCallback({
                 auth_provider_id: authProviderId,
@@ -98,9 +82,7 @@ function AuthPageContent() {
                 access_token: accessToken,
                 refresh_token: refreshToken || ''
               })
-              
-              console.log('✅ [AUTH-PAGE] Magic link callback processed:', callbackResponse)
-              
+
               // Store the needs_name_update flag for onboarding
               if (callbackResponse.needs_name_update) {
                 localStorage.setItem('chidi_needs_name_update', 'true')
@@ -111,29 +93,21 @@ function AuthPageContent() {
             window.history.replaceState(null, '', window.location.pathname)
 
             // 5. Fetch user data to determine redirect destination
-            console.log('👤 [AUTH-PAGE] Fetching user data to determine redirect...')
             try {
               const user = await authAPI.getMe()
-              console.log('✅ [AUTH-PAGE] User data fetched:', { 
-                email: user.email, 
-                businessName: user.businessName,
-                businessSlug: user.businessSlug 
-              })
-              
+
               // Redirect based on onboarding status
               if (user.businessSlug) {
-                console.log('🚀 [AUTH-PAGE] Redirecting to dashboard:', `/dashboard/${user.businessSlug}`)
                 router.push(`/dashboard/${user.businessSlug}`)
               } else {
-                console.log('🚀 [AUTH-PAGE] Redirecting to onboarding (no business set up)')
                 router.push('/onboarding')
               }
             } catch (userError) {
-              console.error('❌ [AUTH-PAGE] Failed to fetch user, redirecting to onboarding:', userError)
+              console.error('Failed to fetch user, redirecting to onboarding:', userError)
               router.push('/onboarding')
             }
           } catch (error) {
-            console.error('❌ [AUTH-PAGE] Error processing auth callback:', error)
+            console.error('Error processing auth callback:', error)
             setIsProcessingCallback(false)
             setAuthError('Failed to process authentication. Please try again.')
           }
@@ -145,23 +119,12 @@ function AuthPageContent() {
   }, [searchParams, router])
 
   const handleAuthSuccess = (user: User, isNewUser?: boolean) => {
-    console.log('✅ [AUTH-PAGE] Authentication successful:', {
-      userId: user.id,
-      email: user.email,
-      isNewUser,
-      businessName: user.businessName,
-      businessSlug: user.businessSlug
-    })
-    
     // Check if user needs onboarding or can go to dashboard
     if (isNewUser || !user.businessName) {
-      console.log('📝 [AUTH-PAGE] Redirecting to onboarding')
       router.push('/onboarding')
     } else if (user.businessSlug) {
-      console.log('🚀 [AUTH-PAGE] Redirecting to dashboard:', `/dashboard/${user.businessSlug}`)
       router.push(`/dashboard/${user.businessSlug}`)
     } else {
-      console.log('📝 [AUTH-PAGE] No businessSlug, redirecting to onboarding')
       router.push('/onboarding')
     }
   }

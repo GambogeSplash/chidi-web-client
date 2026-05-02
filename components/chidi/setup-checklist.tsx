@@ -26,6 +26,8 @@ interface SetupChecklistProps {
   products: DisplayProduct[]
   setActiveTab: (tab: TabId) => void
   onAddProduct: () => void
+  /** Only render on the inbox tab so it doesn't follow the merchant everywhere. */
+  activeTab?: TabId
 }
 
 interface ChecklistItem {
@@ -42,7 +44,11 @@ export function SetupChecklist({
   products,
   setActiveTab,
   onAddProduct,
+  activeTab,
 }: SetupChecklistProps) {
+  // Only show on the dashboard home (inbox tab). Following the merchant
+  // across every screen reads as nag.
+  if (activeTab && activeTab !== "inbox") return null
   const router = useRouter()
   const { shouldShow, dismiss } = useFirstTimeHint("setup_checklist")
   const [isExpanded, setIsExpanded] = useState(false)
@@ -58,20 +64,13 @@ export function SetupChecklist({
   )
   const hasPolicies = (policies?.length ?? 0) > 0
 
+  // Trimmed to the two items that actually gate workflows. "Add products" is
+  // implied by the inventory empty state. "Business policies" rarely needs
+  // day-1 attention — it surfaces contextually in Settings.
   const items: ChecklistItem[] = [
     {
-      id: "products",
-      title: "Add products",
-      icon: Package,
-      isComplete: hasProducts,
-      action: () => {
-        setActiveTab("inventory")
-        onAddProduct()
-      },
-    },
-    {
       id: "channel",
-      title: "Connect channel",
+      title: "Connect WhatsApp",
       icon: MessageCircle,
       isComplete: hasConnections,
       action: () => {
@@ -80,20 +79,11 @@ export function SetupChecklist({
     },
     {
       id: "payment",
-      title: "Payment details",
+      title: "Add payment details",
       icon: CreditCard,
       isComplete: hasPaymentSettings,
       action: () => {
         router.push(`/dashboard/${businessSlug}/settings?section=payment`)
-      },
-    },
-    {
-      id: "policies",
-      title: "Business policies",
-      icon: FileText,
-      isComplete: hasPolicies,
-      action: () => {
-        router.push(`/dashboard/${businessSlug}/settings?section=ai`)
       },
     },
   ]

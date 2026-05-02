@@ -414,26 +414,24 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
         onClick={handleClose}
       />
       
-      {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-white border border-[var(--chidi-border-default)] rounded-xl shadow-xl flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-[var(--chidi-surface)] rounded-lg">
-              <Package className="w-5 h-5 text-[var(--chidi-text-primary)]" />
-            </div>
-            <h2 className="text-lg font-semibold text-[var(--chidi-text-primary)]">Add New Product</h2>
+      {/* Modal — wider for breathing room (max-w-2xl) and image-first hero */}
+      <div className="relative w-full max-w-2xl mx-4 max-h-[92vh] bg-white border border-[var(--chidi-border-default)] rounded-2xl shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] flex flex-col">
+        {/* Header — noun title, no conversational fluff */}
+        <div className="flex items-center justify-between px-6 lg:px-8 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)]">
+          <div className="min-w-0">
+            <h2 className="ty-page-title text-[var(--chidi-text-primary)]">Add product</h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg transition-colors"
+            aria-label="Close"
+            className="flex-shrink-0 p-2 -mr-2 text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-5">
           <form id="add-product-form" onSubmit={handleSubmit} className="space-y-5">
             {/* Error Message */}
             {error && (
@@ -441,6 +439,58 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
+
+            {/* Product Image — moved to TOP, hero-first (Bumpa / Square POS pattern) */}
+            <div className="space-y-2">
+              <Label className="text-[11px] font-chidi-voice text-[var(--chidi-text-muted)] uppercase tracking-wider">
+                Photo
+              </Label>
+              {imagePreview ? (
+                <div className="relative rounded-xl overflow-hidden border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)] group">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full h-56 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="absolute top-3 right-3 p-2 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white rounded-lg transition-colors"
+                    aria-label="Remove photo"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  className="border-2 border-dashed border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-accent)]/50 rounded-xl p-8 cursor-pointer transition-colors bg-[#FBE8C9]/40 hover:bg-[#FBE8C9]/70 chidi-paper"
+                >
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="p-3 bg-white rounded-full shadow-sm">
+                      <ImageIcon className="w-7 h-7 text-[var(--chidi-text-muted)]" strokeWidth={1.6} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-[var(--chidi-text-primary)] font-medium font-chidi-voice">
+                        Drop a photo, or click to upload
+                      </p>
+                      <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mt-1">
+                        Customers buy what they can see. PNG, JPG, WEBP up to 5MB.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+            </div>
 
             {/* Product Name */}
             <div className="space-y-2">
@@ -885,80 +935,32 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
               </div>
             )}
 
-            {/* Product Image */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-[var(--chidi-text-secondary)]">
-                Product Image
-              </Label>
-              
-              {imagePreview ? (
-                <div className="relative rounded-lg overflow-hidden border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]">
-                  <img 
-                    src={imagePreview} 
-                    alt="Preview" 
-                    className="w-full h-40 object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRemoveImage}
-                    className="absolute top-2 right-2 p-1.5 bg-[var(--chidi-danger)] hover:bg-[var(--chidi-danger)]/90 text-white rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  className="border-2 border-dashed border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-accent)]/50 rounded-lg p-6 cursor-pointer transition-colors bg-[var(--chidi-surface)] hover:bg-[var(--chidi-surface-elevated)]"
-                >
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <div className="p-3 bg-white rounded-full">
-                      <ImageIcon className="w-6 h-6 text-[var(--chidi-text-muted)]" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-[var(--chidi-text-secondary)]">Click to upload or drag and drop</p>
-                      <p className="text-xs text-[var(--chidi-text-muted)] mt-1">PNG, JPG, WEBP up to 5MB</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                className="hidden"
-              />
-            </div>
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={handleClose} 
-            className="flex-1 bg-white border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)]"
+        {/* Footer — primary CTA right-aligned, ghost cancel left */}
+        <div className="flex items-center justify-between gap-3 px-6 lg:px-8 py-4 border-t border-[var(--chidi-border-subtle)]">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={handleClose}
+            className="text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
           >
             Cancel
           </Button>
-          <Button 
+          <Button
             type="submit"
             form="add-product-form"
-            disabled={isDisabled} 
-            className="flex-1 bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isDisabled}
+            className="bg-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/90 text-[var(--chidi-accent-foreground)] disabled:opacity-50 disabled:cursor-not-allowed px-6"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating...
+                Creating
               </>
             ) : (
-              'Add Product'
+              'Add product'
             )}
           </Button>
         </div>
