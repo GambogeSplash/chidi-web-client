@@ -29,3 +29,14 @@ package-lock.json
 node_modules
 tsconfig.tsbuildinfo
 .pnpm-store/
+
+# Local QA + ad-hoc scripts (may contain test credentials, screenshots, captures)
+test-account.json
+signup.js
+signup2.js
+probe.js
+walkthrough.js
+capture-auth.js
+recap-landing.js
+shot-list.json
+screenshots/
