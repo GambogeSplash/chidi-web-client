@@ -1,12 +1,21 @@
 "use client"
 
-import { useMemo } from "react"
-import { ShoppingBag, X } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { ShoppingBag, X, Plus, Tag as TagIcon, FileText } from "lucide-react"
 import { CustomerCharacter } from "./customer-character"
 import { ChidiMark } from "./chidi-mark"
 import { CurrencyAmount } from "./currency-amount"
 import { useCustomerDetail } from "@/lib/hooks/use-analytics"
 import { formatCurrency, formatRelativeTime } from "@/lib/api/analytics"
+import {
+  SUGGESTED_TAGS,
+  addTag as addTagToStore,
+  getEntry as getCustomerEntry,
+  removeTag as removeTagFromStore,
+  setNote as setNoteInStore,
+  subscribe as subscribeCustomerTags,
+  type CustomerTagsEntry,
+} from "@/lib/chidi/customer-tags"
 
 interface CustomerProfileRailProps {
   customerName?: string | null
@@ -34,6 +43,10 @@ const VIP_THRESHOLD = 25_000
  * the actual orders this customer has placed. All from the customers detail
  * endpoint, never seeded or fabricated. Stays quiet when the customer has
  * no history.
+ *
+ * Tags + notes are local-only (lib/chidi/customer-tags) — the merchant's
+ * private CRM scratchpad. Channel-agnostic: keyed off customerId, which is
+ * already channel-prefixed by the messaging API.
  */
 export function CustomerProfileRail({
   customerName,
@@ -154,6 +167,13 @@ export function CustomerProfileRail({
           </ul>
         </div>
       )}
+
+      {/* Tags — local-only chips. Channel-agnostic. Suggested pills appear
+          below the input only when the customer has none yet. */}
+      <TagsSection customerId={customerId} />
+
+      {/* Notes — single textarea, autosaves on blur. */}
+      <NotesSection customerId={customerId} />
 
       <div className="flex-1" />
 
@@ -315,5 +335,182 @@ function RecentOrderRow({ order, onOpen }: RecentOrderRowProps) {
         </div>
       </button>
     </li>
+  )
+}
+
+// =====================================================================
+// TAGS SECTION
+// =====================================================================
+
+function useCustomerEntry(customerId: string): CustomerTagsEntry {
+  const [entry, setEntry] = useState<CustomerTagsEntry>(() =>
+    customerId ? getCustomerEntry(customerId) : { tags: [], note: "", updatedAt: "" },
+  )
+  useEffect(() => {
+    if (!customerId) return
+    setEntry(getCustomerEntry(customerId))
+    return subscribeCustomerTags((store) => {
+      setEntry(store[customerId] ?? { tags: [], note: "", updatedAt: "" })
+    })
+  }, [customerId])
+  return entry
+}
+
+function TagsSection({ customerId }: { customerId: string }) {
+  const entry = useCustomerEntry(customerId)
+  const [draft, setDraft] = useState("")
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  const commitDraft = () => {
+    const t = draft.trim()
+    if (!t || !customerId) {
+      setDraft("")
+      return
+    }
+    addTagToStore(customerId, t)
+    setDraft("")
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault()
+      commitDraft()
+    } else if (e.key === "Backspace" && !draft && entry.tags.length > 0) {
+      // Quick-remove last chip on Backspace when input empty (Linear-style)
+      removeTagFromStore(customerId, entry.tags[entry.tags.length - 1])
+    } else if (e.key === "Escape") {
+      setDraft("")
+    }
+  }
+
+  const suggestions = useMemo(() => {
+    const taken = new Set(entry.tags.map((t) => t.toLowerCase()))
+    return SUGGESTED_TAGS.filter((s) => !taken.has(s.toLowerCase())).slice(0, 6)
+  }, [entry.tags])
+
+  return (
+    <div className="px-5 py-4 border-b border-[var(--chidi-border-subtle)]">
+      <div className="flex items-center gap-1.5 mb-2">
+        <TagIcon className="w-3 h-3 text-[var(--chidi-text-muted)]" />
+        <p className="ty-meta text-[var(--chidi-text-muted)]">Tags</p>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {entry.tags.map((tag) => (
+          <span
+            key={tag}
+            className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-[var(--chidi-text-primary)]/8 text-[11px] text-[var(--chidi-text-primary)] font-chidi-voice"
+          >
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTagFromStore(customerId, tag)}
+              aria-label={`Remove ${tag}`}
+              className="ml-0.5 w-4 h-4 rounded-full inline-flex items-center justify-center text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-white"
+            >
+              <X className="w-2.5 h-2.5" />
+            </button>
+          </span>
+        ))}
+
+        {/* Inline-add chip — same shape as the chips around it */}
+        <span className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full border border-dashed border-[var(--chidi-border-default)] text-[11px]">
+          <input
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={commitDraft}
+            placeholder={entry.tags.length === 0 ? "add tag" : "add"}
+            className="bg-transparent outline-none w-20 placeholder:text-[var(--chidi-text-muted)] text-[var(--chidi-text-primary)]"
+            aria-label="Add tag"
+          />
+          <button
+            type="button"
+            onClick={commitDraft}
+            aria-label="Add tag"
+            className="w-4 h-4 rounded-full inline-flex items-center justify-center text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-white"
+          >
+            <Plus className="w-2.5 h-2.5" />
+          </button>
+        </span>
+      </div>
+
+      {/* Suggested pills — only shown when nothing yet, so the section stays
+          calm once the merchant has tagged the customer. */}
+      {entry.tags.length === 0 && suggestions.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium mb-1.5">
+            Suggested
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => addTagToStore(customerId, s)}
+                className="px-2 py-0.5 rounded-full text-[11px] text-[var(--chidi-text-secondary)] bg-white border border-[var(--chidi-border-subtle)] hover:text-[var(--chidi-text-primary)] hover:border-[var(--chidi-border-default)] transition-colors font-chidi-voice"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// =====================================================================
+// NOTES SECTION
+// =====================================================================
+
+function NotesSection({ customerId }: { customerId: string }) {
+  const entry = useCustomerEntry(customerId)
+  const [draft, setDraft] = useState(entry.note)
+  const [savedFlash, setSavedFlash] = useState(false)
+  const lastSyncedRef = useRef(entry.note)
+
+  // Re-sync local draft when the upstream entry changes (e.g. another tab
+  // edited the note). Avoid clobbering an in-progress edit.
+  useEffect(() => {
+    if (entry.note !== lastSyncedRef.current && draft === lastSyncedRef.current) {
+      setDraft(entry.note)
+    }
+    lastSyncedRef.current = entry.note
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.note])
+
+  const commit = () => {
+    if (!customerId) return
+    if (draft === entry.note) return
+    setNoteInStore(customerId, draft)
+    setSavedFlash(true)
+    window.setTimeout(() => setSavedFlash(false), 1200)
+  }
+
+  return (
+    <div className="px-5 py-4 border-b border-[var(--chidi-border-subtle)]">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <FileText className="w-3 h-3 text-[var(--chidi-text-muted)]" />
+          <p className="ty-meta text-[var(--chidi-text-muted)]">Notes</p>
+        </div>
+        {savedFlash && (
+          <span className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice motion-safe:animate-in motion-safe:fade-in">
+            Saved
+          </span>
+        )}
+      </div>
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        placeholder="Anything Chidi should remember about this customer…"
+        rows={3}
+        className="w-full text-[12.5px] bg-white border border-[var(--chidi-border-subtle)] rounded-lg p-2 resize-none focus:outline-none focus:border-[var(--chidi-border-default)] focus:ring-1 focus:ring-[var(--chidi-text-muted)]/20 placeholder:text-[var(--chidi-text-muted)] text-[var(--chidi-text-primary)] font-chidi-voice"
+        aria-label="Private note"
+      />
+    </div>
   )
 }

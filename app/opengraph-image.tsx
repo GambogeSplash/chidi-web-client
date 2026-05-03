@@ -1,13 +1,13 @@
 import { ImageResponse } from "next/og"
 
 export const runtime = "edge"
-export const alt = "Chidi — your assistant for selling on WhatsApp"
+export const alt = "Chidi — your assistant for selling through chat"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
 /**
  * Open Graph image rendered server-side at edge. Shows up when a Chidi link
- * is shared in iMessage, WhatsApp, Slack, Twitter, etc.
+ * is shared in iMessage, Telegram, WhatsApp, Slack, Twitter, etc.
  *
  * Designed to read in 800ms in a feed: warm paper background, big serif
  * headline, the win-color sparkle, simple footer line.
@@ -91,7 +91,7 @@ export default async function OG() {
             >
               ✦
             </div>
-            Built for the people who sell on WhatsApp
+            Built for the people who sell through chat
           </div>
 
           <div
@@ -104,7 +104,7 @@ export default async function OG() {
               flexWrap: "wrap",
             }}
           >
-            Your assistant for selling on WhatsApp.
+            Your assistant for selling through chat.
           </div>
         </div>
 
