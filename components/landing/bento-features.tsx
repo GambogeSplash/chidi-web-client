@@ -37,7 +37,7 @@ export function BentoFeatures() {
       className="w-full border-b border-[var(--chidi-border-default)] flex flex-col justify-center items-center"
     >
       {/* Header */}
-      <div className="self-stretch px-4 sm:px-6 md:px-8 lg:px-0 lg:max-w-[1060px] lg:w-[1060px] py-8 sm:py-12 md:py-16 border-b border-[var(--chidi-border-default)] flex justify-center items-center gap-6">
+      <div className="self-stretch px-4 sm:px-6 md:px-8 lg:px-0 lg:max-w-[1060px] lg:w-[1060px] py-16 md:py-24 border-b border-[var(--chidi-border-default)] flex justify-center items-center gap-6">
         <Reveal className="w-full max-w-[616px] px-4 sm:px-6 py-4 sm:py-5 overflow-hidden rounded-lg flex flex-col justify-start items-center gap-3 sm:gap-4">
           <Badge icon={<ChidiMark size={14} variant="default" />} text="Core features" />
           <h2 className="w-full max-w-[598.06px] text-center flex justify-center flex-col text-[var(--chidi-text-primary)] text-xl sm:text-2xl md:text-3xl lg:text-5xl font-semibold leading-tight md:leading-[60px] font-sans tracking-tight">

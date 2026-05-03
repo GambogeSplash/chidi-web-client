@@ -70,7 +70,7 @@ export function LiveDemo() {
   const [visible, setVisible] = useState(false)
   const [reduced, setReduced] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesScrollRef = useRef<HTMLDivElement>(null)
 
   // Detect prefers-reduced-motion once on mount
   useEffect(() => {
@@ -124,9 +124,16 @@ export function LiveDemo() {
     return () => clearTimeout(t)
   }, [turnIdx, charIdx, visible, reduced])
 
-  // Keep latest message in view
+  // Keep latest message in view *inside the phone frame only*. Using
+  // scrollIntoView() here was a bug: browsers walk to the nearest scrollable
+  // ancestor, and with the page being the dominant scroller, every char of
+  // typing yanked the whole window — visitors couldn't scroll past the demo.
+  // Setting scrollTop on the inner overflow container keeps the chat pinned to
+  // its latest line without ever touching the document scroll.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    const el = messagesScrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
   }, [turnIdx, charIdx])
 
   // Render the visible window of messages: completed turns + the in-progress turn
@@ -143,7 +150,7 @@ export function LiveDemo() {
       className="w-full border-b border-[var(--chidi-border-default)] flex flex-col items-center"
     >
       <div
-        className="self-stretch px-6 md:px-12 py-16 md:py-20 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-16 items-center relative overflow-hidden"
+        className="self-stretch px-6 md:px-12 py-16 md:py-24 grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-16 items-center relative overflow-hidden"
         ref={containerRef}
       >
         {/* Soft warm gradient backdrop */}
@@ -218,7 +225,8 @@ export function LiveDemo() {
 
                 {/* Messages */}
                 <div
-                  className="flex-1 px-3 py-3 space-y-2 overflow-y-auto"
+                  ref={messagesScrollRef}
+                  className="flex-1 px-3 py-3 space-y-2 overflow-y-auto overscroll-contain"
                   style={{
                     backgroundImage:
                       'radial-gradient(circle at 10% 20%, rgba(7,94,84,0.04) 0px, transparent 1px), radial-gradient(circle at 80% 70%, rgba(7,94,84,0.04) 0px, transparent 1px)',
@@ -228,7 +236,6 @@ export function LiveDemo() {
                   {visibleTurns.map((turn, i) => (
                     <Bubble key={i} turn={turn} typing={i === turnIdx && !reduced && charIdx < SCRIPT[turnIdx].text.length} />
                   ))}
-                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Input bar */}

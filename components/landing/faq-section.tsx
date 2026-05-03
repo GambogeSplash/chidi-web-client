@@ -82,9 +82,9 @@ export default function FAQSection() {
 
   return (
     <div id="faq" className="w-full flex justify-center items-start">
-      <div className="flex-1 px-4 md:px-12 py-16 md:py-20 flex flex-col lg:flex-row justify-start items-start gap-6 lg:gap-12">
+      <div className="flex-1 px-4 md:px-12 py-16 md:py-24 flex flex-col lg:flex-row justify-start items-start gap-6 lg:gap-12">
         <Reveal className="w-full lg:flex-1 flex flex-col justify-center items-start gap-4 lg:py-5">
-          <h2 className="w-full flex flex-col justify-center text-[var(--chidi-text-primary)] font-semibold leading-tight md:leading-[44px] font-sans text-4xl tracking-tight">
+          <h2 className="w-full flex flex-col justify-center text-[var(--chidi-text-primary)] text-3xl md:text-5xl font-semibold leading-tight md:leading-[60px] font-sans tracking-tight">
             Frequently asked questions
           </h2>
           <p className="w-full text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">

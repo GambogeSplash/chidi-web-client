@@ -84,7 +84,7 @@ export default function TestimonialsSection() {
       onMouseLeave={() => setPaused(false)}
     >
       <div className="self-stretch px-2 overflow-hidden flex justify-start items-center bg-background border-t-0 border-l-0 border-r-0 border-b border-[var(--chidi-border-default)]">
-        <div className="flex-1 py-16 md:py-17 flex flex-col md:flex-row justify-center items-end gap-6">
+        <div className="flex-1 py-16 md:py-24 flex flex-col md:flex-row justify-center items-end gap-6">
           <div className="self-stretch px-3 md:px-12 justify-center items-start gap-4 flex flex-col md:flex-row">
             <Reveal
               className="w-48 h-48 md:w-48 md:h-48 rounded-lg overflow-hidden flex items-center justify-center transition-all duration-700 ease-in-out flex-shrink-0 ring-1 ring-[var(--chidi-border-default)]"
@@ -109,8 +109,16 @@ export default function TestimonialsSection() {
 
             <div className="flex-1 px-6 py-6 overflow-hidden flex flex-col justify-start items-start gap-6 pb-0 pt-0">
               <Quote className="w-6 h-6 text-[var(--chidi-win)]" />
+              {/*
+                Quote typography matches the canonical landing section-title
+                style (`text-3xl md:text-5xl font-semibold ... font-sans
+                tracking-tight`) used by Bento, Live demo, Documentation, and
+                CTA — so the page reads as one voice instead of switching
+                fonts mid-scroll. Container height is set to fit the longest
+                quote at the new scale.
+              */}
               <blockquote
-                className="self-stretch justify-start flex flex-col text-[var(--chidi-text-primary)] text-2xl md:text-[32px] font-normal leading-[1.25] font-serif h-[200px] md:h-[210px] overflow-hidden line-clamp-5 transition-all duration-700 ease-in-out tracking-[-0.01em]"
+                className="self-stretch justify-start flex flex-col text-[var(--chidi-text-primary)] text-3xl md:text-5xl font-semibold leading-tight md:leading-[60px] font-sans tracking-tight min-h-[180px] md:min-h-[260px] overflow-hidden transition-all duration-700 ease-in-out"
                 style={{
                   filter: transitioning ? 'blur(4px)' : 'blur(0px)',
                   transition: 'filter 0.7s ease-in-out',

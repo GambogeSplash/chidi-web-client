@@ -13,7 +13,7 @@ export default function CTASection() {
       id="cta"
       className="w-full relative overflow-hidden flex flex-col justify-center items-center gap-2"
     >
-      <div className="self-stretch px-6 md:px-24 py-12 md:py-16 border-t border-b border-[var(--chidi-border-default)] flex justify-center items-center gap-6 relative z-10">
+      <div className="self-stretch px-6 md:px-24 py-16 md:py-24 border-t border-b border-[var(--chidi-border-default)] flex justify-center items-center gap-6 relative z-10">
         {/* Diagonal hatch backdrop */}
         <div aria-hidden className="absolute inset-0 w-full h-full overflow-hidden">
           <div className="w-full h-full relative">
