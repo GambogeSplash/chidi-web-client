@@ -3,8 +3,21 @@ import type { Metadata } from "next"
 import { Inter, Instrument_Serif } from "next/font/google"
 import "./globals.css"
 import { QueryProvider } from "@/lib/providers/query-provider"
+import { ThemeProvider } from "@/components/chidi/theme-provider"
 import { Analytics } from "@vercel/analytics/react"
 import { Toaster } from "sonner"
+
+/**
+ * No-FOUC theme boot — runs synchronously in <head> before first paint so
+ * the merchant's chosen brand color is on the <html> element by the time
+ * any chrome paints. Reads localStorage `chidi:theme`, validates against
+ * the catalog, and writes `data-chidi-theme="<id>"`. If anything throws
+ * (private mode, corrupt value) we just leave the default theme alone.
+ *
+ * The catalog ids are duplicated here as a literal so the script has zero
+ * runtime dependencies — keep in sync with `lib/chidi/theme.ts` THEMES.
+ */
+const themeBootScript = `(function(){try{var v=localStorage.getItem('chidi:theme');var ok={default:1,indigo:1,rose:1,amber:1,sunset:1,ocean:1,forest:1,plum:1};if(v&&ok[v])document.documentElement.setAttribute('data-chidi-theme',v);}catch(e){}})();`
 
 const inter = Inter({
   subsets: ["latin"],
@@ -116,9 +129,14 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/logo.png" type="image/png" />
         <link rel="apple-touch-icon" href="/logo.png" />
+        {/* Inline before first paint — applies the persisted brand-color
+            theme to <html> so chrome doesn't flash the default palette. */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>
       <body className="font-sans antialiased">
-        <QueryProvider>{children}</QueryProvider>
+        <ThemeProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </ThemeProvider>
         <Toaster
           position="top-right"
           toastOptions={{

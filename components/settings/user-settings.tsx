@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { BusinessAvatar, useBusinessAvatarSeed } from "@/components/chidi/business-avatar"
 import { BusinessAvatarPicker } from "@/components/chidi/business-avatar-picker"
+import { ThemePicker } from "@/components/chidi/theme-picker"
 import { useDashboardAuth } from "@/lib/providers/dashboard-auth-context"
 import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
 import { TelegramSettings } from "@/components/chidi/telegram-settings"
@@ -540,6 +541,15 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                 )}
               </button>
             </div>
+          </SettingsSectionCard>
+        </section>
+
+        {/* THEME — Arc-style brand color personalization. Sits in the Profile
+            family because the merchant's brand color is part of their shop's
+            identity. Picker propagates to nav highlights, CTAs, active states. */}
+        <section id="settings-profile-theme" className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Theme" title="Brand color">
+            <ThemePicker />
           </SettingsSectionCard>
         </section>
 

@@ -81,6 +81,36 @@
   --chidi-win-soft: rgba(232, 163, 61, 0.12);
   --chidi-win-foreground: #2A1F0F;
 
+  /* === Themable brand accent (Arc-style) ====================================
+     Six tokens that any chrome surface can lean on. The DEFAULT values
+     below preserve the warm-paper primary (#37322F dark espresso) so the
+     "Default" theme = the current look — nothing changes for merchants
+     who don't pick a brand color. Per-theme overrides live in the
+     `[data-chidi-theme="<id>"]` blocks at the bottom of this file; the
+     picker writes that attribute on <html> to swap the whole palette in
+     one tick. Spaces can also override these inline via the
+     `chidi:accent-changed` event.
+
+     NOTE: `--chidi-accent` was already declared above (line ~47) as the
+     primary CTA color — these new tokens are SIBLINGS that extend the
+     palette without breaking it. Re-declaring `--chidi-accent` here would
+     fight cascade ordering, so the soft/strong/text/glow/fg tokens are
+     ADDITIVE; the Default theme inherits the original `--chidi-accent`
+     declared above and only fills in the new tokens.
+
+       --chidi-accent         primary CTA + active state colour (above)
+       --chidi-accent-soft    hover wash + tinted bg
+       --chidi-accent-strong  pressed + emphasis
+       --chidi-accent-text    text colour ON the accent
+       --chidi-accent-glow    focus ring + halo (low-alpha rgba)
+       --chidi-accent-fg      heading/text alongside the accent (paper aware)
+  */
+  --chidi-accent-soft: rgba(55, 50, 47, 0.08);
+  --chidi-accent-strong: #2A2520;
+  --chidi-accent-text: #F7F5F3;
+  --chidi-accent-glow: rgba(55, 50, 47, 0.16);
+  --chidi-accent-fg: #37322F;
+
   /* Channel-bubble colors (themable for dark mode). Was hardcoded #DCF8C6
      in channel-chat which broke any theme override. */
   --chidi-channel-whatsapp-bubble: #DCF8C6;
@@ -171,6 +201,79 @@
   --chidi-win: #F5B856;
   --chidi-win-soft: rgba(245, 184, 86, 0.16);
   --chidi-win-foreground: #1C1917;
+}
+
+/* === Theme palette overrides ===============================================
+   Arc-browser-style brand-color personalization. The picker writes
+   `data-chidi-theme="<id>"` on <html>; each block below overrides the
+   `--chidi-accent*` token family with that theme's color set. The
+   "default" theme is the absence of an override — the warm-paper
+   espresso defined in :root applies and the app looks identical to its
+   pre-themes baseline.
+
+   Hex values mirror `lib/chidi/theme.ts` THEMES catalog — keep both files
+   in sync if you add or rename a theme.
+*/
+[data-chidi-theme="indigo"] {
+  --chidi-accent: #4F46E5;
+  --chidi-accent-soft: #EEF2FF;
+  --chidi-accent-strong: #4338CA;
+  --chidi-accent-text: #FFFFFF;
+  --chidi-accent-glow: rgba(79, 70, 229, 0.22);
+  --chidi-accent-fg: #1E1B4B;
+}
+[data-chidi-theme="rose"] {
+  --chidi-accent: #E11D48;
+  --chidi-accent-soft: #FFE4E6;
+  --chidi-accent-strong: #BE123C;
+  --chidi-accent-text: #FFFFFF;
+  --chidi-accent-glow: rgba(225, 29, 72, 0.22);
+  --chidi-accent-fg: #4C0519;
+}
+[data-chidi-theme="amber"] {
+  --chidi-accent: #D97706;
+  --chidi-accent-soft: #FEF3C7;
+  --chidi-accent-strong: #B45309;
+  --chidi-accent-text: #FFFFFF;
+  --chidi-accent-glow: rgba(217, 119, 6, 0.22);
+  --chidi-accent-fg: #451A03;
+}
+[data-chidi-theme="sunset"] {
+  --chidi-accent: #C8401C;
+  --chidi-accent-soft: #FFE4D6;
+  --chidi-accent-strong: #9A2D12;
+  --chidi-accent-text: #FFFFFF;
+  --chidi-accent-glow: rgba(200, 64, 28, 0.22);
+  --chidi-accent-fg: #3F1808;
+}
+[data-chidi-theme="ocean"] {
+  --chidi-accent: #0891B2;
+  --chidi-accent-soft: #CFFAFE;
+  --chidi-accent-strong: #0E7490;
+  --chidi-accent-text: #FFFFFF;
+  --chidi-accent-glow: rgba(8, 145, 178, 0.22);
+  --chidi-accent-fg: #083344;
+}
+[data-chidi-theme="forest"] {
+  --chidi-accent: #15803D;
+  --chidi-accent-soft: #DCFCE7;
+  --chidi-accent-strong: #166534;
+  --chidi-accent-text: #FFFFFF;
+  --chidi-accent-glow: rgba(21, 128, 61, 0.22);
+  --chidi-accent-fg: #052E16;
+}
+[data-chidi-theme="plum"] {
+  --chidi-accent: #7C3AED;
+  --chidi-accent-soft: #F3E8FF;
+  --chidi-accent-strong: #6D28D9;
+  --chidi-accent-text: #FFFFFF;
+  --chidi-accent-glow: rgba(124, 58, 237, 0.22);
+  --chidi-accent-fg: #2E1065;
+}
+/* "Default" theme = no override; :root values apply. Listed here for the
+   reader so the catalog feels complete. */
+[data-chidi-theme="default"] {
+  /* intentionally empty — inherits the warm-paper espresso from :root */
 }
 
 @theme inline {
@@ -922,6 +1025,7 @@ select:focus-visible {
 [data-settings-active="chidi"]         #settings-chidi,
 [data-settings-active="chidi"]         #settings-ai,
 [data-settings-active="profile"]       #settings-profile,
+[data-settings-active="profile"]       #settings-profile-theme,
 [data-settings-active="integrations"]  #settings-integrations,
 [data-settings-active="payment"]       #settings-payment,
 [data-settings-active="notifications"] #settings-notifications,
