@@ -1173,3 +1173,86 @@ select:focus-visible {
   background-color: var(--chidi-win);
   color: var(--chidi-win-foreground);
 }
+
+/* === Call Chidi (full-screen voice call overlay) ===========================
+   Lagos sunset gradient — terracotta → ochre → wine — flowing diagonally.
+   Inspired by Arc Browser's "Call Arc" feature. The angle slowly rotates and
+   the color stops drift to keep the surface alive without distracting from
+   the mascot or the conversation bubbles. Honors prefers-reduced-motion. */
+.chidi-call-bg {
+  background:
+    radial-gradient(120% 90% at 18% 12%, rgba(255, 184, 110, 0.55) 0%, rgba(255, 184, 110, 0) 60%),
+    radial-gradient(110% 95% at 86% 88%, rgba(63, 24, 8, 0.85) 0%, rgba(63, 24, 8, 0) 60%),
+    linear-gradient(135deg, #C8401C 0%, #D9842B 45%, #7A2A12 80%, #3F1808 100%);
+  background-size: 180% 180%, 180% 180%, 200% 200%;
+  background-position: 0% 0%, 100% 100%, 0% 0%;
+  animation: chidiCallBgShift 28s ease-in-out infinite;
+}
+@keyframes chidiCallBgShift {
+  0%, 100% {
+    background-position: 0% 0%, 100% 100%, 0% 0%;
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    background-position: 30% 20%, 70% 80%, 100% 100%;
+    filter: hue-rotate(-8deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chidi-call-bg { animation: none; }
+}
+
+/* Mascot states — scale-only motion, very subtle. The mascot is the focal
+   point so all motion stays restrained (Arc reference is calm, not jittery). */
+@keyframes chidiCallIdle {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50%      { transform: scale(1.02) translateY(-2px); }
+}
+@keyframes chidiCallListen {
+  0%, 100% { transform: scale(1.01); }
+  50%      { transform: scale(1.045); }
+}
+@keyframes chidiCallSpeak {
+  0%, 100% { transform: scale(1.02) translateY(0); }
+  25%      { transform: scale(1.06) translateY(-1px); }
+  50%      { transform: scale(1.03) translateY(0); }
+  75%      { transform: scale(1.07) translateY(-2px); }
+}
+@keyframes chidiCallThink {
+  0%, 100% { transform: scale(1) rotate(-1deg); }
+  50%      { transform: scale(1.015) rotate(1deg); }
+}
+.chidi-call-mascot-idle   { animation: chidiCallIdle   5s ease-in-out infinite; transform-origin: center; }
+.chidi-call-mascot-listen { animation: chidiCallListen 2.4s ease-in-out infinite; transform-origin: center; }
+.chidi-call-mascot-speak  { animation: chidiCallSpeak  1.6s ease-in-out infinite; transform-origin: center; }
+.chidi-call-mascot-think  { animation: chidiCallThink  3.6s ease-in-out infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) {
+  .chidi-call-mascot-idle,
+  .chidi-call-mascot-listen,
+  .chidi-call-mascot-speak,
+  .chidi-call-mascot-think { animation: none; }
+}
+
+/* Bubble entrances — short fade+grow from the mascot's anchor */
+@keyframes chidiCallBubbleIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.chidi-call-bubble-in {
+  animation: chidiCallBubbleIn 280ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chidi-call-bubble-in { animation: none; }
+}
+
+/* Overlay enter — covers the dashboard with a 220ms fade */
+@keyframes chidiCallOverlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.chidi-call-overlay-in {
+  animation: chidiCallOverlayIn 220ms ease-out backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chidi-call-overlay-in { animation: none; }
+}

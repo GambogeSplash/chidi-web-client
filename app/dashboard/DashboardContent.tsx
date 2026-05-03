@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { NavRail } from '@/components/chidi/nav-rail'
 import { CommandPalette } from '@/components/chidi/command-palette'
 import { ShortcutsOverlay } from '@/components/chidi/shortcuts-overlay'
+import { CallChidi } from '@/components/chidi/call-chidi'
 import { ApprovalGuardrailProvider } from '@/components/chidi/approval-guardrail'
 import { ChidiWelcome } from '@/components/chidi/chidi-welcome'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
@@ -292,6 +293,27 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
     window.dispatchEvent(new CustomEvent("chidi:open-notifications"))
   }
 
+  // Call Chidi overlay — opened from (1) the AskChidi tab CTA, (2) the
+  // command palette /call entry, and (3) the global Cmd+Shift+C shortcut.
+  const [callChidiOpen, setCallChidiOpen] = useState(false)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const onOpenCall = () => setCallChidiOpen(true)
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Cmd+Shift+C / Ctrl+Shift+C — toggle the call overlay
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "c" || e.key === "C")) {
+        e.preventDefault()
+        setCallChidiOpen((v) => !v)
+      }
+    }
+    window.addEventListener("chidi:open-call", onOpenCall)
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("chidi:open-call", onOpenCall)
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [])
+
   // Loading state is handled by the dashboard layout - we're guaranteed to have user here
 
   return (
@@ -409,6 +431,11 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
 
       {/* `?` shortcuts overlay — discoverability for keyboard users */}
       <ShortcutsOverlay />
+
+      {/* Call Chidi — full-screen voice call overlay (Arc-style). Triggered
+          from the Ask-Chidi CTA, the /call command palette entry, or the
+          global Cmd+Shift+C shortcut. Mocked conversation, no real audio yet. */}
+      <CallChidi open={callChidiOpen} onClose={() => setCallChidiOpen(false)} />
 
       {/* Approval guardrail — sensitive Chidi actions ask for the merchant's
           OK before they fire. Pattern lifted from Stripe Sessions 2026 Agent

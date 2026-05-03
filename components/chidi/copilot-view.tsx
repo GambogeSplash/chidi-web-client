@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
-import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus } from "lucide-react"
+import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus, Phone } from "lucide-react"
 import { ChidiAvatar } from "./chidi-mark"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -340,6 +340,17 @@ export function CopilotView({
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
         <Button
           variant="ghost"
+          size="sm"
+          onClick={() => window.dispatchEvent(new CustomEvent("chidi:open-call"))}
+          aria-label="Call Chidi"
+          title="Call Chidi (⌘⇧C)"
+          className="h-9 px-2.5 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg gap-1.5 font-chidi-voice"
+        >
+          <Phone className="w-4 h-4" />
+          <span className="text-[12px] font-medium hidden sm:inline">Call Chidi</span>
+        </Button>
+        <Button
+          variant="ghost"
           size="icon"
           onClick={handleNewConversation}
           aria-label="New conversation"
@@ -566,7 +577,18 @@ function CopilotEmptyState({
 
   return (
     <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => window.dispatchEvent(new CustomEvent("chidi:open-call"))}
+          aria-label="Call Chidi"
+          title="Call Chidi (⌘⇧C)"
+          className="h-9 px-2.5 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white rounded-full gap-1.5 font-chidi-voice"
+        >
+          <Phone className="w-4 h-4" />
+          <span className="text-[12px] font-medium hidden sm:inline">Call Chidi</span>
+        </Button>
         <Button
           variant="ghost"
           size="icon"

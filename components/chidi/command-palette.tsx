@@ -15,6 +15,7 @@ import {
   Smile,
   Heart,
   Bug,
+  Phone,
   Quote as QuoteIcon,
 } from "lucide-react"
 import type { TabId } from "./bottom-navigation"
@@ -166,6 +167,12 @@ export function CommandPalette({ onTabChange, onAddProduct }: CommandPaletteProp
   const askChidi = () => {
     close()
     onTabChange("chidi")
+  }
+  const callChidi = () => {
+    close()
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("chidi:open-call"))
+    }
   }
 
   const fireEasterEgg = () => {
@@ -326,6 +333,15 @@ export function CommandPalette({ onTabChange, onAddProduct }: CommandPaletteProp
                   label="Ask Chidi"
                   onSelect={() => go("chidi")}
                 />
+                <Command.Item
+                  value="/call call chidi voice"
+                  onSelect={callChidi}
+                  className="chidi-palette-row flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-[13px] font-chidi-voice text-[var(--chidi-text-secondary)] data-[selected=true]:bg-[var(--chidi-surface)] data-[selected=true]:text-[var(--chidi-text-primary)] transition-colors"
+                >
+                  <Phone className="w-3.5 h-3.5 flex-shrink-0 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+                  <span className="flex-1 truncate">Call Chidi</span>
+                  <kbd className="text-[10px] font-mono text-[var(--chidi-text-muted)] bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] px-1.5 py-0.5 rounded">⌘⇧C</kbd>
+                </Command.Item>
                 {slug && (
                   <PaletteItem
                     icon={BookOpen}

@@ -42,6 +42,7 @@ const GROUPS: ShortcutGroup[] = [
     items: [
       { keys: ["⌘", "K"], label: "Open command palette" },
       { keys: ["⌘", "/"], label: "Search conversations" },
+      { keys: ["⌘", "⇧", "C"], label: "Call Chidi (voice)" },
       { keys: ["N"], label: "New product" },
       { keys: ["R"], label: "Reply with AI suggestion" },
       { keys: ["E"], label: "Mark conversation resolved" },
