@@ -370,7 +370,7 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
               size={200}
               state={mouthState}
               speakingPulse={speech.boundary}
-              className={cn("drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)]", mascotClass)}
+              className={cn("text-white drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)]", mascotClass)}
             />
 
             {/* Bubbles stack — newest at the bottom, plain stack flows naturally */}

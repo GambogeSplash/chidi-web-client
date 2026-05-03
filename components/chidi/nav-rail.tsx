@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useDashboardAuth } from "@/lib/providers/dashboard-auth-context"
 import { cn } from "@/lib/utils"
 import type { TabId } from "./bottom-navigation"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { BusinessAvatar, useBusinessAvatarSeed } from "./business-avatar"
 import { PRIMARY_TABS, LIBRARY_ENTRIES } from "@/lib/chidi/navigation"
 
@@ -167,9 +167,9 @@ export function NavRail({
                   )}
                 >
                   {isChidi ? (
-                    <ChidiMark
-                      size={16}
-                      className={cn("flex-shrink-0", isActive && "text-[var(--chidi-win)]")}
+                    <ArcFace
+                      size={18}
+                      className={cn("flex-shrink-0", isActive ? "text-[var(--chidi-win)]" : "text-current")}
                     />
                   ) : Icon ? (
                     <Icon

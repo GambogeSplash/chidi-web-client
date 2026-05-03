@@ -338,77 +338,9 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
         <div className="flex items-start justify-between mb-3 gap-3">
           <div className="min-w-0">
             <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inventory</h1>
-            {/* Stat tiles — every tile is a button. Products resets the
-                filter; Worth is informational (no-op); Low/Out toggle their
-                respective filters. The active tile is visually pressed so the
-                merchant always knows what slice they're looking at. */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-3">
-              <button
-                onClick={() => setStockFilter("all")}
-                aria-pressed={stockFilter === "all"}
-                className={cn(
-                  "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97] transition-colors",
-                  stockFilter === "all"
-                    ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]"
-                    : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]/70",
-                )}
-                title="Show all products"
-              >
-                <span className="font-medium tabular-nums">{products.length}</span>
-                <span className={cn(stockFilter === "all" ? "opacity-80" : "text-[var(--chidi-text-muted)]")}>{products.length === 1 ? "product" : "products"}</span>
-              </button>
-              {totalValue > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => e.preventDefault()}
-                  aria-label={`Inventory worth ${totalValue.toLocaleString()} naira`}
-                  title="Total cost-basis of stock on hand"
-                  className="inline-flex items-center gap-1 text-[11px] font-chidi-voice text-[var(--chidi-text-secondary)] bg-[var(--chidi-surface)] px-2 py-1 rounded-md cursor-default"
-                >
-                  <TrendingUp className="w-2.5 h-2.5" />
-                  <span className="text-[var(--chidi-text-muted)]">worth</span>
-                  <CurrencyAmount
-                    amount={totalValue}
-                    currency="NGN"
-                    compact
-                    showDualHover={false}
-                    className="font-medium tabular-nums"
-                  />
-                </button>
-              )}
-              {lowStockCount > 0 && (
-                <button
-                  onClick={() => setStockFilter(stockFilter === "low" ? "all" : "low")}
-                  aria-pressed={stockFilter === "low"}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97] transition-colors",
-                    stockFilter === "low"
-                      ? "bg-[var(--chidi-warning)] text-[var(--chidi-warning-foreground)]"
-                      : "bg-[var(--chidi-warning)]/10 text-[var(--chidi-warning)] hover:bg-[var(--chidi-warning)]/15"
-                  )}
-                  title="Filter to low-stock items"
-                >
-                  <span className="font-medium tabular-nums">{lowStockCount}</span>
-                  low stock
-                </button>
-              )}
-              {outOfStockCount > 0 && (
-                <button
-                  onClick={() => setStockFilter(stockFilter === "out" ? "all" : "out")}
-                  aria-pressed={stockFilter === "out"}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97] transition-colors",
-                    stockFilter === "out"
-                      ? "bg-[var(--chidi-danger)] text-white"
-                      : "bg-[var(--chidi-danger)]/10 text-[var(--chidi-danger)] hover:bg-[var(--chidi-danger)]/15"
-                  )}
-                  title="Filter to out-of-stock items"
-                >
-                  <span className="font-medium tabular-nums">{outOfStockCount}</span>
-                  out of stock
-                </button>
-              )}
-            </div>
+            {/* Stat tiles removed — the row was visually noisy and the
+                low/out filters are reachable from the search-row dropdown
+                and from per-row stock pills. Worth was informational only. */}
           </div>
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-0.5 bg-[var(--chidi-surface)] rounded-lg p-0.5 border border-[var(--chidi-border-subtle)]" role="tablist" aria-label="View mode">
@@ -579,34 +511,46 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           </div>
         )}
 
-        {/* Categories shelf — always visible, horizontal scroll on mobile.
-            Each chip shows the count so the merchant sees their inventory shape. */}
+        {/* Categories — collapsed into a single dropdown next to the search.
+            The horizontal chip strip was visually noisy and competed with the
+            stock-status filters. The trigger label updates to show the active
+            category so the merchant always knows what they're looking at. */}
         {categories.length > 1 && (
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-none mt-3 -mx-1 px-1">
-            {categories.map((category) => {
-              const isActive = selectedCategory === category
-              const count = category === "all" ? products.length : (categoryCounts[category] ?? 0)
-              return (
+          <div className="mt-3">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={cn(
-                    "flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-chidi-voice transition-colors active:scale-[0.97]",
-                    isActive
-                      ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]"
-                      : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] hover:bg-white border border-[var(--chidi-border-subtle)]",
-                  )}
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-chidi-voice bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] hover:bg-white border border-[var(--chidi-border-subtle)] transition-colors active:scale-[0.97]"
                 >
-                  <span className="capitalize">{category}</span>
-                  <span className={cn(
-                    "tabular-nums text-[10px] px-1.5 py-0.5 rounded-full",
-                    isActive ? "bg-white/15" : "bg-[var(--chidi-border-subtle)]/60",
-                  )}>
-                    {count}
+                  <span className="capitalize text-[var(--chidi-text-primary)]">
+                    {selectedCategory === "all" ? "All products" : selectedCategory}
                   </span>
+                  <span className="tabular-nums text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-border-subtle)]/60">
+                    {selectedCategory === "all" ? products.length : (categoryCounts[selectedCategory] ?? 0)}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-[var(--chidi-text-muted)]" />
                 </button>
-              )
-            })}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-white border-[var(--chidi-border-default)] min-w-[200px]">
+                {categories.map((category) => {
+                  const count = category === "all" ? products.length : (categoryCounts[category] ?? 0)
+                  const isActive = selectedCategory === category
+                  return (
+                    <DropdownMenuItem
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span className={cn("capitalize", isActive && "font-medium text-[var(--chidi-text-primary)]")}>
+                        {category === "all" ? "All products" : category}
+                      </span>
+                      <span className="tabular-nums text-[10px] text-[var(--chidi-text-muted)]">{count}</span>
+                    </DropdownMenuItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -894,6 +838,10 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
+                          type="button"
+                          draggable={false}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
                           onClick={(e) => e.stopPropagation()}
                           className="w-7 h-7 flex items-center justify-center rounded hover:bg-white text-[var(--chidi-text-muted)]"
                           aria-label="More actions"

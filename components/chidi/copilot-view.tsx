@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus, Phone } from "lucide-react"
-import { ChidiAvatar, ChidiMark } from "./chidi-mark"
+import { ChidiAvatar } from "./chidi-mark"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -539,9 +539,13 @@ function CopilotEmptyState({
           to seed the input with one of the canonical asks. */}
       <div className="flex-1 flex items-center justify-center px-6 pb-6">
         <div className="flex flex-col items-center text-center max-w-md w-full">
-          <ChidiMark
-            size={140}
-            className="text-[var(--chidi-text-primary)] mb-5 chidi-brief-card"
+          <Image
+            src="/logo.png"
+            alt="Chidi"
+            width={140}
+            height={140}
+            priority
+            className="w-[140px] h-[140px] object-contain mb-5 chidi-brief-card"
           />
           <p className="ty-body-voice text-[var(--chidi-text-secondary)] chidi-brief-card mb-6" style={{ animationDelay: "120ms" }}>
             Ask me anything about your shop.

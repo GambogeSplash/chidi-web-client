@@ -31,7 +31,6 @@ import { CommandPalette } from '@/components/chidi/command-palette'
 import { ShortcutsOverlay } from '@/components/chidi/shortcuts-overlay'
 import { CallChidi } from '@/components/chidi/call-chidi'
 import { ApprovalGuardrailProvider } from '@/components/chidi/approval-guardrail'
-import { ChidiWelcome } from '@/components/chidi/chidi-welcome'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
 
 interface DashboardContentProps {
@@ -442,11 +441,9 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
           Toolkit Guardrails. Listens via the requestApproval() event bus. */}
       <ApprovalGuardrailProvider />
 
-      {/* First-launch Chidi introduction — fires once ever per merchant */}
-      <ChidiWelcome
-        ownerName={user?.name}
-        businessName={(user as any)?.businessName}
-      />
+      {/* ChidiWelcome removed — the "FOR YOU, DEMO / Hi, Demo. I'm Chidi…"
+          coachmark walkthrough was loud and patronizing on every cold load.
+          Discoverability moves to in-context affordances (cmd+K, ?, hover hints). */}
 
       {/* ChidiDailyBrief removed (2026-05-04) — the "While you slept" carousel
           read as performative narration without user value. The same data
