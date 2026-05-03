@@ -42,8 +42,7 @@ import { ChidiMark } from "@/components/chidi/chidi-mark"
 import { cn } from "@/lib/utils"
 import { useCountUp } from "@/lib/chidi/use-count-up"
 import { useRailCollapsed } from "@/lib/chidi/use-rail-collapsed"
-import { requestApproval } from "@/components/chidi/approval-guardrail"
-import { toast } from "sonner"
+import { PlaySandbox } from "@/components/chidi/play-sandbox"
 import {
   PLAYS,
   PLAY_CATEGORY_LABEL,
@@ -71,6 +70,7 @@ export default function PlaybookPage() {
 
   const [activeCat, setActiveCat] = useState<PlayCategory | "all">("all")
   const [openPlayId, setOpenPlayId] = useState<string | null>(null)
+  const [sandboxPlay, setSandboxPlay] = useState<PlaybookPlay | null>(null)
   const railCollapsed = useRailCollapsed()
 
   // Drag-to-reorder priority. Initial order is the authored PLAYS sequence;
@@ -123,28 +123,12 @@ export default function PlaybookPage() {
 
   const featured = useMemo(() => PLAYS.find((p) => p.featured) ?? PLAYS[0], [])
 
-  // Run a play through the approval guardrail. Sensitive moves (refund,
-  // mass-message, payouts) all funnel through this so the merchant sees
-  // exactly what's about to happen and approves it first.
+  // Open the play in the interactive sandbox. The sandbox handles the actual
+  // commit (it fires the approval guardrail with the merchant's edits +
+  // chosen trigger). This makes "Run this play" feel like rehearsing on a
+  // stage instead of dispatching a black-box action.
   const handleRunPlay = (play: PlaybookPlay) => {
-    requestApproval({
-      play: play.title,
-      summary:
-        play.sample_message ||
-        `Run "${play.title}" — Chidi will execute the ${play.steps.length}-step move on your behalf.`,
-      diff: [
-        { label: "Play", from: "idle", to: "running" },
-        { label: "Steps", from: "—", to: `${play.steps.length} actions queued` },
-        { label: "Expected outcome", from: "—", to: `${play.stats.win_rate_pct}% win rate` },
-      ],
-      severity: "normal",
-      onApprove: () => {
-        toast.success("Play started", { description: `Chidi is running "${play.title}" now.` })
-      },
-      onDeny: () => {
-        toast("Play not run", { description: "I'll wait." })
-      },
-    })
+    setSandboxPlay(play)
   }
 
   const totals = useMemo(() => {
@@ -237,6 +221,7 @@ export default function PlaybookPage() {
                     play={play}
                     expanded={openPlayId === play.id}
                     onToggle={() => setOpenPlayId((id) => (id === play.id ? null : play.id))}
+                    onOpenSandbox={() => handleRunPlay(play)}
                   />
                 ))}
               </div>
@@ -250,15 +235,24 @@ export default function PlaybookPage() {
                 play={play}
                 expanded={openPlayId === play.id}
                 onToggle={() => setOpenPlayId((id) => (id === play.id ? null : play.id))}
+                onOpenSandbox={() => handleRunPlay(play)}
               />
             ))}
           </div>
         )}
 
         <p className="text-[11px] text-[var(--chidi-text-muted)] text-center pt-6">
-          Plays are mine to run, yours to direct. Tell me to pause one, tweak one, or write a new one.
+          Plays are mine to run, yours to direct. Open any in the sandbox to rehearse before committing.
         </p>
       </ChidiPage>
+
+      {/* Sandbox sheet — opens when handleRunPlay is called from the featured
+          hero or any play card. Owns its own approval-guardrail commit. */}
+      <PlaySandbox
+        play={sandboxPlay}
+        open={sandboxPlay !== null}
+        onClose={() => setSandboxPlay(null)}
+      />
     </div>
   )
 }
@@ -418,9 +412,11 @@ function PlayCard({
   play,
   expanded,
   onToggle,
+  onOpenSandbox,
 }: {
   play: PlaybookPlay
   expanded: boolean
+  onOpenSandbox?: () => void
   onToggle: () => void
 }) {
   return (
@@ -534,6 +530,15 @@ function PlayCard({
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-3 border-t border-[var(--chidi-border-subtle)]">
+            {onOpenSandbox && (
+              <button
+                onClick={onOpenSandbox}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
+              >
+                <PlayCircle className="w-3.5 h-3.5" strokeWidth={2} />
+                Open in sandbox
+              </button>
+            )}
             <button
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
@@ -545,12 +550,12 @@ function PlayCard({
               {play.state === "active" ? (
                 <>
                   <PauseCircle className="w-3.5 h-3.5" strokeWidth={1.8} />
-                  Pause play
+                  Pause
                 </>
               ) : (
                 <>
                   <PlayCircle className="w-3.5 h-3.5" strokeWidth={1.8} />
-                  Resume play
+                  Resume
                 </>
               )}
             </button>
@@ -864,10 +869,12 @@ function SortablePlayCard({
   play,
   expanded,
   onToggle,
+  onOpenSandbox,
 }: {
   play: PlaybookPlay
   expanded: boolean
   onToggle: () => void
+  onOpenSandbox?: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: play.id,
@@ -893,7 +900,7 @@ function SortablePlayCard({
       >
         <GripVertical className="w-4 h-4" />
       </button>
-      <PlayCard play={play} expanded={expanded} onToggle={onToggle} />
+      <PlayCard play={play} expanded={expanded} onToggle={onToggle} onOpenSandbox={onOpenSandbox} />
     </div>
   )
 }
