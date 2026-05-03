@@ -8,6 +8,7 @@ import {
   MessageSquare,
   ShoppingBag,
   Package,
+  Users,
   BarChart3,
   BookOpen,
   type LucideIcon,
@@ -44,6 +45,11 @@ export const PRIMARY_TABS: PrimaryTab[] = [
   { id: "inbox", label: "Inbox", icon: MessageSquare, shortcut: "I", countSource: "needsHuman" },
   { id: "orders", label: "Orders", icon: ShoppingBag, shortcut: "O", countSource: "pendingPayment" },
   { id: "inventory", label: "Inventory", icon: Package, shortcut: "V", countSource: "lowStock" },
+  // Customers lives between Inventory and Insights — the people layer beneath
+  // the orders/inventory layers, and the broadcast composer here unlocks the
+  // "broadcast eligibility" promise the verify-business modal already makes.
+  // Routes to its own page (not in-tab) like Playbook.
+  { id: "customers", label: "Customers", icon: Users, shortcut: "U" },
   { id: "insights", label: "Insights", icon: BarChart3, shortcut: "S" },
   { id: "chidi", label: "Ask Chidi", shortLabel: "Chidi", icon: "chidi-mark", shortcut: "C" },
 ]

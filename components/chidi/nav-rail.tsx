@@ -61,6 +61,10 @@ export function NavRail({
 
   const isOnNotebook = pathname?.includes("/notebook")
   const isOnSettings = pathname?.includes("/settings")
+  // Customers is its own route (matches Playbook), so the rail needs to know
+  // when we're on it — both to highlight the Customers pill and to suppress
+  // the "active" state of whatever in-tab id was last selected.
+  const isOnCustomers = pathname?.includes("/customers")
 
   // Collapsed state, persisted across sessions
   const [collapsed, setCollapsed] = useState(false)
@@ -136,7 +140,10 @@ export function NavRail({
       <nav className="flex-1 px-2 overflow-y-auto">
         <ul className="space-y-0.5">
           {PRIMARY_TABS.map((tab) => {
-            const isActive = activeTab === tab.id && !isOnNotebook && !isOnSettings
+            const isCustomersTab = tab.id === "customers"
+            const isActive = isCustomersTab
+              ? !!isOnCustomers
+              : activeTab === tab.id && !isOnNotebook && !isOnSettings && !isOnCustomers
             const isChidi = tab.icon === "chidi-mark"
             const Icon = isChidi ? null : (tab.icon as LucideIcon)
             const count = tabCounts[tab.id] ?? 0
@@ -148,8 +155,14 @@ export function NavRail({
                 <button
                   onClick={() => {
                     if (disabled) return
-                    if ((isOnNotebook || isOnSettings) && slug) {
-                      router.push(`/dashboard/${slug}`)
+                    // Customers lives at its own route — push there.
+                    if (isCustomersTab && slug) {
+                      router.push(`/dashboard/${slug}/customers`)
+                      return
+                    }
+                    if ((isOnNotebook || isOnSettings || isOnCustomers) && slug) {
+                      router.push(`/dashboard/${slug}?tab=${tab.id}`)
+                      return
                     }
                     onTabChange(tab.id)
                   }}
