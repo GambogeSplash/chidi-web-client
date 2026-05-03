@@ -1,13 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Volume2, VolumeX, Mic, MicOff, Clock, Eye, Moon, Sun } from "lucide-react"
+import { Volume2, VolumeX, Mic, MicOff, Moon, Sun } from "lucide-react"
 import { ChidiCard, ChidiSection } from "./page-shell"
-import { ChidiAvatar, ChidiMark } from "./chidi-mark"
+import { ChidiMark } from "./chidi-mark"
 import { isSoundEnabled, setSoundEnabled, playWin } from "@/lib/chidi/sound"
 import { cn } from "@/lib/utils"
-import Link from "next/link"
-import { useParams } from "next/navigation"
 
 type ToneLevel = "warm" | "punchy" | "formal"
 const TONE_ORDER: ToneLevel[] = ["warm", "punchy", "formal"]
@@ -38,8 +36,6 @@ const QUIET_KEY = "chidi_quiet_hours" // stored as "{startHour}-{endHour}", e.g.
  * AI tone (warm / punchy / formal). Drives a "this is YOUR Chidi" feel.
  */
 export function ChidiPreferences() {
-  const params = useParams()
-  const slug = params?.slug as string | undefined
   const [mounted, setMounted] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
   const [voiceOn, setVoiceOn] = useState(false)
@@ -86,65 +82,14 @@ export function ChidiPreferences() {
 
   return (
     <>
-    {/* Snapshot of the relationship */}
-    <ChidiSection
-      eyebrow="The two of us"
-      title="What I keep an eye on for you."
-      description="The summary of our working arrangement. Tap any line to dig deeper."
-    >
-      <ChidiCard className="divide-y divide-[var(--chidi-border-subtle)]">
-        <div className="p-5 flex items-start gap-3">
-          <ChidiAvatar size="md" tone="default" />
-          <div className="flex-1">
-            <p className="ty-card-title text-[var(--chidi-text-primary)]">
-              I'm Chidi — your assistant.
-            </p>
-            <p className="text-xs text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5 leading-relaxed">
-              Replying to your customers in your voice. Tracking every order. Learning your business as you go.
-            </p>
-          </div>
-        </div>
-        {slug && (
-          <Link
-            href={`/dashboard/${slug}/notebook`}
-            className="flex items-center gap-3 p-5 hover:bg-[var(--chidi-surface)] transition-colors"
-          >
-            <span className="w-9 h-9 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-secondary)]">
-              <Eye className="w-4 h-4" />
-            </span>
-            <span className="flex-1">
-              <span className="block ty-card-title text-[var(--chidi-text-primary)]">
-                See what I've noticed
-              </span>
-              <span className="block text-xs text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-                The patterns I've been tracking — sales rhythms, top customers, opportunities.
-              </span>
-            </span>
-            <span className="text-xs text-[var(--chidi-text-muted)] font-chidi-voice">→</span>
-          </Link>
-        )}
-        <div className="flex items-center gap-3 p-5">
-          <span className="w-9 h-9 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-secondary)]">
-            <Clock className="w-4 h-4" />
-          </span>
-          <span className="flex-1">
-            <span className="block ty-card-title text-[var(--chidi-text-primary)]">
-              Always on
-            </span>
-            <span className="block text-xs text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-              I reply to customer messages 24/7. You step in only when something needs you.
-            </span>
-          </span>
-        </div>
-      </ChidiCard>
-    </ChidiSection>
+    {/* "Snapshot of the relationship" section removed (2026-05-04) — three
+        rows of pure copy ("I'm Chidi — your assistant", "Always on", a
+        Notebook link) with no actionable controls. The Notebook link
+        survives via the sidebar Library entry. Settings should be
+        controls + actions, not narration. */}
 
-    {/* Personality controls */}
-    <ChidiSection
-      eyebrow="How I should be"
-      title="Tune Chidi to taste."
-      description="The way I speak to your customers, and to you. You can change this any time."
-    >
+    {/* Behavior controls — ALL actionable, no narration */}
+    <ChidiSection eyebrow="Behavior" title="How Chidi behaves">
       <ChidiCard className="divide-y divide-[var(--chidi-border-subtle)]">
         {/* Tone — slider with live preview */}
         <ToneSlider tone={tone} onChange={setToneAndPersist} />
@@ -163,10 +108,8 @@ export function ChidiPreferences() {
           </span>
           <span className="flex-1">
             <span className="block ty-card-title text-[var(--chidi-text-primary)]">Sound</span>
-            <span className="block text-xs text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-              {soundOn
-                ? "On — soft chimes when something good happens."
-                : "Off — silent operation. Tap to hear what you're missing."}
+            <span className="block text-xs text-[var(--chidi-text-muted)] mt-0.5">
+              Soft chimes for wins
             </span>
           </span>
           <Toggle on={soundOn} />
@@ -182,10 +125,8 @@ export function ChidiPreferences() {
           </span>
           <span className="flex-1">
             <span className="block ty-card-title text-[var(--chidi-text-primary)]">Voice input</span>
-            <span className="block text-xs text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-              {voiceOn
-                ? "On — press and hold the mic to talk to me."
-                : "Off — type to me instead."}
+            <span className="block text-xs text-[var(--chidi-text-muted)] mt-0.5">
+              Press &amp; hold the mic to talk
             </span>
           </span>
           <Toggle on={voiceOn} />

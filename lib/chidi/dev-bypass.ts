@@ -1,18 +1,28 @@
 /**
- * Dev-mode auth bypass — when there's no real backend running, let any
- * email/password sign in and any OTP verify. Active when:
- *   - NODE_ENV === "development"
- *   - The configured API base URL is the default localhost:8000 OR the
- *     Supabase config is the placeholder
+ * Dev-mode auth bypass — when there's no real backend wired, let any
+ * email/password sign in and any OTP verify so the app is fully usable
+ * for demos / preview deploys.
  *
- * Off in production, full stop.
+ * Activation logic (2026-05-04 update):
+ *   - Active whenever the configured Supabase URL is missing or still the
+ *     placeholder, OR the API base URL is the default localhost:8000 / unset
+ *   - This now applies in BOTH dev and prod, so demo deploys without a
+ *     backend (the current Vercel state) work end-to-end with mock data
+ *   - Hard kill switch: set NEXT_PUBLIC_DISABLE_DEV_BYPASS=true on the
+ *     environment when you wire a real backend so this can never fire.
  */
 
 export const isDevBypassActive = (): boolean => {
-  if (process.env.NODE_ENV !== "development") return false
+  // Hard kill switch — flip this when you deploy with a real backend.
+  if (process.env.NEXT_PUBLIC_DISABLE_DEV_BYPASS === "true") return false
+
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || ""
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-  return apiBase.includes("localhost:8000") || supabaseUrl.includes("placeholder")
+
+  const noRealSupabase = !supabaseUrl || supabaseUrl.includes("placeholder")
+  const localOrUnsetApi = !apiBase || apiBase.includes("localhost:8000")
+
+  return noRealSupabase || localOrUnsetApi
 }
 
 const DEV_BUSINESS_SLUG = "demo-shop"
