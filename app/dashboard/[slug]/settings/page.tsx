@@ -101,9 +101,39 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Mobile section chips — sticky directly under the AppHeader so the
+          merchant can swap sections without scrolling back up. Lives OUTSIDE
+          the two-pane container so its sticky offset is just below the
+          AppHeader (h-14 = 56px). On lg+ this is hidden in favor of the
+          left rail. */}
+      <nav
+        aria-label="Settings sections"
+        className="lg:hidden sticky top-14 z-20 bg-[var(--background)]/95 backdrop-blur-sm border-b border-[var(--chidi-border-subtle)]"
+      >
+        <div className="flex items-center gap-1.5 overflow-x-auto px-4 py-2 scrollbar-none">
+          {SECTIONS.map((s) => {
+            const isActive = activeId === s.id
+            return (
+              <button
+                key={s.id}
+                onClick={() => switchSection(s.id)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 min-h-[36px] py-1.5 rounded-full text-[12px] font-chidi-voice flex-shrink-0 transition-colors active:scale-[0.97]',
+                  isActive
+                    ? 'bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]'
+                    : 'bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border border-[var(--chidi-border-subtle)]',
+                )}
+              >
+                {s.label}
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+
       {/* Two-pane layout: sticky section nav (left) + content (right) */}
-      <div className="max-w-6xl mx-auto w-full px-4 lg:px-8 py-6 flex gap-8">
-        {/* Section nav — sticky on lg+, horizontal scroll chips on mobile */}
+      <div className="max-w-6xl mx-auto w-full px-4 lg:px-8 py-4 lg:py-6 flex gap-8">
+        {/* Section nav — sticky on lg+ */}
         <nav
           aria-label="Settings sections"
           className="hidden lg:block w-52 flex-shrink-0"
@@ -143,37 +173,13 @@ export default function SettingsPage() {
           </ul>
         </nav>
 
-        {/* Mobile section chips */}
-        <nav
-          aria-label="Settings sections"
-          className="lg:hidden flex items-center gap-2 overflow-x-auto -mx-4 px-4 pb-3 fixed top-14 left-0 right-0 z-10 bg-[var(--background)] border-b border-[var(--chidi-border-subtle)] pt-3"
-        >
-          {SECTIONS.map((s) => {
-            const isActive = activeId === s.id
-            return (
-              <button
-                key={s.id}
-                onClick={() => switchSection(s.id)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 px-3 min-h-[44px] py-2 rounded-full text-[12px] font-chidi-voice flex-shrink-0',
-                  isActive
-                    ? 'bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]'
-                    : 'bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border border-[var(--chidi-border-subtle)]',
-                )}
-              >
-                {s.label}
-              </button>
-            )
-          })}
-        </nav>
-
         {/* Content column — view-swap: only the active section renders.
             The data-settings-active attribute drives a CSS rule in globals.css
             that hides every other settings-section. Linear / Mac System
             Settings pattern: nav is the navigation; content is the destination,
             not a scroll target. */}
         <div
-          className="flex-1 min-w-0 lg:pt-0 pt-12"
+          className="flex-1 min-w-0"
           data-settings-active={activeId}
         >
           {/* Chidi section — personality controls (tone, sound, quiet hours)

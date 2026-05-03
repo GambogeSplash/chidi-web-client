@@ -31,7 +31,10 @@ export function SettingsSectionCard({
   return (
     <div
       className={cn(
-        "rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-5 lg:p-6 mb-4",
+        // Tighter mobile padding; desktop keeps room. The card is mb-3 on
+        // mobile (was mb-4) so consecutive sections feel like one column,
+        // not seven floating cards with daylight between them.
+        "rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-6 mb-3 lg:mb-4",
         className,
       )}
     >

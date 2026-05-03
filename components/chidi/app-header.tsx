@@ -1,10 +1,10 @@
 "use client"
 
-import { Settings } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
 import { NotificationDropdown } from "./notification-dropdown"
+import { BusinessAvatar, useBusinessAvatarSeed } from "./business-avatar"
+import { useDashboardAuth } from "@/lib/providers/dashboard-auth-context"
 
 interface Notification {
   id: string
@@ -19,6 +19,8 @@ interface Notification {
 }
 
 interface AppHeaderProps {
+  /** Kept for callsite compatibility — the entire identity block now navigates
+      to settings, so a separate cog is redundant. */
   showSettings?: boolean
   notifications?: Notification[]
   onMarkAsRead?: (id: string) => void
@@ -27,8 +29,19 @@ interface AppHeaderProps {
   onNotificationClick?: (notification: Notification) => void
 }
 
-export function AppHeader({ 
-  showSettings = true,
+/**
+ * Mobile chrome.
+ *
+ * Left:  Business avatar + name + chevron — one tap → workspace settings.
+ *        The whole block is the merchant's identity, not Chidi's brand.
+ *        (Chidi's brand lives inside the conversational surfaces; this top
+ *        slot is "you, the shop".)
+ *
+ * Right: Notifications. Settings cog removed — the identity block IS the
+ *        settings entry now.
+ */
+export function AppHeader({
+  showSettings: _showSettings = true,
   notifications = [],
   onMarkAsRead,
   onMarkAllAsRead,
@@ -38,8 +51,15 @@ export function AppHeader({
   const router = useRouter()
   const params = useParams()
   const slug = params.slug as string
+  const { user } = useDashboardAuth()
+  const businessName = (user as any)?.businessName || "Your business"
+  const { seed: avatarSeed } = useBusinessAvatarSeed(businessName)
 
-  const handleSettingsClick = () => {
+  // Truncate to ~16 chars on mobile so chevron + notifications stay visible.
+  const displayName =
+    businessName.length > 16 ? `${businessName.slice(0, 15)}…` : businessName
+
+  const handleIdentityClick = () => {
     if (slug) {
       router.push(`/dashboard/${slug}/settings`)
     }
@@ -47,16 +67,22 @@ export function AppHeader({
 
   return (
     <header className="sticky top-0 z-40 bg-[var(--background)] border-b border-[var(--chidi-border-default)] safe-area-top">
-      <div className="flex items-center justify-between h-14 px-4 max-w-lg mx-auto">
-        <Image
-          src="/logo.png"
-          alt="Chidi"
-          width={48}
-          height={48}
-        />
-        
-        <div className="flex items-center gap-1">
-          {/* Notification Dropdown */}
+      <div className="flex items-center justify-between h-14 px-3 max-w-lg mx-auto gap-2">
+        {/* Identity block — 44px tap target. Tapping anywhere here goes to
+            workspace settings. */}
+        <button
+          onClick={handleIdentityClick}
+          aria-label={`Open ${businessName} settings`}
+          className="flex items-center gap-2 min-h-[44px] px-2 -mx-1 rounded-lg hover:bg-[var(--chidi-surface)] active:scale-[0.98] transition-colors min-w-0 flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
+        >
+          <BusinessAvatar name={avatarSeed} size="sm" />
+          <span className="flex-1 min-w-0 text-left text-[14px] font-medium text-[var(--chidi-text-primary)] truncate font-chidi-voice">
+            {displayName}
+          </span>
+          <ChevronRight className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0" strokeWidth={1.8} />
+        </button>
+
+        <div className="flex items-center gap-1 flex-shrink-0">
           {onMarkAsRead && onMarkAllAsRead && onDismiss && (
             <NotificationDropdown
               notifications={notifications}
@@ -65,20 +91,6 @@ export function AppHeader({
               onDismiss={onDismiss}
               onNotificationClick={onNotificationClick}
             />
-          )}
-
-          {/* Settings Button — 44×44 mobile tap target (WCAG 2.5.5). */}
-          {showSettings && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleSettingsClick}
-              aria-label="Settings"
-              className="h-11 w-11 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
-            >
-              <Settings className="w-5 h-5" />
-              <span className="sr-only">Settings</span>
-            </Button>
           )}
         </div>
       </div>

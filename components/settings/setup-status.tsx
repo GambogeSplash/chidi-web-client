@@ -60,7 +60,9 @@ export function SetupStatus({ onJumpToSection }: SetupStatusProps) {
         done: hasPayment,
       },
       {
-        id: "ai",
+        // Policies live inside the merged "Chidi" settings section
+        // (#settings-ai is rendered when data-settings-active="chidi").
+        id: "chidi",
         label: "Add business policies",
         sub: "Returns, delivery, hours — Chidi uses these in replies",
         done: hasPolicies,

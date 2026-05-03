@@ -430,23 +430,26 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
             personal account row sits below as secondary. */}
         <section id="settings-profile" className="scroll-mt-20">
           <SettingsSectionCard eyebrow="Profile" title="Your shop">
-            <div className="flex items-center gap-3 mb-4">
+            {/* Brand identity row — given air. Avatar at lg, name on its own
+                line so the merchant feels their shop "lands" instead of
+                squeezing between an avatar and a button. */}
+            <div className="flex items-start gap-4 mb-4">
               <BusinessAvatar name={avatarRenderSeed} size="lg" />
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-semibold text-[var(--chidi-text-primary)] truncate">
+                <p className="text-[16px] font-semibold text-[var(--chidi-text-primary)] truncate leading-tight">
                   {businessName}
                 </p>
-                <p className="text-[12px] text-[var(--chidi-text-muted)] truncate">
+                <p className="text-[12px] text-[var(--chidi-text-muted)] mt-1">
                   Shown to customers.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setAvatarPickerOpen((p) => !p)}
+                  className="mt-2 text-[12px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] underline underline-offset-2 min-h-[32px] inline-flex items-center"
+                >
+                  {avatarPickerOpen ? "Done" : "Change avatar"}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setAvatarPickerOpen((p) => !p)}
-                className="text-[11px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] underline underline-offset-2"
-              >
-                {avatarPickerOpen ? "Done" : "Change"}
-              </button>
             </div>
             {avatarPickerOpen && (
               <div className="mb-5 p-4 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/40">

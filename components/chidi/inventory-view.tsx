@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -14,12 +15,30 @@ import { hapticSoft } from "@/lib/chidi/haptics"
 import { EditableCell } from "./editable-cell"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EmptyState } from "./empty-state"
 import { ManageVariationsSheet } from "./manage-variations-sheet"
 import { HintBanner } from "./hint-banner"
 import { useFirstTimeHint } from "@/lib/hooks/use-first-time-hint"
 import type { DisplayProduct } from "@/lib/types/product"
 import { cn } from "@/lib/utils"
+
+// Filter/sort labels — single source of truth so dropdown + sheet + active
+// chip all read from the same string.
+type StockFilter = "all" | "low" | "out"
+type SortKeyExt = "recent" | "name" | "stock" | "price" | "custom"
+const FILTER_LABEL: Record<StockFilter, string> = {
+  all: "All products",
+  low: "Low stock",
+  out: "Out of stock",
+}
+const SORT_LABEL: Record<SortKeyExt, string> = {
+  recent: "Recently added",
+  name: "Name (A–Z)",
+  stock: "Stock (low → high)",
+  price: "Price (low → high)",
+  custom: "Custom order",
+}
 
 interface InventoryViewProps {
   products: DisplayProduct[]
@@ -31,11 +50,51 @@ interface InventoryViewProps {
 }
 
 export function InventoryView({ products, onAddProduct, onEditProduct, onViewProduct, onProductsUpdated, onBulkImport }: InventoryViewProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [stockFilter, setStockFilter] = useState<"all" | "low" | "out">("all")
+
+  // Stock filter — initialized from URL (?filter=low|out), survives refresh.
+  const initialFilter = (() => {
+    const f = searchParams.get("filter")
+    if (f === "low" || f === "low_stock") return "low" as StockFilter
+    if (f === "out" || f === "out_of_stock") return "out" as StockFilter
+    return "all" as StockFilter
+  })()
+  const [stockFilter, setStockFilterState] = useState<StockFilter>(initialFilter)
+
+  // setStockFilter wrapper — also pushes the filter into the URL so refresh
+  // preserves the merchant's view. Replace, not push, so the back button
+  // doesn't fill with filter-state breadcrumbs.
+  const setStockFilter = (next: StockFilter) => {
+    setStockFilterState(next)
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(searchParams.toString())
+    if (next === "all") params.delete("filter")
+    else params.set("filter", next === "low" ? "low_stock" : "out_of_stock")
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
+
+  // Sync external URL changes (e.g. notification deep-link "?filter=low_stock")
+  useEffect(() => {
+    const f = searchParams.get("filter")
+    const next: StockFilter =
+      f === "low" || f === "low_stock"
+        ? "low"
+        : f === "out" || f === "out_of_stock"
+          ? "out"
+          : "all"
+    if (next !== stockFilter) setStockFilterState(next)
+    // intentionally exclude stockFilter from deps — we only react to URL changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
   void showFilters; void setShowFilters // unused after categories shelf refactor; left for now
   // Bulk select state. Selecting one product reveals the actions toolbar.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -43,6 +102,10 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   type SortKey = "name" | "price" | "stock" | "recent" | "custom"
   const [sortKey, setSortKey] = useState<SortKey>("recent")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  // Mobile filter/sort sheets — bottom-sheet pickers shown only on small
+  // screens. Desktop uses the inline dropdowns instead.
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false)
+  const [sortSheetOpen, setSortSheetOpen] = useState(false)
   // Custom display order — only respected when sortKey === "custom".
   // Persists across the session in localStorage.
   const [customOrder, setCustomOrder] = useState<string[]>(() => {
@@ -275,14 +338,33 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
         <div className="flex items-start justify-between mb-3 gap-3">
           <div className="min-w-0">
             <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inventory</h1>
-            {/* Summary chips — clickable to filter */}
+            {/* Stat tiles — every tile is a button. Products resets the
+                filter; Worth is informational (no-op); Low/Out toggle their
+                respective filters. The active tile is visually pressed so the
+                merchant always knows what slice they're looking at. */}
             <div className="flex flex-wrap items-center gap-1.5 mt-3">
-              <span className="inline-flex items-center gap-1 text-[11px] font-chidi-voice text-[var(--chidi-text-secondary)] bg-[var(--chidi-surface)] px-2 py-1 rounded-md">
+              <button
+                onClick={() => setStockFilter("all")}
+                aria-pressed={stockFilter === "all"}
+                className={cn(
+                  "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97] transition-colors",
+                  stockFilter === "all"
+                    ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]"
+                    : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]/70",
+                )}
+                title="Show all products"
+              >
                 <span className="font-medium tabular-nums">{products.length}</span>
-                <span className="text-[var(--chidi-text-muted)]">{products.length === 1 ? "product" : "products"}</span>
-              </span>
+                <span className={cn(stockFilter === "all" ? "opacity-80" : "text-[var(--chidi-text-muted)]")}>{products.length === 1 ? "product" : "products"}</span>
+              </button>
               {totalValue > 0 && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-chidi-voice text-[var(--chidi-text-secondary)] bg-[var(--chidi-surface)] px-2 py-1 rounded-md">
+                <button
+                  type="button"
+                  onClick={(e) => e.preventDefault()}
+                  aria-label={`Inventory worth ${totalValue.toLocaleString()} naira`}
+                  title="Total cost-basis of stock on hand"
+                  className="inline-flex items-center gap-1 text-[11px] font-chidi-voice text-[var(--chidi-text-secondary)] bg-[var(--chidi-surface)] px-2 py-1 rounded-md cursor-default"
+                >
                   <TrendingUp className="w-2.5 h-2.5" />
                   <span className="text-[var(--chidi-text-muted)]">worth</span>
                   <CurrencyAmount
@@ -292,17 +374,19 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                     showDualHover={false}
                     className="font-medium tabular-nums"
                   />
-                </span>
+                </button>
               )}
               {lowStockCount > 0 && (
                 <button
                   onClick={() => setStockFilter(stockFilter === "low" ? "all" : "low")}
+                  aria-pressed={stockFilter === "low"}
                   className={cn(
-                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97]",
+                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97] transition-colors",
                     stockFilter === "low"
                       ? "bg-[var(--chidi-warning)] text-[var(--chidi-warning-foreground)]"
-                      : "bg-[var(--chidi-warning)]/10 text-[var(--chidi-warning)]"
+                      : "bg-[var(--chidi-warning)]/10 text-[var(--chidi-warning)] hover:bg-[var(--chidi-warning)]/15"
                   )}
+                  title="Filter to low-stock items"
                 >
                   <span className="font-medium tabular-nums">{lowStockCount}</span>
                   low stock
@@ -311,12 +395,14 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               {outOfStockCount > 0 && (
                 <button
                   onClick={() => setStockFilter(stockFilter === "out" ? "all" : "out")}
+                  aria-pressed={stockFilter === "out"}
                   className={cn(
-                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97]",
+                    "inline-flex items-center gap-1 text-[11px] font-chidi-voice px-2 py-1 rounded-md active:scale-[0.97] transition-colors",
                     stockFilter === "out"
                       ? "bg-[var(--chidi-danger)] text-white"
-                      : "bg-[var(--chidi-danger)]/10 text-[var(--chidi-danger)]"
+                      : "bg-[var(--chidi-danger)]/10 text-[var(--chidi-danger)] hover:bg-[var(--chidi-danger)]/15"
                   )}
+                  title="Filter to out-of-stock items"
                 >
                   <span className="font-medium tabular-nums">{outOfStockCount}</span>
                   out of stock
@@ -378,9 +464,12 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           </div>
         </div>
 
-        {/* Search and filter */}
-        <div className="flex gap-2">
-          <div className="relative flex-1">
+        {/* Search + filter + sort row.
+            Mobile: search fills row; filter/sort collapse to two icon buttons
+            that open bottom sheets so the row never wraps awkwardly.
+            Desktop (md+): inline dropdowns next to the search field. */}
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--chidi-text-muted)]" />
             <Input
               placeholder="Search products..."
@@ -389,7 +478,106 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               className="pl-9 h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)]"
             />
           </div>
+
+          {/* Mobile: icon buttons (open bottom sheets) */}
+          <button
+            onClick={() => setFilterSheetOpen(true)}
+            className={cn(
+              "md:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border text-[var(--chidi-text-secondary)] active:scale-[0.97] flex-shrink-0",
+              stockFilter !== "all"
+                ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] border-[var(--chidi-text-primary)]"
+                : "bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] hover:bg-white",
+            )}
+            aria-label="Filter products"
+            title="Filter"
+          >
+            <Filter className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setSortSheetOpen(true)}
+            className="md:hidden inline-flex items-center justify-center h-9 w-9 rounded-md border bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)] hover:bg-white active:scale-[0.97] flex-shrink-0"
+            aria-label="Sort products"
+            title="Sort"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+
+          {/* Desktop: inline dropdowns */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-md border text-[12px] font-chidi-voice active:scale-[0.97] flex-shrink-0",
+                  stockFilter !== "all"
+                    ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] border-[var(--chidi-text-primary)]"
+                    : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:bg-white",
+                )}
+              >
+                <Filter className="w-3.5 h-3.5" />
+                <span>{FILTER_LABEL[stockFilter]}</span>
+                <ChevronDown className="w-3 h-3 opacity-70" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
+              {(Object.keys(FILTER_LABEL) as StockFilter[]).map((k) => (
+                <DropdownMenuItem
+                  key={k}
+                  onClick={() => setStockFilter(k)}
+                  className={cn(stockFilter === k && "bg-[var(--chidi-surface)] font-medium")}
+                >
+                  {FILTER_LABEL[k]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-md border bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)] text-[12px] font-chidi-voice hover:bg-white active:scale-[0.97] flex-shrink-0">
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                <span>{SORT_LABEL[sortKey]}</span>
+                <ChevronDown className="w-3 h-3 opacity-70" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
+              {(["recent", "name", "stock", "price"] as SortKeyExt[]).map((k) => (
+                <DropdownMenuItem
+                  key={k}
+                  onClick={() => {
+                    setSortKey(k as SortKey)
+                    setSortDir(k === "name" ? "asc" : k === "stock" || k === "price" ? "asc" : "desc")
+                  }}
+                  className={cn(sortKey === k && "bg-[var(--chidi-surface)] font-medium")}
+                >
+                  {SORT_LABEL[k]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+
+        {/* Active filter chip — visible whenever a non-"all" filter is set,
+            with a remove (×) so the merchant can clear it from anywhere. */}
+        {stockFilter !== "all" && (
+          <div className="flex items-center gap-1.5 mt-2">
+            <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium">
+              Filter
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-chidi-voice text-[var(--chidi-bg-primary)] bg-[var(--chidi-text-primary)] px-2 py-1 rounded-full">
+              {FILTER_LABEL[stockFilter]}
+              <button
+                onClick={() => setStockFilter("all")}
+                aria-label="Clear filter"
+                className="ml-0.5 hover:opacity-80 active:scale-[0.92]"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+            <span className="text-[11px] text-[var(--chidi-text-muted)] tabular-nums">
+              {filteredProducts.length} of {products.length}
+            </span>
+          </div>
+        )}
 
         {/* Categories shelf — always visible, horizontal scroll on mobile.
             Each chip shows the count so the merchant sees their inventory shape. */}
@@ -936,6 +1124,85 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           onUpdate={handleVariationsUpdated}
         />
       )}
+
+      {/* Mobile Filter Sheet — bottom sheet, full list of stock states */}
+      <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl p-5 max-h-[70vh]"
+        >
+          <div aria-hidden className="mx-auto -mt-1 mb-2 h-1.5 w-10 rounded-full bg-[var(--chidi-border-default)]/70" />
+          <SheetHeader className="p-0 mb-4">
+            <SheetTitle className="text-[15px] font-semibold text-[var(--chidi-text-primary)]">Filter products</SheetTitle>
+          </SheetHeader>
+          <ul className="space-y-1">
+            {(Object.keys(FILTER_LABEL) as StockFilter[]).map((k) => {
+              const isActive = stockFilter === k
+              const count =
+                k === "all" ? products.length : k === "low" ? lowStockCount : outOfStockCount
+              return (
+                <li key={k}>
+                  <button
+                    onClick={() => {
+                      setStockFilter(k)
+                      setFilterSheetOpen(false)
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-4 py-3 rounded-xl text-[14px] font-chidi-voice text-left active:scale-[0.99] min-h-[48px]",
+                      isActive
+                        ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]"
+                        : "bg-[var(--chidi-surface)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]/70",
+                    )}
+                  >
+                    <span>{FILTER_LABEL[k]}</span>
+                    <span className={cn("tabular-nums text-[12px]", isActive ? "opacity-80" : "text-[var(--chidi-text-muted)]")}>
+                      {count}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile Sort Sheet — bottom sheet for sort key */}
+      <Sheet open={sortSheetOpen} onOpenChange={setSortSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl p-5 max-h-[70vh]"
+        >
+          <div aria-hidden className="mx-auto -mt-1 mb-2 h-1.5 w-10 rounded-full bg-[var(--chidi-border-default)]/70" />
+          <SheetHeader className="p-0 mb-4">
+            <SheetTitle className="text-[15px] font-semibold text-[var(--chidi-text-primary)]">Sort by</SheetTitle>
+          </SheetHeader>
+          <ul className="space-y-1">
+            {(["recent", "name", "stock", "price"] as SortKeyExt[]).map((k) => {
+              const isActive = sortKey === k
+              return (
+                <li key={k}>
+                  <button
+                    onClick={() => {
+                      setSortKey(k as SortKey)
+                      setSortDir(k === "name" ? "asc" : k === "stock" || k === "price" ? "asc" : "desc")
+                      setSortSheetOpen(false)
+                    }}
+                    className={cn(
+                      "w-full flex items-center justify-between px-4 py-3 rounded-xl text-[14px] font-chidi-voice text-left active:scale-[0.99] min-h-[48px]",
+                      isActive
+                        ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]"
+                        : "bg-[var(--chidi-surface)] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]/70",
+                    )}
+                  >
+                    <span>{SORT_LABEL[k]}</span>
+                    {isActive && <CheckCircle className="w-4 h-4 opacity-80" />}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

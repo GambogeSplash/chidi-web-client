@@ -60,16 +60,39 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
+          // Base appearance
+          'bg-background z-50 grid gap-4 border shadow-lg duration-200',
+          // Animation primitives
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+          // Mobile (default): bottom sheet — slides up from the bottom edge,
+          // full-width, rounded top, max-h so the sheet never crowds the
+          // status bar. The sheet handle sits above the content for affordance.
+          'fixed inset-x-0 bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0',
+          'w-full max-w-full max-h-[92vh] rounded-t-2xl rounded-b-none p-5 pt-4',
+          'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+          // Desktop (sm+): centered modal — original behavior. The
+          // slide-from-bottom animation is mobile-only; on desktop the
+          // zoom animation takes over.
+          'sm:top-[50%] sm:left-[50%] sm:bottom-auto sm:right-auto sm:inset-x-auto',
+          'sm:translate-x-[-50%] sm:translate-y-[-50%]',
+          'sm:w-full sm:max-w-[calc(100%-2rem)] sm:max-h-[85vh] sm:rounded-lg sm:p-6',
+          'sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95',
+          'sm:max-w-lg',
           className,
         )}
         {...props}
       >
+        {/* Sheet handle — visible only on mobile, signals "drag/swipe down".
+            Cosmetic; the sheet still closes via the X or overlay click. */}
+        <div
+          aria-hidden
+          className="sm:hidden mx-auto mb-2 -mt-1 h-1.5 w-10 rounded-full bg-[var(--chidi-border-default)]/70"
+        />
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-3 right-3 sm:top-4 sm:right-4 h-9 w-9 sm:h-auto sm:w-auto inline-flex items-center justify-center rounded-md sm:rounded-xs opacity-70 transition-opacity hover:opacity-100 hover:bg-[var(--chidi-surface)] sm:hover:bg-transparent focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">Close</span>
