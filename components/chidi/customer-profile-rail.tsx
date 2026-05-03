@@ -17,6 +17,9 @@ interface CustomerProfileRailProps {
   onClose?: () => void
   /** Switches to the orders tab and pre-filters by this customer */
   onViewAllOrders?: (customerName: string) => void
+  /** Switches to the orders tab AND auto-opens the specific order detail panel.
+      Wired through DashboardContent → OrdersView's `initialOrderId` prop. */
+  onOpenOrder?: (orderId: string) => void
   /** Spawns a Copilot conversation about this customer */
   onAskChidiAbout?: (customerName: string) => void
   className?: string
@@ -39,6 +42,7 @@ export function CustomerProfileRail({
   channelName,
   onClose,
   onViewAllOrders,
+  onOpenOrder,
   onAskChidiAbout,
   className,
 }: CustomerProfileRailProps) {
@@ -139,7 +143,12 @@ export function CustomerProfileRail({
               <RecentOrderRow
                 key={order.id}
                 order={order}
-                onOpen={() => onViewAllOrders?.(customerName ?? "")}
+                onOpen={() => {
+                  // Deep-link to the specific order if the parent supports it.
+                  // Falls back to the customer-filtered orders list otherwise.
+                  if (onOpenOrder) onOpenOrder(order.id)
+                  else onViewAllOrders?.(customerName ?? "")
+                }}
               />
             ))}
           </ul>

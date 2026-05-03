@@ -341,6 +341,14 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
               // can scan from there.
               setActiveTab("orders")
             }}
+            onOpenOrder={(orderId) => {
+              // Deep-link to the specific order: jump to the orders tab AND
+              // set the initialOrderId so OrdersView auto-opens its detail
+              // panel on that order. Fixes the "click recent order in chat,
+              // get dropped on the orders index" UX.
+              setSelectedOrderId(orderId)
+              setActiveTab("orders")
+            }}
             onAskChidiAboutCustomer={() => {
               setActiveTab("chidi")
             }}

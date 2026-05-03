@@ -68,10 +68,11 @@ import { PullToRefresh } from "./pull-to-refresh"
 
 interface InboxViewProps {
   onViewCustomerOrders?: (customerName: string) => void
+  onOpenOrder?: (orderId: string) => void
   onAskChidiAboutCustomer?: (customerName: string) => void
 }
 
-export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: InboxViewProps = {}) {
+export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCustomer }: InboxViewProps = {}) {
   const queryClient = useQueryClient()
   const [selectedConversation, setSelectedConversation] = useState<ChannelConversation | null>(null)
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -473,6 +474,7 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
           setSelectedConversation(updated)
         }}
         onViewCustomerOrders={onViewCustomerOrders}
+        onOpenOrder={onOpenOrder}
         onAskChidiAboutCustomer={onAskChidiAboutCustomer}
       />
     )

@@ -48,10 +48,11 @@ interface ChannelChatProps {
   onBack: () => void
   onConversationUpdate: (conversation: ChannelConversation) => void
   onViewCustomerOrders?: (customerName: string) => void
+  onOpenOrder?: (orderId: string) => void
   onAskChidiAboutCustomer?: (customerName: string) => void
 }
 
-export function ChannelChat({ conversation, onBack, onConversationUpdate, onViewCustomerOrders, onAskChidiAboutCustomer }: ChannelChatProps) {
+export function ChannelChat({ conversation, onBack, onConversationUpdate, onViewCustomerOrders, onOpenOrder, onAskChidiAboutCustomer }: ChannelChatProps) {
   const queryClient = useQueryClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const replyInputRef = useRef<HTMLInputElement>(null)
@@ -593,6 +594,7 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
 
       {/* Customer profile rail — desktop only (xl+), shows accumulated context */}
       <CustomerProfileRail
+        onOpenOrder={onOpenOrder}
         customerName={conversation.customer_name}
         customerId={conversation.customer_id}
         customerPhone={customerDisplay}
