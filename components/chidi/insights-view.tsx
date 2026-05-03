@@ -1,37 +1,27 @@
 "use client"
 
 /**
- * Insights — merchant analytics dashboard (rebuild 2026-05-03).
+ * Insights — merchant analytics dashboard (rebuild 2026-05-03 — wave 2).
  *
- * Research that shaped this:
- *   • Stripe Home — date-range + 60-second snapshot, comparison toggle, modular
- *     "your overview" widgets, gross-volume sparklines. We borrow the
- *     date-range-controls-everything pattern and "compare to prior period" toggle.
- *   • Shopify Analytics overview — KPI cards with inline sparkline + % vs prior,
- *     each card drills into a related report. We mirror the drill-on-click model
- *     into our existing tabs (Revenue → Orders, AOV → Orders, etc).
- *   • Glovo Partner / Chowdeck Merchant — mobile-first ops snapshot framed as
- *     "what changed today", big-number cash-flow, channel-mix drill. We adopt
- *     the cash-position card and the "what to do next" framing.
- *   • Vercel Analytics — dense panel grid, top-entries lists with % shares,
- *     simple dropdown date range. We use this for top products + top customers.
+ * The prior bento was 9 panels saying overlapping things. This rebuild:
  *
- * Pattern picked: bento overview anchored by a single "decisions" lane. Most
- * merchant dashboards tell you what *happened* — Chidi's wedge is telling you
- * what to *do*. So Decisions stay center-stage, but they sit inside a real
- * analytics surface (KPIs, trend, channel mix, heatmap, cash, top products,
- * top customers, inventory at risk) so the page reads like a proper merchant
- * dashboard, not a feed.
+ *   • Same wedge: Decisions stays center-stage (Chidi tells you what to *do*,
+ *     not just what happened).
+ *   • Aggressive cut: Cash Position, When-they-buy heatmap, and Inventory-at-Risk
+ *     are gone — every actionable insight in those panels is already a decision
+ *     card (chase pendings, Saturday prep, restock wax-print, pull iPhone case,
+ *     mark down stale items). Showing them twice taught the merchant noise.
+ *   • Progressive disclosure: rather than scrolling 9 panels, the merchant sees
+ *     the always-visible spine (KPIs + Revenue trend + Decisions) and chooses a
+ *     "lens" tab to drill in (Channels / Bestsellers / Customers).
+ *   • Margin: matches the Playbook page (max-w-5xl + same px scale) so the two
+ *     surfaces feel like the same product.
+ *   • Every CTA resolves to a real surface. Dead CTAs were stripped, not
+ *     restyled.
  *
  * Charts: recharts only. Animated on first mount. Token-driven colors.
  * Date-range picker controls every chart and KPI; selection persists to
  * sessionStorage so a page-refresh keeps the merchant's view.
- *
- * Every CTA on this page resolves to a real surface. Tab CTAs dispatch
- * `chidi:navigate-tab` (already wired in DashboardContent). Playbook CTAs
- * router.push to /dashboard/[slug]/notebook. Conversation/order deep-links
- * also fire `chidi:navigate-tab` because the parent owns activeConversationId
- * and selectedOrderId.
  */
 
 import { useMemo, useState } from "react"
@@ -50,12 +40,9 @@ import {
   ChevronRight,
   ChevronDown,
   RefreshCw,
-  Wallet,
-  TrendingUp,
-  Receipt,
   AlertTriangle,
   ExternalLink,
-  Clock,
+  Wallet,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -142,6 +129,14 @@ const CHANNEL_LABEL: Record<string, string> = {
   UNKNOWN: "Other",
 }
 
+// Drill-in lens tabs. Decisions + KPIs + trend always visible above.
+type Lens = "channels" | "products" | "customers"
+const LENS_OPTIONS: Array<{ id: Lens; label: string }> = [
+  { id: "channels", label: "Channels" },
+  { id: "products", label: "Bestsellers" },
+  { id: "customers", label: "Customers" },
+]
+
 // ============================================================================
 // InsightsView — top-level
 // ============================================================================
@@ -151,12 +146,13 @@ export function InsightsView() {
   const params = useParams()
   const slug = (params?.slug as string | undefined) ?? "default"
 
-  // Persist period + compare-mode across navigation.
+  // Persist period + compare-mode + lens across navigation.
   const [period, setPeriod] = usePersistedState<Period>("insights:period", "30d")
   const [compareToPrior, setCompareToPrior] = usePersistedState<boolean>(
     "insights:compare",
     true,
   )
+  const [lens, setLens] = usePersistedState<Lens>("insights:lens", "channels")
 
   // Refresh state — animates the spinner; the count-up KPIs re-tween via key.
   const [refreshKey, setRefreshKey] = useState(0)
@@ -169,8 +165,6 @@ export function InsightsView() {
   const { data: topProducts, refetch: refetchTop } = useTopProducts(period, 5)
   const { data: customers, refetch: refetchCust } = useCustomers(undefined, "total_spent", 6)
   const { data: pendingOrders } = useOrders("PENDING_PAYMENT")
-  const { data: confirmedOrders } = useOrders("CONFIRMED")
-  const { data: fulfilledOrders } = useOrders("FULFILLED")
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -242,42 +236,29 @@ export function InsightsView() {
     return c
   }, [])
 
-  // ===== Cash position — derived from real mock orders, not invented ========
-
-  const cashPosition = useMemo(() => {
-    const sumOrders = (list: Array<{ total?: number }> | undefined): number =>
-      (list ?? []).reduce((s, o) => s + (o?.total ?? 0), 0)
-    const owedNow = sumOrders(pendingOrders?.orders as Array<{ total?: number }> | undefined)
-    const fulfillingNow = sumOrders(confirmedOrders?.orders as Array<{ total?: number }> | undefined)
-    // "Paid this period" = sum of fulfilled orders within the chosen period.
-    const periodHours = period === "7d" ? 7 * 24 : period === "30d" ? 30 * 24 : 90 * 24
-    const paidThisPeriod = (fulfilledOrders?.orders ?? []).reduce((s, o: any) => {
-      if (!o.fulfilled_at) return s
-      const ageHours = (Date.now() - new Date(o.fulfilled_at).getTime()) / 36e5
-      return ageHours <= periodHours ? s + (o.total ?? 0) : s
-    }, 0)
-    return { owedNow, fulfillingNow, paidThisPeriod }
-  }, [pendingOrders, confirmedOrders, fulfilledOrders, period])
-
-  // ===== When-customers-buy heatmap data ====================================
-
-  const heatmap = useMemo(() => buildHeatmap([
-    ...(pendingOrders?.orders ?? []),
-    ...(confirmedOrders?.orders ?? []),
-    ...(fulfilledOrders?.orders ?? []),
-  ] as any[]), [pendingOrders, confirmedOrders, fulfilledOrders])
-
-  // ===== Inventory at risk — derived from topProducts.stale + low stock =====
-
-  // (Stale list lives on TopProductsResponse already — fed from mock-data.ts.)
+  // Money owed — the one Cash signal that actually drives a decision.
+  // Surfaced as a small inline pill in the Decisions header instead of a
+  // whole card. (The "Chase pendings" decision card already covers the move.)
+  const owedNow = useMemo(() => {
+    return (pendingOrders?.orders ?? []).reduce(
+      (s: number, o: { total?: number }) => s + (o?.total ?? 0),
+      0,
+    )
+  }, [pendingOrders])
+  const pendingCount = pendingOrders?.orders.length ?? 0
 
   // ===== Layout =============================================================
 
   return (
     <div className="flex-1 flex flex-col bg-[var(--background)] h-full overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8 py-5 lg:py-7">
+      {/*
+        Margin alignment: matches Playbook's <ChidiPage width="wide"> shell —
+        max-w-5xl + px-4 sm:px-6 lg:px-8 + py-5 lg:py-7. Without this match the
+        two surfaces drift apart and read as different products.
+      */}
+      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 py-5 lg:py-7">
         {/* Eyebrow + page title + actions */}
-        <header className="mb-5 lg:mb-6 flex items-end justify-between gap-4 flex-wrap">
+        <header className="mb-5 lg:mb-7 flex items-end justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="ty-meta mb-1.5">Insights</p>
             <h1 className="ty-page-title text-[var(--chidi-text-primary)]">
@@ -358,38 +339,27 @@ export function InsightsView() {
             deltaPct={overview?.fulfillment_rate.percent_change ?? null}
             compare={compareToPrior}
             spark={(trend?.data ?? []).map((d) => d.order_count)}
-            onClick={() => goToTab("inbox")}
-            ctaLabel="Open inbox"
+            // Fulfillment lives on the orders tab, not the inbox.
+            onClick={() => goToTab("orders")}
+            ctaLabel="See orders"
           />
         </section>
 
-        {/* === Bento row 1: Revenue trend (8) + Channel mix (4) ============ */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 mb-4 lg:mb-5">
-          <BentoCard className="lg:col-span-8">
+        {/* === Revenue trend — full width, primary chart =================== */}
+        <section className="mb-4 lg:mb-5">
+          <BentoCard>
             <RevenueTrendCard
               data={trend?.data ?? []}
               compare={compareToPrior}
               onSeeOrders={() => goToTab("orders")}
             />
           </BentoCard>
-          <BentoCard className="lg:col-span-4">
-            <ChannelMixCard
-              channels={channelMix?.channels ?? []}
-              total={channelMix?.totals.revenue ?? 0}
-              onClickChannel={(ch) => {
-                // Channel slice → open inbox (Chidi's natural drill for any
-                // channel-related question is the conversation list).
-                goToTab("inbox")
-                // No per-channel inbox filter exists yet, so we simply navigate.
-                // Marked TODO: pipe a channel filter into InboxView later.
-                void ch
-              }}
-              onConfigure={() => goToSettings()}
-            />
-          </BentoCard>
         </section>
 
-        {/* === Decisions lane — Chidi's unique "what to do" wedge ========== */}
+        {/* === Decisions lane — Chidi's unique "what to do" wedge ==========
+            This is the heart of Insights. Stays full-width and primary so the
+            merchant always sees their next move before they wander into drill
+            tabs below. */}
         <section className="mb-4 lg:mb-5">
           <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
             <div className="flex items-end justify-between gap-3 flex-wrap mb-3.5">
@@ -398,6 +368,21 @@ export function InsightsView() {
                 <h2 className="text-[16px] lg:text-[17px] font-semibold text-[var(--chidi-text-primary)] leading-tight">
                   {DECISIONS.length} decisions waiting on you.
                 </h2>
+                {/* Inline money-owed pill — replaces the deleted Cash card.
+                    Only shown when there's actually money outstanding. */}
+                {owedNow > 0 && (
+                  <button
+                    onClick={() => goToTab("orders")}
+                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--chidi-warning)]/12 text-[var(--chidi-warning)] hover:bg-[var(--chidi-warning)]/20 transition-colors"
+                  >
+                    <Wallet className="w-3 h-3" strokeWidth={2.2} />
+                    <span className="tabular-nums">{formatCurrency(owedNow)}</span>
+                    <span className="opacity-80">
+                      held in {pendingCount} pending payment{pendingCount === 1 ? "" : "s"}
+                    </span>
+                    <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 flex-shrink-0">
                 <FilterChip
@@ -436,54 +421,59 @@ export function InsightsView() {
           </div>
         </section>
 
-        {/* === Bento row 2: Cash position (5) + When-they-buy (7) ========== */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 mb-4 lg:mb-5">
-          <BentoCard className="lg:col-span-5">
-            <CashPositionCard
-              cash={cashPosition}
-              pendingCount={pendingOrders?.orders.length ?? 0}
-              fulfillingCount={confirmedOrders?.orders.length ?? 0}
-              onChasePending={() => goToTab("orders")}
-              onRunRecovery={() => goToPlaybook()}
-            />
-          </BentoCard>
-          <BentoCard className="lg:col-span-7">
-            <WhenTheyBuyHeatmap
-              matrix={heatmap.matrix}
-              max={heatmap.max}
-              best={heatmap.best}
-              onSchedulePlay={() => goToPlaybook()}
-            />
-          </BentoCard>
-        </section>
-
-        {/* === Bento row 3: Top products (6) + Top customers (6) =========== */}
-        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 mb-4 lg:mb-5">
-          <BentoCard className="lg:col-span-6">
-            <TopProductsCard
-              products={topProducts?.top_products ?? []}
-              onSeeAll={() => goToTab("inventory")}
-              onAskChidi={() => goToTab("chidi")}
-            />
-          </BentoCard>
-          <BentoCard className="lg:col-span-6">
-            <TopCustomersCard
-              customers={customers?.customers ?? []}
-              onSeeConvo={() => goToTab("inbox")}
-              onAskChidi={() => goToTab("chidi")}
-            />
-          </BentoCard>
-        </section>
-
-        {/* === Bento row 4: Inventory at risk (full row) =================== */}
+        {/* === Drill-in lens tabs ==========================================
+            Single panel with a tab strip — Channels / Bestsellers / Customers.
+            Replaces the four standalone bento cards (Channel, Heatmap, Top
+            products, Top customers, Inventory at risk) that were saying
+            overlapping things. The merchant picks one lens at a time instead
+            of scrolling 5 panels. */}
         <section className="mb-6">
-          <BentoCard>
-            <InventoryAtRiskCard
-              stale={topProducts?.stale_products ?? []}
-              onOpenInventory={() => goToTab("inventory")}
-              onRunPlay={() => goToPlaybook()}
-            />
-          </BentoCard>
+          <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
+            <div className="flex items-end justify-between gap-3 flex-wrap mb-4">
+              <div className="min-w-0">
+                <p className="ty-meta mb-1">Drill in</p>
+                <h2 className="text-[15px] font-semibold text-[var(--chidi-text-primary)] leading-tight">
+                  Pick a lens to look closer.
+                </h2>
+              </div>
+              <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-default)] bg-[var(--card)] p-0.5">
+                {LENS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setLens(opt.id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded text-[12px] font-medium transition-colors",
+                      lens === opt.id
+                        ? "bg-[var(--chidi-text-primary)] text-[var(--background)]"
+                        : "text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {lens === "channels" && (
+              <ChannelMixCard
+                channels={channelMix?.channels ?? []}
+                total={channelMix?.totals.revenue ?? 0}
+                onConfigure={() => goToSettings()}
+              />
+            )}
+            {lens === "products" && (
+              <TopProductsCard
+                products={topProducts?.top_products ?? []}
+                onSeeAll={() => goToTab("inventory")}
+              />
+            )}
+            {lens === "customers" && (
+              <TopCustomersCard
+                customers={customers?.customers ?? []}
+                onSeeConvo={() => goToTab("inbox")}
+              />
+            )}
+          </div>
         </section>
       </div>
     </div>
@@ -944,17 +934,16 @@ function RevenueTrendCard({
 
 // ============================================================================
 // Channel mix — pie + legend with percent shares
+// (Now lives inside the Drill-in lens panel, no longer its own bento.)
 // ============================================================================
 
 function ChannelMixCard({
   channels,
   total,
-  onClickChannel,
   onConfigure,
 }: {
   channels: Array<{ channel: string; revenue: number; revenue_percentage: number; order_count: number }>
   total: number
-  onClickChannel: (channel: string) => void
   onConfigure: () => void
 }) {
   const chartData = channels.map((c) => ({
@@ -974,7 +963,7 @@ function ChannelMixCard({
         hint={total > 0 ? `${formatCurrency(total)} this period` : undefined}
         actions={
           <PillButton onClick={onConfigure}>
-            Manage
+            Manage channels
             <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
           </PillButton>
         }
@@ -986,14 +975,18 @@ function ChannelMixCard({
           body="Connect a channel in Settings and your mix shows here."
         />
       ) : (
+        // Pie + legend rows. The pie + legend rows are NOT clickable — there's
+        // no per-channel filter on the inbox yet, and a click that lands you on
+        // an unfiltered inbox is worse than no click. Restore when the filter
+        // ships.
         <div className="flex items-center gap-4">
-          <div className="w-[120px] h-[120px] flex-shrink-0">
+          <div className="w-[140px] h-[140px] flex-shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={chartData}
-                  innerRadius={36}
-                  outerRadius={56}
+                  innerRadius={42}
+                  outerRadius={66}
                   dataKey="value"
                   startAngle={90}
                   endAngle={-270}
@@ -1001,14 +994,9 @@ function ChannelMixCard({
                   animationDuration={650}
                   stroke="var(--card)"
                   strokeWidth={2}
-                  onClick={(d: any) => onClickChannel(d?.raw ?? d?.name)}
                 >
                   {chartData.map((entry, i) => (
-                    <Cell
-                      key={i}
-                      fill={entry.color}
-                      style={{ cursor: "pointer", outline: "none" }}
-                    />
+                    <Cell key={i} fill={entry.color} style={{ outline: "none" }} />
                   ))}
                 </Pie>
                 <RTooltip
@@ -1025,27 +1013,27 @@ function ChannelMixCard({
 
           <ul className="flex-1 min-w-0 space-y-2">
             {chartData.map((d) => (
-              <li key={d.name}>
-                <button
-                  onClick={() => onClickChannel(d.raw)}
-                  className="w-full flex items-center justify-between gap-3 text-[12px] py-1 px-1 -mx-1 rounded hover:bg-[var(--chidi-surface)] transition-colors group"
-                >
-                  <span className="inline-flex items-center gap-2 min-w-0">
-                    <span
-                      className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                      style={{ backgroundColor: d.color }}
-                    />
-                    <span className="text-[var(--chidi-text-primary)] truncate">
-                      {d.name}
-                    </span>
+              <li
+                key={d.name}
+                className="w-full flex items-center justify-between gap-3 text-[12px] py-1"
+              >
+                <span className="inline-flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: d.color }}
+                  />
+                  <span className="text-[var(--chidi-text-primary)] truncate">
+                    {d.name}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 flex-shrink-0">
-                    <span className="text-[var(--chidi-text-muted)] tabular-nums">
-                      {d.pct}%
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                </span>
+                <span className="inline-flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[var(--chidi-text-muted)] tabular-nums">
+                    {d.orders} order{d.orders === 1 ? "" : "s"}
                   </span>
-                </button>
+                  <span className="text-[var(--chidi-text-primary)] font-medium tabular-nums w-10 text-right">
+                    {d.pct}%
+                  </span>
+                </span>
               </li>
             ))}
           </ul>
@@ -1207,276 +1195,13 @@ function MetricCell({
 }
 
 // ============================================================================
-// Cash position card — what's owed / fulfilling / paid this period
-// ============================================================================
-
-function CashPositionCard({
-  cash,
-  pendingCount,
-  fulfillingCount,
-  onChasePending,
-  onRunRecovery,
-}: {
-  cash: { owedNow: number; fulfillingNow: number; paidThisPeriod: number }
-  pendingCount: number
-  fulfillingCount: number
-  onChasePending: () => void
-  onRunRecovery: () => void
-}) {
-  const tweenedOwed = useCountUp(cash.owedNow, 950)
-  const tweenedFulfilling = useCountUp(cash.fulfillingNow, 950)
-  const tweenedPaid = useCountUp(cash.paidThisPeriod, 950)
-
-  return (
-    <>
-      <CardHeader
-        eyebrow="Cash position"
-        title="Where the money is"
-        actions={
-          <PillButton onClick={onRunRecovery} variant="solid">
-            Run recovery
-            <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-          </PillButton>
-        }
-      />
-
-      <div className="space-y-2.5">
-        <CashRow
-          icon={<Wallet className="w-3.5 h-3.5" />}
-          tone="warning"
-          label="Owed now"
-          sub={`${pendingCount} pending payment${pendingCount === 1 ? "" : "s"}`}
-          value={formatCurrency(tweenedOwed)}
-          actionLabel="Chase"
-          onAction={onChasePending}
-        />
-        <CashRow
-          icon={<Receipt className="w-3.5 h-3.5" />}
-          tone="muted"
-          label="Awaiting fulfillment"
-          sub={`${fulfillingCount} confirmed order${fulfillingCount === 1 ? "" : "s"}`}
-          value={formatCurrency(tweenedFulfilling)}
-        />
-        <CashRow
-          icon={<TrendingUp className="w-3.5 h-3.5" />}
-          tone="win"
-          label="Paid this period"
-          sub="Fulfilled orders only"
-          value={formatCurrency(tweenedPaid)}
-        />
-      </div>
-    </>
-  )
-}
-
-function CashRow({
-  icon,
-  tone,
-  label,
-  sub,
-  value,
-  actionLabel,
-  onAction,
-}: {
-  icon: React.ReactNode
-  tone: "warning" | "muted" | "win"
-  label: string
-  sub: string
-  value: string
-  actionLabel?: string
-  onAction?: () => void
-}) {
-  const toneColor =
-    tone === "warning"
-      ? "var(--chidi-warning)"
-      : tone === "win"
-        ? "var(--chidi-win)"
-        : "var(--chidi-text-muted)"
-  return (
-    <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-[var(--chidi-surface)]/40 border border-[var(--chidi-border-subtle)]">
-      <span
-        className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: `${toneColor}1a`, color: toneColor }}
-      >
-        {icon}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-[12.5px] font-semibold text-[var(--chidi-text-primary)] leading-tight">
-          {label}
-        </p>
-        <p className="text-[10.5px] text-[var(--chidi-text-muted)] mt-0.5">{sub}</p>
-      </div>
-      <div className="text-right flex items-center gap-2">
-        <p className="text-[14px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
-          {value}
-        </p>
-        {actionLabel && onAction && (
-          <button
-            onClick={onAction}
-            className="inline-flex items-center gap-0.5 px-2 py-1 rounded text-[10.5px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--card)] border border-[var(--chidi-border-subtle)] transition-colors"
-          >
-            {actionLabel}
-            <ChevronRight className="w-2.5 h-2.5" strokeWidth={2.4} />
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ============================================================================
-// When-they-buy heatmap (DOW × hour bucket) — small custom React grid
-// (recharts doesn't ship a heatmap and we can't add deps)
-// ============================================================================
-
-const HOUR_BUCKETS = [
-  { id: 0, label: "12-6a" },
-  { id: 1, label: "6-10a" },
-  { id: 2, label: "10-2p" },
-  { id: 3, label: "2-6p" },
-  { id: 4, label: "6-10p" },
-  { id: 5, label: "10-12a" },
-] as const
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-
-function buildHeatmap(orders: Array<{ created_at?: string }>) {
-  const matrix: number[][] = Array.from({ length: 7 }, () =>
-    Array.from({ length: HOUR_BUCKETS.length }, () => 0),
-  )
-  for (const o of orders) {
-    if (!o?.created_at) continue
-    const d = new Date(o.created_at)
-    const dow = d.getDay()
-    const h = d.getHours()
-    const bucket =
-      h < 6 ? 0 : h < 10 ? 1 : h < 14 ? 2 : h < 18 ? 3 : h < 22 ? 4 : 5
-    matrix[dow][bucket] += 1
-  }
-  let max = 0
-  let bestDow = 6 // Lagos default — Saturdays
-  let bestBucket = 4
-  for (let d = 0; d < 7; d++) {
-    for (let b = 0; b < HOUR_BUCKETS.length; b++) {
-      const v = matrix[d][b]
-      if (v > max) {
-        max = v
-        bestDow = d
-        bestBucket = b
-      }
-    }
-  }
-  return {
-    matrix,
-    max,
-    best: max > 0 ? { dow: bestDow, bucket: bestBucket } : null,
-  }
-}
-
-function WhenTheyBuyHeatmap({
-  matrix,
-  max,
-  best,
-  onSchedulePlay,
-}: {
-  matrix: number[][]
-  max: number
-  best: { dow: number; bucket: number } | null
-  onSchedulePlay: () => void
-}) {
-  const headline = best
-    ? `${DAYS[best.dow]} ${HOUR_BUCKETS[best.bucket].label} is your peak window`
-    : "Not enough data yet"
-
-  return (
-    <>
-      <CardHeader
-        eyebrow="Buying patterns"
-        title="When customers actually buy"
-        hint={headline}
-        actions={
-          <PillButton onClick={onSchedulePlay}>
-            Schedule a play
-            <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-          </PillButton>
-        }
-      />
-
-      {max === 0 ? (
-        <ChartEmpty
-          headline="No order timestamps yet."
-          body="Once orders come through, your hot windows will appear here."
-        />
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[10px] tabular-nums">
-            <thead>
-              <tr>
-                <th className="w-10"></th>
-                {HOUR_BUCKETS.map((b) => (
-                  <th
-                    key={b.id}
-                    className="px-1 py-1 font-medium text-[var(--chidi-text-muted)] text-center"
-                  >
-                    {b.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {DAYS.map((day, dow) => (
-                <tr key={day}>
-                  <td className="pr-2 text-[var(--chidi-text-muted)] font-medium text-right py-1">
-                    {day}
-                  </td>
-                  {HOUR_BUCKETS.map((b) => {
-                    const v = matrix[dow][b.id]
-                    const intensity = max > 0 ? v / max : 0
-                    const isPeak =
-                      best?.dow === dow && best?.bucket === b.id && v > 0
-                    return (
-                      <td key={b.id} className="px-0.5 py-0.5">
-                        <div
-                          title={`${day} ${b.label}: ${v} order${v === 1 ? "" : "s"}`}
-                          className={cn(
-                            "w-full aspect-square rounded-md flex items-center justify-center text-[10px] font-semibold transition-transform hover:scale-110 cursor-default",
-                            isPeak && "ring-1 ring-[var(--chidi-win)]",
-                          )}
-                          style={{
-                            backgroundColor:
-                              v === 0
-                                ? "var(--chidi-surface)"
-                                : `color-mix(in oklch, var(--chidi-win) ${Math.round(
-                                    intensity * 75 + 18,
-                                  )}%, transparent)`,
-                            color:
-                              intensity > 0.55
-                                ? "var(--chidi-win-foreground)"
-                                : "var(--chidi-text-muted)",
-                          }}
-                        >
-                          {v > 0 ? v : ""}
-                        </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  )
-}
-
-// ============================================================================
 // Top products — list with bar shares
+// (Lives inside the Drill-in lens panel.)
 // ============================================================================
 
 function TopProductsCard({
   products,
   onSeeAll,
-  onAskChidi,
 }: {
   products: Array<{
     product_id: string | null
@@ -1486,7 +1211,6 @@ function TopProductsCard({
     image_url?: string | null
   }>
   onSeeAll: () => void
-  onAskChidi: () => void
 }) {
   const max = products.reduce((m, p) => Math.max(m, p.revenue), 0) || 1
 
@@ -1496,13 +1220,10 @@ function TopProductsCard({
         eyebrow="Bestsellers"
         title="What's driving revenue"
         actions={
-          <>
-            <PillButton onClick={onAskChidi}>Ask Chidi</PillButton>
-            <PillButton onClick={onSeeAll} variant="solid">
-              All inventory
-              <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-            </PillButton>
-          </>
+          <PillButton onClick={onSeeAll} variant="solid">
+            All inventory
+            <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+          </PillButton>
         }
       />
 
@@ -1517,6 +1238,10 @@ function TopProductsCard({
             const pct = (p.revenue / max) * 100
             return (
               <li key={`${p.product_id}-${i}`}>
+                {/* Row click → inventory tab. Same destination as "All
+                    inventory" above; merchant can find the SKU there. We do
+                    not pretend to drill to a per-product page that doesn't
+                    exist yet. */}
                 <button
                   onClick={onSeeAll}
                   className="w-full text-left group p-2 -m-2 rounded-md hover:bg-[var(--chidi-surface)]/60 transition-colors"
@@ -1562,13 +1287,12 @@ function TopProductsCard({
 }
 
 // ============================================================================
-// Top customers
+// Top customers (Lives inside the Drill-in lens panel.)
 // ============================================================================
 
 function TopCustomersCard({
   customers,
   onSeeConvo,
-  onAskChidi,
 }: {
   customers: Array<{
     phone: string
@@ -1579,7 +1303,6 @@ function TopCustomersCard({
     is_vip: boolean
   }>
   onSeeConvo: () => void
-  onAskChidi: () => void
 }) {
   return (
     <>
@@ -1587,13 +1310,10 @@ function TopCustomersCard({
         eyebrow="Customers"
         title="Top spenders"
         actions={
-          <>
-            <PillButton onClick={onAskChidi}>Ask Chidi</PillButton>
-            <PillButton onClick={onSeeConvo} variant="solid">
-              Open inbox
-              <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-            </PillButton>
-          </>
+          <PillButton onClick={onSeeConvo} variant="solid">
+            Open inbox
+            <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+          </PillButton>
         }
       />
 
@@ -1606,6 +1326,8 @@ function TopCustomersCard({
         <ul className="divide-y divide-[var(--chidi-border-subtle)] -mx-1">
           {customers.slice(0, 6).map((c) => (
             <li key={c.phone}>
+              {/* Row click → inbox. Same as the header CTA. The inbox is
+                  filterable by customer once the merchant lands. */}
               <button
                 onClick={onSeeConvo}
                 className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group"
@@ -1641,139 +1363,6 @@ function TopCustomersCard({
             </li>
           ))}
         </ul>
-      )}
-    </>
-  )
-}
-
-// ============================================================================
-// Inventory at risk — full row, dense table-y layout
-// ============================================================================
-
-function InventoryAtRiskCard({
-  stale,
-  onOpenInventory,
-  onRunPlay,
-}: {
-  stale: Array<{
-    id: string
-    name: string
-    sku: string
-    selling_price: number
-    stock_quantity: number
-    last_restocked: string | null
-  }>
-  onOpenInventory: () => void
-  onRunPlay: () => void
-}) {
-  return (
-    <>
-      <CardHeader
-        eyebrow="Inventory"
-        title="At risk of going stale"
-        hint="Items that haven't moved or are running low"
-        actions={
-          <>
-            <PillButton onClick={onRunPlay}>Run clearance play</PillButton>
-            <PillButton onClick={onOpenInventory} variant="solid">
-              All inventory
-              <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-            </PillButton>
-          </>
-        }
-      />
-
-      {stale.length === 0 ? (
-        <ChartEmpty
-          headline="Nothing at risk."
-          body="Every product has moved recently or is well stocked."
-        />
-      ) : (
-        <div className="overflow-x-auto -mx-1">
-          <table className="w-full text-[12px]">
-            <thead>
-              <tr className="text-left">
-                <th className="px-2 py-2 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium">
-                  Product
-                </th>
-                <th className="px-2 py-2 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium text-right">
-                  Stock
-                </th>
-                <th className="px-2 py-2 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium text-right">
-                  Price
-                </th>
-                <th className="px-2 py-2 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium hidden sm:table-cell">
-                  Last restocked
-                </th>
-                <th className="px-2 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--chidi-border-subtle)]">
-              {stale.map((s) => {
-                const ageDays = s.last_restocked
-                  ? Math.floor(
-                      (Date.now() - new Date(s.last_restocked).getTime()) /
-                        86_400_000,
-                    )
-                  : null
-                const severityHigh = (ageDays ?? 0) >= 45 || s.stock_quantity === 0
-                return (
-                  <tr key={s.id} className="hover:bg-[var(--chidi-surface)]/40 transition-colors">
-                    <td className="px-2 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor: severityHigh
-                              ? "var(--chidi-warning)"
-                              : "var(--chidi-text-muted)",
-                          }}
-                        />
-                        <span className="text-[var(--chidi-text-primary)] font-medium truncate">
-                          {s.name}
-                        </span>
-                        <span className="text-[10px] text-[var(--chidi-text-muted)] tabular-nums hidden lg:inline">
-                          {s.sku}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-2 py-2.5 text-right tabular-nums text-[var(--chidi-text-secondary)]">
-                      {s.stock_quantity === 0 ? (
-                        <span className="text-[var(--chidi-warning)] font-semibold">
-                          0
-                        </span>
-                      ) : (
-                        s.stock_quantity
-                      )}
-                    </td>
-                    <td className="px-2 py-2.5 text-right tabular-nums text-[var(--chidi-text-secondary)]">
-                      {formatCurrency(s.selling_price)}
-                    </td>
-                    <td className="px-2 py-2.5 text-[var(--chidi-text-muted)] hidden sm:table-cell">
-                      {ageDays !== null ? (
-                        <span className="inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" strokeWidth={2} />
-                          {ageDays}d ago
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-2 py-2.5 text-right">
-                      <button
-                        onClick={onOpenInventory}
-                        className="inline-flex items-center gap-0.5 text-[11px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] px-2 py-1 -mr-1 rounded hover:bg-[var(--card)] transition-colors"
-                      >
-                        Open
-                        <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
       )}
     </>
   )
@@ -2298,4 +1887,3 @@ function formatRelativeTime(d: Date): string {
   const hr = Math.floor(min / 60)
   return `${hr}h ago`
 }
-

@@ -176,10 +176,18 @@ export function PlaySandboxPanel({
         )}
       </div>
 
-      {/* 3-pane body — stacks to single column on smaller widths */}
-      <div className="grid grid-cols-1 xl:grid-cols-[200px_1fr_220px]">
+      {/*
+        Body layout — was a 3-col grid (200/1fr/220) at xl. That collided
+        with the page's max-w-5xl shell + nav-rail at xl, leaving the center
+        column too narrow for FlowChain + WhatsApp preview, which then
+        overflowed under the right rail. Now: stacked single column up to
+        2xl (1536px+), then the side rail floats to the right. The
+        per-section content stays within `min-w-0` so nothing escapes its
+        container.
+      */}
+      <div className="grid grid-cols-1 2xl:grid-cols-[200px_minmax(0,1fr)_220px]">
         {/* === LEFT — Trigger picker === */}
-        <aside className="border-b xl:border-b-0 xl:border-r border-[var(--chidi-border-subtle)] p-4 lg:p-5 bg-[var(--chidi-surface)]/30">
+        <aside className="border-b 2xl:border-b-0 2xl:border-r border-[var(--chidi-border-subtle)] p-4 lg:p-5 bg-[var(--chidi-surface)]/30 min-w-0">
           <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-2">
             Rehearse against
           </p>
@@ -239,7 +247,7 @@ export function PlaySandboxPanel({
         </aside>
 
         {/* === CENTER — Steps + WhatsApp preview === */}
-        <section className="p-4 lg:p-6 min-w-0">
+        <section className="p-4 lg:p-6 min-w-0 overflow-hidden">
           {/* Trigger → action flow chain — concrete visual scaffolding */}
           <FlowChain
             trigger={play.trigger}
@@ -343,7 +351,7 @@ export function PlaySandboxPanel({
         </section>
 
         {/* === RIGHT — Projected outcome === */}
-        <aside className="border-t xl:border-t-0 xl:border-l border-[var(--chidi-border-subtle)] p-4 lg:p-5 bg-[var(--chidi-surface)]/30 space-y-4">
+        <aside className="border-t 2xl:border-t-0 2xl:border-l border-[var(--chidi-border-subtle)] p-4 lg:p-5 bg-[var(--chidi-surface)]/30 space-y-4 min-w-0">
           <div>
             <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-3">
               Projected outcome
@@ -455,10 +463,14 @@ function FlowChain({
   stepCount: number
   running: boolean
 }) {
+  // FlowChain used to be a single non-wrapping flex row, which overflowed
+  // under siblings whenever the parent column was narrow. Now: nodes are
+  // fixed-width with truncation, edges flex to fill, and on cramped widths
+  // the row wraps cleanly instead of escaping its bounds.
   return (
-    <div className="rounded-xl bg-[var(--chidi-surface)]/40 border border-[var(--chidi-border-subtle)] p-3 lg:p-4">
-      <div className="flex items-center gap-2 lg:gap-3 text-[11px]">
-        <FlowNode label="When" sub={truncate(trigger, 40)} tone="muted" />
+    <div className="rounded-xl bg-[var(--chidi-surface)]/40 border border-[var(--chidi-border-subtle)] p-3 lg:p-4 overflow-hidden">
+      <div className="flex items-center gap-2 lg:gap-3 text-[11px] flex-wrap">
+        <FlowNode label="When" sub={truncate(trigger, 36)} tone="muted" />
         <FlowEdge running={running} />
         <FlowNode
           label="Then"
@@ -493,7 +505,7 @@ function FlowNode({
         <span className={cn("w-1.5 h-1.5 rounded-full", dot)} />
         {label}
       </span>
-      <span className="text-[11px] text-[var(--chidi-text-primary)] truncate max-w-[160px]">
+      <span className="text-[11px] text-[var(--chidi-text-primary)] truncate max-w-[180px] block">
         {sub}
       </span>
     </div>

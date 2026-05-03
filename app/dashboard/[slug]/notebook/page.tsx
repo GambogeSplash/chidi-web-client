@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
 import {
   Zap,
@@ -23,7 +24,6 @@ import { cn } from "@/lib/utils"
 import { useCountUp } from "@/lib/chidi/use-count-up"
 import { useRailCollapsed } from "@/lib/chidi/use-rail-collapsed"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
-import { PlaySandboxPanel } from "@/components/chidi/play-sandbox"
 import {
   PLAYS,
   PLAY_CATEGORY_LABEL,
@@ -31,6 +31,21 @@ import {
   type PlaybookPlay,
   type PlayCategory,
 } from "@/lib/chidi/playbook-plays"
+
+/**
+ * Lazy-load the rehearsal panel. Pulls in `customer-character` (~670 lines),
+ * `approval-guardrail`, recharts-free but still bulky — keeping it out of the
+ * route's first paint shaves the perceived "Playbook is slow to open" delay.
+ * The skeleton placeholder matches the eventual panel shape so the layout
+ * doesn't jump when the chunk lands.
+ */
+const PlaySandboxPanel = dynamic(
+  () => import("@/components/chidi/play-sandbox").then((m) => m.PlaySandboxPanel),
+  {
+    ssr: false,
+    loading: () => <SandboxSkeleton />,
+  },
+)
 
 /**
  * Playbook — rebuild (2026-05-03).
@@ -139,11 +154,23 @@ export default function PlaybookPage() {
     return { active, recoveredLast30d, totalRuns, totalWon, winRate }
   }, [allPlays, pausedIds])
 
-  // Default-open the first play once the page mounts so the right pane
-  // is never empty when there's content to show. Composer takes priority.
+  // Default-open the first play, but defer to an idle callback so the route's
+  // first paint isn't blocked by the dynamic-imported PlaySandboxPanel chunk.
+  // Composer takes priority. On systems without requestIdleCallback (Safari)
+  // we fall back to a short setTimeout — still off the critical path.
   useEffect(() => {
     if (activePanel) return
-    if (visible.length > 0) setActivePanel({ kind: "play", id: visible[0].id })
+    if (visible.length === 0) return
+    const open = () => setActivePanel({ kind: "play", id: visible[0].id })
+    const w = typeof window !== "undefined" ? (window as Window & { requestIdleCallback?: (cb: () => void) => number }) : null
+    const handle = w?.requestIdleCallback
+      ? w.requestIdleCallback(open)
+      : (setTimeout(open, 80) as unknown as number)
+    return () => {
+      const cancelIdle = (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback
+      if (cancelIdle) cancelIdle(handle)
+      else clearTimeout(handle)
+    }
   }, [visible, activePanel])
 
   const activePlay = useMemo(() => {
@@ -359,8 +386,13 @@ export default function PlaybookPage() {
                   </div>
                 </div>
 
-                {/* === DETAIL PANEL === */}
-                <div className="lg:sticky lg:top-5 lg:self-start lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+                {/* === DETAIL PANEL ===
+                    No sticky / max-height here. The previous version forced an
+                    inner overflow-y-auto on the column which clipped the
+                    sandbox's bottom action bar and let its 3-pane internal
+                    grid overlap on narrow widths. The page-level scroll
+                    (ChidiPage's overflow-y-auto) is enough. */}
+                <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-3 hidden lg:block">
                     {activePanel?.kind === "compose"
                       ? "New play"
@@ -864,6 +896,35 @@ function Field({
       </div>
       {children}
     </div>
+  )
+}
+
+/**
+ * SandboxSkeleton — shown while next/dynamic resolves the PlaySandboxPanel
+ * chunk. Same outer shell + roughly the same internal proportions so the
+ * eventual swap-in doesn't shift layout. Pure CSS pulse, no JS.
+ */
+function SandboxSkeleton() {
+  return (
+    <section className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] overflow-hidden">
+      <div className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)]">
+        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="h-2.5 w-32 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+          <div className="h-5 w-3/4 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+          <div className="h-3 w-1/2 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+        </div>
+      </div>
+      <div className="p-5 lg:p-6 space-y-4">
+        <div className="h-14 rounded-xl bg-[var(--chidi-surface)]/60 motion-safe:animate-pulse" />
+        <div className="space-y-2">
+          <div className="h-3 w-1/3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+          <div className="h-3 w-5/6 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+          <div className="h-3 w-4/6 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+        </div>
+        <div className="h-32 rounded-xl bg-[var(--chidi-surface)]/60 motion-safe:animate-pulse" />
+      </div>
+    </section>
   )
 }
 
