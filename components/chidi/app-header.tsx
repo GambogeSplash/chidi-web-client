@@ -68,15 +68,15 @@ export function AppHeader({
   return (
     <header className="sticky top-0 z-40 bg-[var(--background)] border-b border-[var(--chidi-border-default)] safe-area-top">
       <div className="flex items-center justify-between h-14 px-3 max-w-lg mx-auto gap-2">
-        {/* Identity block — 44px tap target. Tapping anywhere here goes to
-            workspace settings. */}
+        {/* Identity block — snaps to its content (avatar + name + arrow) so
+            it doesn't claim half the bar. 44px tap target preserved via min-h. */}
         <button
           onClick={handleIdentityClick}
           aria-label={`Open ${businessName} settings`}
-          className="flex items-center gap-2 min-h-[44px] px-2 -mx-1 rounded-lg hover:bg-[var(--chidi-surface)] active:scale-[0.98] transition-colors min-w-0 flex-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
+          className="inline-flex items-center gap-2 min-h-[44px] max-w-[60%] min-w-0 px-2 -mx-1 rounded-lg hover:bg-[var(--chidi-surface)] active:scale-[0.98] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
         >
           <BusinessAvatar name={avatarSeed} size="sm" />
-          <span className="flex-1 min-w-0 text-left text-[14px] font-medium text-[var(--chidi-text-primary)] truncate font-chidi-voice">
+          <span className="text-[14px] font-medium text-[var(--chidi-text-primary)] truncate font-chidi-voice">
             {displayName}
           </span>
           <ChevronRight className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0" strokeWidth={1.8} />
