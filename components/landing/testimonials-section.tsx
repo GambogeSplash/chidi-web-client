@@ -31,7 +31,7 @@ const TESTIMONIALS: Testimonial[] = [
   },
   {
     quote:
-      'My WhatsApp is my shop. Chidi makes it feel like I have a staff of three answering at the same time.',
+      'My Telegram bot brings in half my orders now, and WhatsApp picks up the rest. Chidi runs both like a staff of three answering at the same time.',
     name: 'Kwame B.',
     company: 'KB Sneakers · Accra',
     image:

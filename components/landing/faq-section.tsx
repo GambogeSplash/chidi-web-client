@@ -12,17 +12,22 @@ const FAQ_DATA: FAQItem[] = [
   {
     question: 'What is Chidi and who is it for?',
     answer:
-      'Chidi is an AI business assistant for social sellers. You manage customers, orders, and inventory just by chatting with Chidi. We also give your business a self-service Telegram channel where customers browse, ask, and order on their own. Perfect for fashion brands, boutiques, beauty vendors, and retail.',
+      'Chidi is an AI business assistant for social sellers. You manage customers, orders, and inventory just by chatting with Chidi. We also give your business self-service Telegram and WhatsApp channels where customers browse, ask, and order on their own. Perfect for fashion brands, boutiques, beauty vendors, and retail.',
   },
   {
-    question: 'Do you support WhatsApp and Instagram?',
+    question: 'Do you support Telegram?',
     answer:
-      "Telegram is our launch channel. WhatsApp Business and Instagram integrations are actively in the works and shipping very soon. They will plug into the same Chidi you already know, so your customers, inventory, and orders carry over automatically.",
+      "Yes — Telegram is where Chidi started. Your bot is live in minutes: paste a token from @BotFather and we handle the rest. Customers browse your catalogue, ask questions, and place orders inside the same chat they already use.",
+  },
+  {
+    question: 'Do you support WhatsApp?',
+    answer:
+      "Yes. WhatsApp connects via Twilio's WhatsApp Business API, alongside Telegram. The same Chidi powers both — your customers, inventory, and orders are unified across channels. Instagram integration is shipping next.",
   },
   {
     question: 'How does Chidi handle my customer conversations?',
     answer:
-      'Chidi powers a Telegram channel for your business that automatically answers questions, takes orders, and keeps full context of every customer. Nothing slips through, even after hours.',
+      'Chidi powers your Telegram and WhatsApp channels with one brain — automatically answers questions, takes orders, and keeps full context of every customer across every channel they reach you on. Nothing slips through, even after hours.',
   },
   {
     question: 'Can Chidi really help me track sales and orders?',
@@ -42,7 +47,7 @@ const FAQ_DATA: FAQItem[] = [
   {
     question: 'How quickly can I get started?',
     answer:
-      'In minutes. Sign up, connect your Telegram channel, upload your inventory, and Chidi starts answering customers and tracking orders right away.',
+      'In minutes. Sign up, connect Telegram or WhatsApp (or both), upload your inventory, and Chidi starts answering customers and tracking orders right away.',
   },
 ]
 

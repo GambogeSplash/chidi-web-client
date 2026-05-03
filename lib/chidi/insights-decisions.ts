@@ -229,23 +229,23 @@ export const DECISIONS: Decision[] = [
     secondary: { label: "View her timeline" },
   },
   {
-    id: "dec-channel-telegram",
+    id: "dec-channel-mix",
     kind: "channel_shift",
     urgency: "watch",
-    question: "Lean harder into Telegram next month?",
-    why: "Telegram is 13% of orders but 24% of avg-order-value. Different customer, bigger basket.",
+    question: "Keep both channels balanced or lean into one?",
+    why: "Telegram brings ~55% of orders this period and WhatsApp ~45%. Both are healthy; the customer mix and basket sizes differ slightly between the two.",
     metrics: [
-      { label: "Telegram orders (30d)", value: "7", baseline: "vs 5 prior 30d", direction: "up" },
-      { label: "Telegram AOV", value: "₦13,800", baseline: "vs ₦18,300 WhatsApp", direction: "down" },
-      { label: "Telegram revenue", value: "₦96,400", baseline: "11% of total", direction: "up" },
+      { label: "Telegram orders (30d)", value: "28", baseline: "vs 22 WhatsApp", direction: "up" },
+      { label: "Telegram AOV", value: "₦18,500", baseline: "vs ₦17,940 WhatsApp", direction: "up" },
+      { label: "Combined revenue", value: "₦912,900", baseline: "97% of total channel mix", direction: "up" },
     ],
     recommendation:
-      "Watch this one for two more weeks. If Telegram order count crosses 12/week, build out a self-serve catalog for that channel.",
+      "Keep posting evenly to both. If one channel slips below 35% of order count for two consecutive weeks, that's the signal to investigate.",
     chart: {
       type: "channel_donut",
       slices: [
-        { label: "WhatsApp", value: 786_900, color: "#25D366" },
-        { label: "Telegram", value: 96_400, color: "#0088CC" },
+        { label: "Telegram", value: 518_200, color: "#26A5E4" },
+        { label: "WhatsApp", value: 394_700, color: "#25D366" },
         { label: "Instagram", value: 29_100, color: "#E1306C" },
       ],
     },

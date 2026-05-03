@@ -91,37 +91,40 @@ const toBackendProduct = (p: typeof PRODUCTS[number]) => ({
 
 // ---- Customers + conversations ----------------------------------------------
 
+// Channel split rebalanced ~55% Telegram / 45% WhatsApp. Chidi started on
+// Telegram and added WhatsApp later — both are first-class. Keeps the seed
+// feeling like a real merchant with two live channels rather than one dominant.
 const CUSTOMERS = [
-  { name: "Adaeze Okafor", id: "+2348012345678", channel: "WHATSAPP" as const },
+  { name: "Adaeze Okafor", id: "+2348012345678", channel: "TELEGRAM" as const },
   { name: "Tunde Bakare", id: "+2348023456789", channel: "WHATSAPP" as const },
-  { name: "Ifeoma Eze", id: "+2348034567890", channel: "WHATSAPP" as const },
+  { name: "Ifeoma Eze", id: "+2348034567890", channel: "TELEGRAM" as const },
   { name: "Kemi Adebayo", id: "+2348045678901", channel: "WHATSAPP" as const },
-  { name: "Olumide Sanusi", id: "+2348056789012", channel: "WHATSAPP" as const },
+  { name: "Olumide Sanusi", id: "+2348056789012", channel: "TELEGRAM" as const },
   { name: "Chinwe Nwosu", id: "+2348067890123", channel: "TELEGRAM" as const },
   { name: "Wanjiru Mwangi", id: "+254712345678", channel: "WHATSAPP" as const },
-  { name: "Kwame Boateng", id: "+233245678901", channel: "WHATSAPP" as const },
+  { name: "Kwame Boateng", id: "+233245678901", channel: "TELEGRAM" as const },
   { name: "Funke Adesanya", id: "+2348078901234", channel: "WHATSAPP" as const },
-  { name: "Emeka Obi", id: "+2348089012345", channel: "WHATSAPP" as const },
+  { name: "Emeka Obi", id: "+2348089012345", channel: "TELEGRAM" as const },
   { name: "Aisha Mohammed", id: "+2348090123456", channel: "WHATSAPP" as const },
-  { name: "Bola Tinubu-Lewis", id: "+2348101234567", channel: "WHATSAPP" as const },
+  { name: "Bola Tinubu-Lewis", id: "+2348101234567", channel: "TELEGRAM" as const },
   { name: "Ngozi Iweala", id: "+2348112345678", channel: "TELEGRAM" as const },
   { name: "Yemi Aluko", id: "+2348123456789", channel: "WHATSAPP" as const },
-  { name: "Hassan Sule", id: "+2348134567890", channel: "WHATSAPP" as const },
+  { name: "Hassan Sule", id: "+2348134567890", channel: "TELEGRAM" as const },
   { name: "Blessing Okoro", id: "+2348145678901", channel: "WHATSAPP" as const },
-  { name: "Damilola Owolabi", id: "+2348156789012", channel: "WHATSAPP" as const },
+  { name: "Damilola Owolabi", id: "+2348156789012", channel: "TELEGRAM" as const },
   { name: "Samuel Eto'o-Jr", id: "+237677123456", channel: "WHATSAPP" as const },
-  { name: "Patience Jonathan", id: "+2348167890123", channel: "WHATSAPP" as const },
+  { name: "Patience Jonathan", id: "+2348167890123", channel: "TELEGRAM" as const },
   { name: "Thabo Mbeki-Jnr", id: "+27821234567", channel: "TELEGRAM" as const },
   { name: "Folake Olamide", id: "+2348178901234", channel: "WHATSAPP" as const },
-  { name: "Chiamaka Okonkwo", id: "+2348189012345", channel: "WHATSAPP" as const },
+  { name: "Chiamaka Okonkwo", id: "+2348189012345", channel: "TELEGRAM" as const },
   { name: "Tobi Akinwumi", id: "+2348190123456", channel: "WHATSAPP" as const },
-  { name: "Zainab Yusuf", id: "+2348201234567", channel: "WHATSAPP" as const },
+  { name: "Zainab Yusuf", id: "+2348201234567", channel: "TELEGRAM" as const },
   { name: "Uche Nnamdi", id: "+2348212345678", channel: "WHATSAPP" as const },
-  { name: "Ayodeji Balogun", id: "+2348223456789", channel: "WHATSAPP" as const },
+  { name: "Ayodeji Balogun", id: "+2348223456789", channel: "TELEGRAM" as const },
   { name: "Sade Lawal", id: "+2348234567890", channel: "WHATSAPP" as const },
-  { name: "Joel Mensah", id: "+233244567890", channel: "WHATSAPP" as const },
+  { name: "Joel Mensah", id: "+233244567890", channel: "TELEGRAM" as const },
   { name: "Esther Acheampong", id: "+233205678901", channel: "WHATSAPP" as const },
-  { name: "Maryam Bello", id: "+2348245678901", channel: "WHATSAPP" as const },
+  { name: "Maryam Bello", id: "+2348245678901", channel: "TELEGRAM" as const },
 ]
 
 const CONV_PREVIEWS = [
@@ -395,9 +398,11 @@ const buildTopProducts = (period: string, limit: number) => {
 
 const buildChannelMix = (period: string) => {
   const scale = periodDays(period) / 30
+  // Channel mix rebalanced — Telegram (origin channel) leads with WhatsApp
+  // close behind. Both pull real weight; Instagram is a soft preview.
   const channels = [
-    { channel: "WHATSAPP", order_count: Math.round(43 * scale), revenue: Math.round(786_900 * scale) },
-    { channel: "TELEGRAM", order_count: Math.round(7 * scale), revenue: Math.round(96_400 * scale) },
+    { channel: "TELEGRAM", order_count: Math.round(28 * scale), revenue: Math.round(518_200 * scale) },
+    { channel: "WHATSAPP", order_count: Math.round(22 * scale), revenue: Math.round(394_700 * scale) },
     { channel: "INSTAGRAM", order_count: Math.round(2 * scale), revenue: Math.round(29_100 * scale) },
   ]
   const totalRev = channels.reduce((s, c) => s + c.revenue, 0)
@@ -565,8 +570,8 @@ const MEMORIES = [
   },
   {
     id: "mem-5",
-    content: "WhatsApp accounts for the majority of period revenue across all your channels.",
-    summary: "WhatsApp leads your channel mix.",
+    content: "Telegram and WhatsApp together carry your revenue evenly — Telegram a bit ahead this period, WhatsApp close behind.",
+    summary: "Telegram + WhatsApp split the mix evenly.",
     memory_type: "semantic" as const,
     importance_score: 0.82,
     access_count: 6,

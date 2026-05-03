@@ -212,7 +212,7 @@ export function LiveDemo() {
             >
               <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-5 bg-[#1C1917] rounded-b-2xl z-10" />
               <div className="rounded-[36px] bg-[#ECE5DD] overflow-hidden h-[560px] flex flex-col">
-                {/* WhatsApp header */}
+                {/* Chat header — generic dark teal so it reads as either WhatsApp or Telegram */}
                 <div className="bg-[#075E54] text-white px-4 pt-8 pb-3 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-[#128C7E] flex items-center justify-center text-sm font-medium">
                     T

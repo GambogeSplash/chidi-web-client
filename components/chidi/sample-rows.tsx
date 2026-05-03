@@ -12,11 +12,11 @@ import { Clock, AlertTriangle, CheckCircle, Package } from "lucide-react"
 
 export function SampleInboxRows() {
   const samples = [
-    { name: "Adaeze Okafor", time: "2m", intent: "purchase", channel: "WhatsApp", status: "active" as const, memory: "12 orders · usually red Adidas · last 2w ago" },
+    { name: "Adaeze Okafor", time: "2m", intent: "purchase", channel: "Telegram", status: "active" as const, memory: "12 orders · usually red Adidas · last 2w ago" },
     { name: "Tunde Bakare", time: "8m", intent: "question", channel: "WhatsApp", status: "needs" as const, memory: "Size 42, Lekki, asks before he buys" },
     { name: "Ifeoma Eze", time: "1h", intent: "purchase", channel: "Telegram", status: "active" as const, memory: "Wholesale buyer · ₦310k lifetime · 5 orders" },
     { name: "Kemi Adebayo", time: "3h", intent: "complaint", channel: "WhatsApp", status: "needs" as const, memory: "First-time, hasn't paid yet" },
-    { name: "Olumide Sanusi", time: "5h", intent: "thanks", channel: "WhatsApp", status: "resolved" as const, memory: "Repeat customer · loyal" },
+    { name: "Olumide Sanusi", time: "5h", intent: "thanks", channel: "Telegram", status: "resolved" as const, memory: "Repeat customer · loyal" },
   ]
 
   return (

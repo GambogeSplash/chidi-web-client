@@ -49,14 +49,14 @@ export const MOCK_NOTEBOOK_INSIGHTS: NotebookInsight[] = [
     id: "product-stale",
     category: "product",
     headline: "3 SKUs haven't moved in 30+ days.",
-    body: "Want me to suggest a Saturday-only discount for the slow movers? I can draft the WhatsApp broadcast.",
+    body: "Want me to suggest a Saturday-only discount for the slow movers? I can draft a broadcast for both your Telegram and WhatsApp channels.",
     confidence: "noticing",
   },
   {
-    id: "channel-whatsapp",
+    id: "channel-mix",
     category: "channel",
-    headline: "WhatsApp is your whole business.",
-    body: "94% of your orders this month came in through WhatsApp. Telegram is quiet — if you want to lean further into one channel, that's the answer.",
+    headline: "Your channel mix is healthy.",
+    body: "About 55% of orders came in through Telegram and 45% through WhatsApp this month — both channels are pulling weight. Worth keeping the broadcast cadence even across both.",
     confidence: "noticed",
   },
   {
