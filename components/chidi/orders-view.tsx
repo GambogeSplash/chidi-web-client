@@ -246,7 +246,7 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
               <input
                 type="text"
                 placeholder="Search by customer, product, or order number..."
-                className="w-full pl-9 pr-3 py-2 text-[13px] bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] rounded-lg text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-win)]/20 focus:border-[var(--chidi-border-default)] font-chidi-voice"
+                className="w-full pl-9 pr-3 py-2 text-[13px] bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] rounded-lg text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] outline-none transition-[color,box-shadow] focus-visible:border-[var(--chidi-text-muted)]/50 focus-visible:ring-[var(--chidi-win)]/12 focus-visible:ring-[1px] font-chidi-voice"
                 onChange={(e) => setOrderSearch(e.target.value)}
                 value={orderSearch}
               />
