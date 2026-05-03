@@ -22,6 +22,7 @@ import {
   ScrollText,
   Brain,
   Landmark,
+  BadgeCheck,
 } from "lucide-react"
 import { BusinessAvatar, useBusinessAvatarSeed } from "@/components/chidi/business-avatar"
 import { BusinessAvatarPicker } from "@/components/chidi/business-avatar-picker"
@@ -80,6 +81,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [showSecurityModal, setShowSecurityModal] = useState(false)
   const [showBusinessHoursModal, setShowBusinessHoursModal] = useState(false)
+  const [showVerifyModal, setShowVerifyModal] = useState(false)
   const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [showMemoryModal, setShowMemoryModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -113,6 +115,13 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
 
   // Form states - persisted to survive navigation
   const [accountForm, setAccountForm, clearAccountDraft] = usePersistedState('settings:account', { name: "", avatar_url: "" })
+  // Verification intent — persisted so the merchant sees their submitted state
+  // across sessions. Real KYC (CAC/BVN/ID) is a phase-2 backend job; for now
+  // we capture intent and show the unlocks honestly as a stub.
+  const [verifyState, setVerifyState] = usePersistedState<{ status: 'unstarted' | 'submitted'; submittedAt: string | null }>(
+    'settings:verify',
+    { status: 'unstarted', submittedAt: null },
+  )
   const [lowStockThreshold, setLowStockThreshold] = useState<number>(10)
   const [paymentForm, setPaymentForm, clearPaymentDraft] = usePersistedState('settings:payment', {
     bank_name: "",
@@ -507,6 +516,26 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                 </div>
                 <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
               </button>
+
+              <button
+                onClick={() => setShowVerifyModal(true)}
+                className="w-full p-2.5 -mx-2.5 rounded-lg flex items-center justify-between hover:bg-[var(--chidi-surface)] transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <BadgeCheck className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+                  <p className="text-[14px] text-[var(--chidi-text-primary)]">Verify business</p>
+                </div>
+                {verifyState.status === 'submitted' ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-[var(--chidi-warning)]">
+                    <span className="w-1 h-1 rounded-full bg-[var(--chidi-warning)] animate-pulse" />
+                    In review
+                  </span>
+                ) : (
+                  <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)]">
+                    Optional
+                  </span>
+                )}
+              </button>
             </div>
           </SettingsSectionCard>
         </section>
@@ -769,6 +798,101 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
             </DialogDescription>
           </DialogHeader>
           <CategorySettings />
+        </DialogContent>
+      </Dialog>
+
+      {/* VERIFY MODAL — stub flow. Captures intent to localStorage; real
+          KYC (CAC + BVN + ID) is a phase-2 backend job. The unlocks shown
+          here are honest about what verification will buy the merchant. */}
+      <Dialog open={showVerifyModal} onOpenChange={setShowVerifyModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BadgeCheck className="w-5 h-5 text-[var(--chidi-win)]" />
+              Verify your business
+            </DialogTitle>
+            <DialogDescription>
+              Optional. Adds trust signals customers and Chidi can both see.
+            </DialogDescription>
+          </DialogHeader>
+
+          {verifyState.status === 'submitted' ? (
+            <div className="pt-4 space-y-4">
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)]">
+                <Check className="w-4 h-4 text-[var(--chidi-win)] mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-[13px] font-medium text-[var(--chidi-text-primary)]">
+                    Verification request received
+                  </p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] mt-0.5">
+                    We&apos;ll be in touch within 2 business days to collect your CAC and BVN details.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-between gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setVerifyState({ status: 'unstarted', submittedAt: null })}
+                  className="border-[var(--chidi-border-default)] text-[var(--chidi-text-muted)] min-h-[44px]"
+                >
+                  Cancel request
+                </Button>
+                <Button
+                  onClick={() => setShowVerifyModal(false)}
+                  className="btn-cta min-h-[44px]"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="pt-4 space-y-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium mb-2.5">
+                  Verified merchants get
+                </p>
+                <ul className="space-y-2.5">
+                  <li className="flex items-start gap-2.5 text-[13px] text-[var(--chidi-text-primary)] leading-snug">
+                    <BadgeCheck className="w-4 h-4 text-[var(--chidi-win)] mt-0.5 flex-shrink-0" strokeWidth={2} />
+                    <span>A <strong>verified badge</strong> on receipts and your storefront — customers see it before they pay.</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-[13px] text-[var(--chidi-text-primary)] leading-snug">
+                    <BadgeCheck className="w-4 h-4 text-[var(--chidi-win)] mt-0.5 flex-shrink-0" strokeWidth={2} />
+                    <span>A <strong>higher trust score</strong> in conversations — Chidi is more likely to auto-confirm orders for you.</span>
+                  </li>
+                  <li className="flex items-start gap-2.5 text-[13px] text-[var(--chidi-text-primary)] leading-snug">
+                    <BadgeCheck className="w-4 h-4 text-[var(--chidi-win)] mt-0.5 flex-shrink-0" strokeWidth={2} />
+                    <span><strong>Broadcast eligibility</strong> — send promos to your full customer list once verified.</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="rounded-xl bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] p-3">
+                <p className="text-[11px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium mb-1.5">
+                  What we&apos;ll need
+                </p>
+                <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug">
+                  Your CAC business number, BVN of the business owner, and a photo of a government ID. Takes about 5 minutes once we&apos;re in touch.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowVerifyModal(false)}
+                  className="border-[var(--chidi-border-default)] min-h-[44px]"
+                >
+                  Not now
+                </Button>
+                <Button
+                  onClick={() => setVerifyState({ status: 'submitted', submittedAt: new Date().toISOString() })}
+                  className="btn-cta min-h-[44px]"
+                >
+                  Start verification
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
