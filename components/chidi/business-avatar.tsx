@@ -1,12 +1,58 @@
 "use client"
 
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
 
 interface BusinessAvatarProps {
   name: string
   size?: "xs" | "sm" | "md" | "lg" | "xl"
   className?: string
+}
+
+const AVATAR_SEED_KEY = "chidi_business_avatar_seed"
+const AVATAR_SEED_EVENT = "chidi-business-avatar-seed-change"
+
+/**
+ * useBusinessAvatarSeed — single source of truth for the merchant's chosen
+ * avatar variant. Returns the seed string to render with (the picked variant
+ * if any, else falls back to the businessName). Stays in sync across the app
+ * via a custom event so nav-rail + settings + workspace switcher all swap
+ * together when the user picks a new avatar.
+ *
+ * Local-storage only for now — swap for backend field when one exists.
+ */
+export function useBusinessAvatarSeed(businessName: string): {
+  seed: string
+  variantSeed: string | null
+  setVariantSeed: (seed: string | null) => void
+} {
+  const [variantSeed, setVariant] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const read = () => {
+      const stored = localStorage.getItem(AVATAR_SEED_KEY)
+      setVariant(stored && stored.length > 0 ? stored : null)
+    }
+    read()
+    const onChange = () => read()
+    window.addEventListener(AVATAR_SEED_EVENT, onChange)
+    window.addEventListener("storage", onChange)
+    return () => {
+      window.removeEventListener(AVATAR_SEED_EVENT, onChange)
+      window.removeEventListener("storage", onChange)
+    }
+  }, [])
+
+  const setVariantSeed = (seed: string | null) => {
+    setVariant(seed)
+    if (typeof window === "undefined") return
+    if (seed) localStorage.setItem(AVATAR_SEED_KEY, seed)
+    else localStorage.removeItem(AVATAR_SEED_KEY)
+    window.dispatchEvent(new Event(AVATAR_SEED_EVENT))
+  }
+
+  return { seed: variantSeed ?? businessName, variantSeed, setVariantSeed }
 }
 
 /**

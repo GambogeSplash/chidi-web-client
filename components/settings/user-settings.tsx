@@ -23,7 +23,8 @@ import {
   Brain,
   Landmark,
 } from "lucide-react"
-import { BusinessAvatar } from "@/components/chidi/business-avatar"
+import { BusinessAvatar, useBusinessAvatarSeed } from "@/components/chidi/business-avatar"
+import { BusinessAvatarPicker } from "@/components/chidi/business-avatar-picker"
 import { useDashboardAuth } from "@/lib/providers/dashboard-auth-context"
 import { WhatsAppSettings } from "@/components/chidi/whatsapp-settings"
 import { TelegramSettings } from "@/components/chidi/telegram-settings"
@@ -133,6 +134,11 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
     const storedBusinessId = localStorage.getItem('chidi_business_id')
     setBusinessId(storedBusinessId)
   }, [])
+
+  // Business-avatar seed override — synced via useBusinessAvatarSeed so the
+  // nav-rail + workspace switcher swap together with this picker.
+  const { seed: avatarRenderSeed, variantSeed, setVariantSeed } = useBusinessAvatarSeed(businessName)
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
 
   // Sync form with account data (only if no draft exists)
   useEffect(() => {
@@ -415,8 +421,8 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
             personal account row sits below as secondary. */}
         <section id="settings-profile" className="scroll-mt-20">
           <SettingsSectionCard eyebrow="Profile" title="Your shop">
-            <div className="flex items-center gap-3 mb-5">
-              <BusinessAvatar name={businessName} size="lg" />
+            <div className="flex items-center gap-3 mb-4">
+              <BusinessAvatar name={avatarRenderSeed} size="lg" />
               <div className="flex-1 min-w-0">
                 <p className="text-[15px] font-semibold text-[var(--chidi-text-primary)] truncate">
                   {businessName}
@@ -425,7 +431,23 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   Shown to customers.
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setAvatarPickerOpen((p) => !p)}
+                className="text-[11px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] underline underline-offset-2"
+              >
+                {avatarPickerOpen ? "Done" : "Change"}
+              </button>
             </div>
+            {avatarPickerOpen && (
+              <div className="mb-5 p-4 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/40">
+                <BusinessAvatarPicker
+                  businessName={businessName}
+                  selectedSeed={variantSeed}
+                  onSelect={setVariantSeed}
+                />
+              </div>
+            )}
 
             <div className="space-y-3 pt-4 border-t border-[var(--chidi-border-subtle)]">
               <div>

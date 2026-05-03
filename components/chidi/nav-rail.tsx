@@ -16,7 +16,7 @@ import { useDashboardAuth } from "@/lib/providers/dashboard-auth-context"
 import { cn } from "@/lib/utils"
 import type { TabId } from "./bottom-navigation"
 import { ChidiMark } from "./chidi-mark"
-import { BusinessAvatar } from "./business-avatar"
+import { BusinessAvatar, useBusinessAvatarSeed } from "./business-avatar"
 import { PRIMARY_TABS, LIBRARY_ENTRIES } from "@/lib/chidi/navigation"
 
 interface NavRailProps {
@@ -276,6 +276,7 @@ interface BusinessSwitcherProps {
 }
 
 function BusinessSwitcher({ businessName, slug, collapsed }: BusinessSwitcherProps) {
+  const { seed: avatarSeed } = useBusinessAvatarSeed(businessName)
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -288,7 +289,7 @@ function BusinessSwitcher({ businessName, slug, collapsed }: BusinessSwitcherPro
             collapsed ? "justify-center p-1" : "gap-2 px-1.5 py-1.5 w-full",
           )}
         >
-          <BusinessAvatar name={businessName} size="sm" />
+          <BusinessAvatar name={avatarSeed} size="sm" />
           {!collapsed && (
             <>
               <span className="flex-1 min-w-0">
@@ -310,7 +311,7 @@ function BusinessSwitcher({ businessName, slug, collapsed }: BusinessSwitcherPro
       >
         {/* Current workspace — highlighted, click to confirm context */}
         <div className="px-2.5 py-2 flex items-center gap-2 rounded-md bg-[var(--chidi-surface)]">
-          <BusinessAvatar name={businessName} size="xs" />
+          <BusinessAvatar name={avatarSeed} size="xs" />
           <span className="text-[13px] font-medium font-chidi-voice text-[var(--chidi-text-primary)] truncate">
             {businessName}
           </span>
