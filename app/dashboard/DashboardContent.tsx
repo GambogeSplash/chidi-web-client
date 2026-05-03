@@ -31,7 +31,6 @@ import { CommandPalette } from '@/components/chidi/command-palette'
 import { ShortcutsOverlay } from '@/components/chidi/shortcuts-overlay'
 import { ApprovalGuardrailProvider } from '@/components/chidi/approval-guardrail'
 import { ChidiWelcome } from '@/components/chidi/chidi-welcome'
-import { ChidiDailyBrief } from '@/components/chidi/chidi-daily-brief'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
 
 interface DashboardContentProps {
@@ -414,9 +413,10 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         businessName={(user as any)?.businessName}
       />
 
-      {/* Daily brief — Spotify-Wrapped-style cinematic morning moment.
-          Fires once per calendar day on first dashboard load. The wow. */}
-      <ChidiDailyBrief ownerName={user?.name} />
+      {/* ChidiDailyBrief removed (2026-05-04) — the "While you slept" carousel
+          read as performative narration without user value. The same data
+          (overnight orders, pending payments) lives in the inbox + Insights
+          decision cards where the merchant can actually act on it. */}
 
       {/* Modals */}
       {showAddProductModal && (
