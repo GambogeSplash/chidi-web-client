@@ -684,6 +684,17 @@ const routes: MockRouter[] = [
     const o = buildOrders().find((o) => o.id === m[1])
     return o ? { ...o, status: "FULFILLED", fulfilled_at: new Date().toISOString() } : null
   }},
+  // Payment confirmation — advances PENDING_PAYMENT → CONFIRMED so the order
+  // moves out of "Need you" once the merchant verifies receipt via the
+  // PaymentConfirmationWidget.
+  { method: "POST", path: /^\/api\/orders\/([^/]+)\/confirm/, respond: (m) => {
+    const o = buildOrders().find((o) => o.id === m[1])
+    return o ? { ...o, status: "CONFIRMED", confirmed_at: new Date().toISOString() } : null
+  }},
+  { method: "POST", path: /^\/api\/orders\/([^/]+)\/reject/, respond: (m) => {
+    const o = buildOrders().find((o) => o.id === m[1])
+    return o ? { ...o } : null
+  }},
 
   // Analytics — note: real apiClient calls hit /analytics/... (no /api prefix)
   { method: "GET", path: /^\/analytics\/sales-overview\?period=([^&]+)/, respond: (m) => buildSalesOverview(m[1]) },

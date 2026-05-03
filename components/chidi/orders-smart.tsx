@@ -1,17 +1,37 @@
 "use client"
 
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   CheckCircle2,
   ChevronRight,
   MessageCircle,
   Loader2,
+  Wallet,
 } from "lucide-react"
 import { type Order } from "@/lib/api/orders"
 import { CustomerCharacter } from "./customer-character"
 import { CurrencyAmount } from "./currency-amount"
 import { ChidiCard, ChidiSection } from "./page-shell"
 import { ChidiMark } from "./chidi-mark"
+import { PaymentConfirmationWidget } from "./payment-confirmation-widget"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import {
+  PAYMENT_CONFIRMED_EVENT,
+  formatConfirmedAgo,
+  getConfirmation,
+  type PaymentConfirmation,
+} from "@/lib/chidi/payment-confirmations"
 import { cn } from "@/lib/utils"
 
 const CHANNEL_COLOR: Record<string, string> = {
@@ -38,6 +58,9 @@ interface OrdersSmartProps {
   /** Currently-open order in the right detail panel — used to highlight
       the matching row so the user always sees which one they picked. */
   selectedOrderId?: string | null
+  /** Fired after the merchant confirms payment via the inline widget so the
+      orders list can advance the order from PENDING_PAYMENT → CONFIRMED. */
+  onPaymentConfirmed?: (orderId: string) => void
 }
 
 /**
@@ -57,6 +80,7 @@ export function OrdersSmart({
   actionLoadingId,
   filter = "all",
   selectedOrderId = null,
+  onPaymentConfirmed,
 }: OrdersSmartProps) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -109,6 +133,7 @@ export function OrdersSmart({
         onFulfill={onFulfill}
         actionLoadingId={actionLoadingId}
         selectedOrderId={selectedOrderId}
+        onPaymentConfirmed={onPaymentConfirmed}
       />
     )
   }
@@ -142,6 +167,7 @@ export function OrdersSmart({
                 onOpenConversation={onOpenConversation}
                 primaryActionLabel="Open order"
                 selected={selectedOrderId === order.id}
+                onPaymentConfirmed={onPaymentConfirmed}
               />
             ))}
           </div>
@@ -289,6 +315,124 @@ interface SmartOrderCardProps {
   onPrimaryAction?: () => void
   /** This row is the one currently open in the right detail panel */
   selected?: boolean
+  /** Notify parent (orders-view) so it can advance the state machine. */
+  onPaymentConfirmed?: (orderId: string) => void
+}
+
+/**
+ * Subscribe to local payment-confirmation state for one order so the row
+ * shows the right pill (Confirm or Paid badge) and re-renders when other
+ * surfaces fire `chidi:payment-confirmed`.
+ */
+function usePaymentConfirmation(orderId: string): PaymentConfirmation | null {
+  const [record, setRecord] = useState<PaymentConfirmation | null>(() => getConfirmation(orderId))
+  useEffect(() => {
+    setRecord(getConfirmation(orderId))
+    const onConfirmed = (e: Event) => {
+      const detail = (e as CustomEvent<PaymentConfirmation>).detail
+      if (detail?.orderId === orderId) {
+        setRecord(detail)
+      } else {
+        // Cross-surface — re-read in case storage changed
+        setRecord(getConfirmation(orderId))
+      }
+    }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "chidi:payment-confirmations") {
+        setRecord(getConfirmation(orderId))
+      }
+    }
+    window.addEventListener(PAYMENT_CONFIRMED_EVENT, onConfirmed as EventListener)
+    window.addEventListener("storage", onStorage)
+    return () => {
+      window.removeEventListener(PAYMENT_CONFIRMED_EVENT, onConfirmed as EventListener)
+      window.removeEventListener("storage", onStorage)
+    }
+  }, [orderId])
+  return record
+}
+
+/**
+ * Renders the "Confirm payment" pill that opens the widget in a Sheet
+ * (mobile) or Popover (desktop). Used inline on every PENDING_PAYMENT row.
+ */
+function ConfirmPaymentTrigger({
+  order,
+  onConfirmed,
+}: {
+  order: Order
+  onConfirmed?: (orderId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
+
+  const pill = (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        setOpen(true)
+      }}
+      className="inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-1.5 rounded-lg bg-[var(--chidi-success)] text-[var(--chidi-success-foreground)] hover:opacity-90 active:scale-[0.97] transition-colors"
+      aria-label={`Confirm payment for order ${order.id.slice(-6).toUpperCase()}`}
+    >
+      <Wallet className="w-3.5 h-3.5" />
+      Confirm payment
+    </button>
+  )
+
+  if (isMobile) {
+    return (
+      <>
+        {pill}
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetContent
+            side="bottom"
+            className="bg-[var(--background)] p-0 max-h-[90vh] overflow-y-auto rounded-t-2xl"
+          >
+            <SheetHeader>
+              <SheetTitle className="text-[var(--chidi-text-primary)]">
+                Confirm payment
+              </SheetTitle>
+            </SheetHeader>
+            <div className="px-4 pb-6">
+              <PaymentConfirmationWidget
+                order={order}
+                bare
+                onConfirm={() => {
+                  onConfirmed?.(order.id)
+                  // Let the success animation breathe before dismissing.
+                  window.setTimeout(() => setOpen(false), 1400)
+                }}
+                onReject={() => setOpen(false)}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </>
+    )
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{pill}</PopoverTrigger>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        className="w-[360px] p-0 bg-transparent border-0 shadow-none"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <PaymentConfirmationWidget
+          order={order}
+          onConfirm={() => {
+            onConfirmed?.(order.id)
+            window.setTimeout(() => setOpen(false), 1400)
+          }}
+          onReject={() => setOpen(false)}
+        />
+      </PopoverContent>
+    </Popover>
+  )
 }
 
 function SmartOrderCard({
@@ -300,8 +444,14 @@ function SmartOrderCard({
   primaryActionLoading,
   onPrimaryAction,
   selected = false,
+  onPaymentConfirmed,
 }: SmartOrderCardProps) {
   const orderNumber = `#${order.id.slice(-6).toUpperCase()}`
+  // Local confirmation log — drives the "Paid Xh ago" badge and replaces the
+  // warn-tone CTA with a quiet receipt stamp once the merchant has confirmed.
+  const confirmation = usePaymentConfirmation(order.id)
+  const isPendingPayment = order.status === "PENDING_PAYMENT"
+  const isConfirmedLocally = isPendingPayment && !!confirmation
 
   // Time-aging cue (Square KDS pattern). Pending payment ages through:
   // < 4h: normal · 4-12h: aging · 12-24h: stale · 24h+: urgent
@@ -329,18 +479,26 @@ function SmartOrderCard({
           "bg-[var(--chidi-surface)] shadow-[inset_3px_0_0_0_var(--chidi-text-primary)] ring-1 ring-[var(--chidi-text-primary)]/15",
       )}
     >
-      {/* Age tag for warn-tone orders that have been sitting too long */}
-      {tone === "warn" && ageHours > 4 && (
-        <span
-          className={cn(
-            "absolute top-2 right-2 text-[10px] font-medium font-chidi-voice px-1.5 py-0.5 rounded-full tabular-nums",
-            isUrgent
-              ? "bg-[var(--chidi-danger,#D14747)]/15 text-[var(--chidi-danger,#D14747)]"
-              : "bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)]",
-          )}
-        >
-          {ageLabel}
+      {/* Age tag for warn-tone orders that have been sitting too long.
+          Once locally confirmed, the row swaps to a calm "Paid Xh ago" stamp. */}
+      {isConfirmedLocally && confirmation ? (
+        <span className="absolute top-2 right-2 inline-flex items-center gap-1 text-[10px] font-medium font-chidi-voice px-1.5 py-0.5 rounded-full bg-[var(--chidi-success)]/15 text-[var(--chidi-success)]">
+          <CheckCircle2 className="w-2.5 h-2.5" />
+          Paid {formatConfirmedAgo(confirmation.confirmedAt)}
         </span>
+      ) : (
+        tone === "warn" && ageHours > 4 && (
+          <span
+            className={cn(
+              "absolute top-2 right-2 text-[10px] font-medium font-chidi-voice px-1.5 py-0.5 rounded-full tabular-nums",
+              isUrgent
+                ? "bg-[var(--chidi-danger,#D14747)]/15 text-[var(--chidi-danger,#D14747)]"
+                : "bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)]",
+            )}
+          >
+            {ageLabel}
+          </span>
+        )
       )}
 
       {/* Header: customer + order number */}
@@ -403,7 +561,12 @@ function SmartOrderCard({
 
       {/* Total + actions */}
       <div className="flex items-center justify-between gap-2 mt-2.5 pt-2.5 border-t border-[var(--chidi-border-subtle)]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Pending payment? Surface the merchant's most-tapped action right
+              here, before they need to open the detail panel. */}
+          {isPendingPayment && !isConfirmedLocally && (
+            <ConfirmPaymentTrigger order={order} onConfirmed={onPaymentConfirmed} />
+          )}
           {onPrimaryAction && (
             <button
               onClick={onPrimaryAction}
@@ -568,9 +731,10 @@ interface FilteredViewProps {
   onFulfill: (id: string) => void
   actionLoadingId: string | null
   selectedOrderId?: string | null
+  onPaymentConfirmed?: (orderId: string) => void
 }
 
-function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulfill, actionLoadingId, selectedOrderId = null }: FilteredViewProps) {
+function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulfill, actionLoadingId, selectedOrderId = null, onPaymentConfirmed }: FilteredViewProps) {
   const { orders, copy } = useMemo(() => {
     switch (filter) {
       case "pending":
@@ -632,6 +796,7 @@ function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulf
               primaryActionLoading={actionLoadingId === order.id}
               onPrimaryAction={filter === "in_progress" ? () => onFulfill(order.id) : undefined}
               selected={selectedOrderId === order.id}
+              onPaymentConfirmed={onPaymentConfirmed}
             />
           ))}
         </div>

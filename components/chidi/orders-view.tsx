@@ -32,6 +32,7 @@ import {
   useOrder,
   useFulfillOrder,
   useCancelOrder,
+  useConfirmOrder,
   ordersKeys,
 } from "@/lib/hooks/use-orders"
 import { CurrencyAmount } from "./currency-amount"
@@ -74,6 +75,7 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
   const { data, isLoading, isRefetching, isError, error } = useOrders(undefined)
   const fulfillMutation = useFulfillOrder()
   const cancelMutation = useCancelOrder()
+  const confirmMutation = useConfirmOrder()
 
   const orders = data?.orders ?? []
 
@@ -137,6 +139,36 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
         },
       }
     )
+  }
+
+  // Merchant confirmed payment via the inline widget — advance the order out
+  // of PENDING_PAYMENT so it leaves the "Need you" tab and shows up under
+  // "In progress". We optimistically patch the cache first so the UI reacts
+  // immediately even before the backend round-trip completes.
+  const handlePaymentConfirmed = (orderId: string) => {
+    const nowIso = new Date().toISOString()
+    queryClient.setQueriesData<{ orders: Order[]; total: number } | undefined>(
+      { queryKey: ordersKeys.all },
+      (current) => {
+        if (!current?.orders) return current
+        return {
+          ...current,
+          orders: current.orders.map((o) =>
+            o.id === orderId && o.status === "PENDING_PAYMENT"
+              ? { ...o, status: "CONFIRMED" as OrderStatus, confirmed_at: nowIso }
+              : o,
+          ),
+        }
+      },
+    )
+    if (selectedOrder?.id === orderId && selectedOrder.status === "PENDING_PAYMENT") {
+      setSelectedOrder({ ...selectedOrder, status: "CONFIRMED", confirmed_at: nowIso })
+    }
+    confirmMutation.mutate(orderId, {
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ordersKeys.all })
+      },
+    })
   }
 
   const handleCancel = async (orderId: string) => {
@@ -331,6 +363,7 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
               actionLoadingId={actionLoadingId ?? null}
               filter={filter}
               selectedOrderId={selectedOrder?.id ?? null}
+              onPaymentConfirmed={handlePaymentConfirmed}
             />
           )}
         </div>

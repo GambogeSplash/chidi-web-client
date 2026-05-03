@@ -35,6 +35,18 @@ import {
   ordersKeys,
 } from '@/lib/hooks/use-orders'
 import { OrderVerificationWidget } from '@/components/chidi/order-verification-widget'
+import { PaymentConfirmationWidget } from '@/components/chidi/payment-confirmation-widget'
+import {
+  PAYMENT_CONFIRMED_EVENT,
+  formatConfirmedAgo,
+  getConfirmation,
+  type PaymentConfirmation,
+} from '@/lib/chidi/payment-confirmations'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useIsMobile } from '@/components/ui/use-mobile'
+import { Wallet, Check } from 'lucide-react'
+import { formatOrderAmount } from '@/lib/api/orders'
 import { AISuggestStrip } from '@/components/chidi/ai-suggest-strip'
 import { VoiceButton } from '@/components/chidi/voice-button'
 import { CustomerCharacter } from '@/components/chidi/customer-character'
@@ -72,6 +84,37 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
   const rejectOrder = useRejectOrder()
 
   const messages = messagesData?.messages ?? []
+
+  // Local payment-confirmation log — keeps the sticky banner in lock-step
+  // with whatever the merchant did from the orders list (or here).
+  const pendingOrderId = pendingOrder?.id ?? null
+  const [paymentConfirmation, setPaymentConfirmation] = useState<PaymentConfirmation | null>(
+    () => (pendingOrderId ? getConfirmation(pendingOrderId) : null),
+  )
+  const [paymentSheetOpen, setPaymentSheetOpen] = useState(false)
+  const isMobileViewport = useIsMobile()
+
+  useEffect(() => {
+    setPaymentConfirmation(pendingOrderId ? getConfirmation(pendingOrderId) : null)
+    if (!pendingOrderId) return
+    const onConfirmed = (e: Event) => {
+      const detail = (e as CustomEvent<PaymentConfirmation>).detail
+      if (detail?.orderId === pendingOrderId) {
+        setPaymentConfirmation(detail)
+      }
+    }
+    const onStorage = (ev: StorageEvent) => {
+      if (ev.key === 'chidi:payment-confirmations') {
+        setPaymentConfirmation(getConfirmation(pendingOrderId))
+      }
+    }
+    window.addEventListener(PAYMENT_CONFIRMED_EVENT, onConfirmed as EventListener)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener(PAYMENT_CONFIRMED_EVENT, onConfirmed as EventListener)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [pendingOrderId])
 
   // Mark as read when conversation opens
   useEffect(() => {
@@ -319,6 +362,117 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
           </Button>
         </div>
       </div>
+
+      {/* Payment-expected sticky banner — sits above the message list any time
+          the active conversation has a PENDING_PAYMENT order. Collapses to a
+          quiet "✓ Confirmed" stamp once the merchant verifies receipt. */}
+      {pendingOrder && (
+        <div className="sticky top-0 z-10 px-3 pt-2 pb-2 border-b border-[var(--chidi-border-subtle)] bg-[var(--background)]">
+          {paymentConfirmation ? (
+            <div
+              className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[var(--chidi-success)]/10 text-[var(--chidi-success)] border border-[var(--chidi-success)]/25"
+              role="status"
+              aria-live="polite"
+            >
+              <Check className="w-4 h-4" strokeWidth={2.5} />
+              <span className="text-[13px] font-chidi-voice">
+                Confirmed —{' '}
+                <span className="tabular-nums">
+                  {formatOrderAmount(paymentConfirmation.amount, pendingOrder.currency)}
+                </span>{' '}
+                received {formatConfirmedAgo(paymentConfirmation.confirmedAt)}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[var(--chidi-warning)]/8 border border-[var(--chidi-warning)]/20">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] flex items-center justify-center">
+                <Wallet className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-chidi-voice text-[var(--chidi-text-primary)] truncate">
+                  <span className="font-medium">{conversation.customer_name || 'Customer'}</span>{' '}
+                  owes you{' '}
+                  <span className="tabular-nums font-medium">
+                    {formatOrderAmount(pendingOrder.total, pendingOrder.currency)}
+                  </span>{' '}
+                  for order #{pendingOrder.id.slice(-6).toUpperCase()}
+                </p>
+              </div>
+              {isMobileViewport ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentSheetOpen(true)}
+                    className="flex-shrink-0 inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-1.5 rounded-lg bg-[var(--chidi-success)] text-[var(--chidi-success-foreground)] hover:opacity-90 active:scale-[0.97] transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Confirm payment
+                  </button>
+                  <Sheet open={paymentSheetOpen} onOpenChange={setPaymentSheetOpen}>
+                    <SheetContent
+                      side="bottom"
+                      className="bg-[var(--background)] p-0 max-h-[90vh] overflow-y-auto rounded-t-2xl"
+                    >
+                      <SheetHeader>
+                        <SheetTitle className="text-[var(--chidi-text-primary)]">
+                          Confirm payment
+                        </SheetTitle>
+                      </SheetHeader>
+                      <div className="px-4 pb-6">
+                        <PaymentConfirmationWidget
+                          order={pendingOrder}
+                          bare
+                          onConfirm={() => {
+                            queryClient.invalidateQueries({
+                              queryKey: ordersKeys.byConversation(
+                                conversation.id,
+                                'PENDING_PAYMENT',
+                              ),
+                            })
+                            window.setTimeout(() => setPaymentSheetOpen(false), 1400)
+                          }}
+                          onReject={() => setPaymentSheetOpen(false)}
+                        />
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </>
+              ) : (
+                <Popover open={paymentSheetOpen} onOpenChange={setPaymentSheetOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex-shrink-0 inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-1.5 rounded-lg bg-[var(--chidi-success)] text-[var(--chidi-success-foreground)] hover:opacity-90 active:scale-[0.97] transition-colors"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      Confirm payment
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    sideOffset={8}
+                    className="w-[360px] p-0 bg-transparent border-0 shadow-none"
+                  >
+                    <PaymentConfirmationWidget
+                      order={pendingOrder}
+                      onConfirm={() => {
+                        queryClient.invalidateQueries({
+                          queryKey: ordersKeys.byConversation(
+                            conversation.id,
+                            'PENDING_PAYMENT',
+                          ),
+                        })
+                        window.setTimeout(() => setPaymentSheetOpen(false), 1400)
+                      }}
+                      onReject={() => setPaymentSheetOpen(false)}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[var(--chidi-surface)]">
