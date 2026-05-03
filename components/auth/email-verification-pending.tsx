@@ -116,9 +116,10 @@ export function EmailVerificationPending({ email, onBackToSignIn }: EmailVerific
       </div>
 
       {devMode ? (
-        <form onSubmit={handleDevVerify} className="space-y-4">
-          {/* Six segmented input boxes */}
-          <div className="flex items-center justify-between gap-2">
+        <form onSubmit={handleDevVerify} className="space-y-3">
+          {/* Six segmented input boxes — grid keeps them perfectly equal-width
+              and prevents the flex-1 + text-2xl overlap bug at narrow viewports. */}
+          <div className="grid grid-cols-6 gap-2">
             {digits.map((d, idx) => (
               <input
                 key={idx}
@@ -134,10 +135,10 @@ export function EmailVerificationPending({ email, onBackToSignIn }: EmailVerific
                 maxLength={1}
                 aria-label={`Digit ${idx + 1}`}
                 className={cn(
-                  "h-14 flex-1 text-center text-2xl font-mono tabular-nums bg-white border rounded-xl outline-none transition-all",
+                  "aspect-square w-full min-w-0 text-center text-xl font-mono tabular-nums bg-white border rounded-lg outline-none transition-all",
                   d
                     ? "border-[var(--chidi-win)] text-[var(--chidi-text-primary)]"
-                    : "border-[var(--chidi-border-default)] text-[var(--chidi-text-muted)] focus:border-[var(--chidi-win)] focus:ring-2 focus:ring-[var(--chidi-win)]/20",
+                    : "border-[var(--chidi-border-default)] text-[var(--chidi-text-muted)] focus:border-[var(--chidi-win)] focus:ring-1 focus:ring-[var(--chidi-win)]/20",
                 )}
               />
             ))}

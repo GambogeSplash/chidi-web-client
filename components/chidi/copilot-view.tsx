@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus, Phone } from "lucide-react"
-import { ChidiAvatar } from "./chidi-mark"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -64,7 +63,7 @@ const PROMPT_CATEGORIES: PromptCategory[] = [
     label: "Understand my customers",
     icon: MessageCircle,
     prompts: [
-      "What are customers asking about on WhatsApp?",
+      "What are customers asking about across my channels?",
       "Any repeat customers I should know about?",
       "What product questions come up most?",
       "Help me draft a reply about our return policy",
@@ -383,7 +382,7 @@ export function CopilotView({
                 {/* Assistant identity glyph on the left, user has nothing */}
                 {message.role !== "user" && (
                   <div className="flex-shrink-0 mt-0.5">
-                    <ChidiAvatar size="sm" />
+                    <Image src="/logo.png" alt="Chidi" width={28} height={28} className="w-7 h-7 object-contain" />
                   </div>
                 )}
 
@@ -420,7 +419,7 @@ export function CopilotView({
           {isSending && !messages.some(m => m.isStreaming && m.content.length > 0) && (
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
-                <ChidiAvatar size="sm" expression="thinking" />
+                <Image src="/logo.png" alt="Chidi" width={28} height={28} className="w-7 h-7 object-contain" />
               </div>
               <div className="flex items-center gap-1.5 pt-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-text-muted)] chidi-typing-dot" style={{ animationDelay: "0ms" }} />

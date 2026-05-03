@@ -41,7 +41,7 @@ export function AuthShell({
         <div className="relative z-[2] flex-1 flex flex-col justify-center max-w-md w-full">
           <p className="ty-meta mb-3">What Chidi does, live</p>
           <h1 className="text-2xl xl:text-3xl font-serif text-[var(--chidi-text-primary)] tracking-tight leading-tight mb-6">
-            Your assistant for selling on WhatsApp.
+            Your assistant for selling on Telegram &amp; WhatsApp.
           </h1>
           <AuthLeftTheatre />
         </div>
