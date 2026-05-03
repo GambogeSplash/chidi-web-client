@@ -41,7 +41,11 @@ export function ArcFace({
     <svg
       width={size}
       height={size}
-      viewBox="0 0 100 100"
+      // viewBox tight-cropped to the content (eyes y=22-54, smile reaches ~y=92).
+      // Original 0-100 viewBox left ~30% empty padding so at sidebar sizes the
+      // mark read smaller than the Lucide icons next to it. Cropping makes the
+      // optical mass match without having to bump the size prop.
+      viewBox="22 16 56 80"
       fill="none"
       className={cn("block", className)}
       aria-hidden="true"

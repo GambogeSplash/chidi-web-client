@@ -167,12 +167,9 @@ export function NavRail({
                   )}
                 >
                   {isChidi ? (
-                    // Bumped to 26 because ArcFace's content (eyes + smile) only fills
-                    // ~55% of its SVG viewBox — at the same 18px the other icons use it
-                    // reads as visually smaller. 26 makes the optical mass match.
                     <ArcFace
-                      size={26}
-                      className={cn("flex-shrink-0 -my-1", isActive ? "text-[var(--chidi-win)]" : "text-current")}
+                      size={18}
+                      className={cn("flex-shrink-0", isActive ? "text-[var(--chidi-win)]" : "text-current")}
                     />
                   ) : Icon ? (
                     <Icon

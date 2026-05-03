@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -14,7 +14,7 @@ import { getStoredInventoryId } from "@/lib/api/products"
 import { hapticSoft } from "@/lib/chidi/haptics"
 import { EditableCell } from "./editable-cell"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { EmptyState } from "./empty-state"
 import { ManageVariationsSheet } from "./manage-variations-sheet"
@@ -373,26 +373,37 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 <List className="w-3.5 h-3.5" />
               </button>
             </div>
-            {onBulkImport && (
-              <Button
-                onClick={onBulkImport}
-                size="sm"
-                variant="outline"
-                className="border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]"
-              >
-                <Upload className="w-4 h-4 mr-1" />
-                Import
-              </Button>
-            )}
-            <Button
-              onClick={onAddProduct}
-              size="sm"
-              className="btn-cta"
-              title="Open the full new-product form"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Add product
-            </Button>
+            {/* Merged "Add product" CTA — primary button opens a small menu so
+                the merchant picks how they want to add (manual form OR bulk
+                upload OR drop a CSV). The full forms still live behind their
+                existing handlers; this is a single entry point. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="btn-cta">
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add product
+                  <ChevronDown className="w-3 h-3 ml-1 opacity-80" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)] min-w-[220px]">
+                <DropdownMenuItem onClick={onAddProduct} className="flex items-start gap-2.5 py-2">
+                  <Plus className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+                  <div className="flex-1">
+                    <p className="text-[13px] text-[var(--chidi-text-primary)]">Add manually</p>
+                    <p className="text-[11px] text-[var(--chidi-text-muted)]">Type out the details yourself.</p>
+                  </div>
+                </DropdownMenuItem>
+                {onBulkImport && (
+                  <DropdownMenuItem onClick={onBulkImport} className="flex items-start gap-2.5 py-2">
+                    <Upload className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
+                    <div className="flex-1">
+                      <p className="text-[13px] text-[var(--chidi-text-primary)]">Import a list</p>
+                      <p className="text-[11px] text-[var(--chidi-text-muted)]">Drag a CSV or pick a file.</p>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -453,7 +464,10 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 <ChevronDown className="w-3 h-3 opacity-70" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)] min-w-[200px]">
+            <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)] min-w-[220px]">
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold">
+                Show
+              </DropdownMenuLabel>
               {categories.map((category) => {
                 const count = category === "all" ? products.length : (categoryCounts[category] ?? 0)
                 const isActive = selectedCategory === category
@@ -468,12 +482,31 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                   </DropdownMenuItem>
                 )
               })}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold">
+                Sort by
+              </DropdownMenuLabel>
+              {(["recent", "name", "stock", "price"] as SortKeyExt[]).map((k) => (
+                <DropdownMenuItem
+                  key={`sort-${k}`}
+                  onClick={() => {
+                    setSortKey(k as SortKey)
+                    setSortDir(k === "name" ? "asc" : k === "stock" || k === "price" ? "asc" : "desc")
+                  }}
+                  className={cn("flex items-center justify-between gap-3", sortKey === k && "bg-[var(--chidi-surface)] font-medium")}
+                >
+                  <span>{SORT_LABEL[k]}</span>
+                  {sortKey === k && <Check className="w-3 h-3 text-[var(--chidi-text-muted)]" />}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Sort merged into the same dropdown as Filter (above) — see the
+              "Sort by" group inside the Filter dropdown's content. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-md border bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)] text-[12px] font-chidi-voice hover:bg-white active:scale-[0.97] flex-shrink-0">
+              <button className="hidden items-center gap-1.5 h-9 px-3 rounded-md border bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)] text-[12px] font-chidi-voice hover:bg-white active:scale-[0.97] flex-shrink-0">
                 <ArrowUpDown className="w-3.5 h-3.5" />
                 <span>{SORT_LABEL[sortKey]}</span>
                 <ChevronDown className="w-3 h-3 opacity-70" />
