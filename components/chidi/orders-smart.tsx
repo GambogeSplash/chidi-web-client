@@ -35,6 +35,9 @@ interface OrdersSmartProps {
   onFulfill: (orderId: string) => void
   actionLoadingId: string | null
   filter?: OrdersFilter
+  /** Currently-open order in the right detail panel — used to highlight
+      the matching row so the user always sees which one they picked. */
+  selectedOrderId?: string | null
 }
 
 /**
@@ -53,6 +56,7 @@ export function OrdersSmart({
   onFulfill,
   actionLoadingId,
   filter = "all",
+  selectedOrderId = null,
 }: OrdersSmartProps) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -104,6 +108,7 @@ export function OrdersSmart({
         onOpenConversation={onOpenConversation}
         onFulfill={onFulfill}
         actionLoadingId={actionLoadingId}
+        selectedOrderId={selectedOrderId}
       />
     )
   }
@@ -136,6 +141,7 @@ export function OrdersSmart({
                 onOpenOrder={onOpenOrder}
                 onOpenConversation={onOpenConversation}
                 primaryActionLabel="Open order"
+                selected={selectedOrderId === order.id}
               />
             ))}
           </div>
@@ -164,6 +170,7 @@ export function OrdersSmart({
                   primaryActionLabel={actionLoadingId === order.id ? "Marking…" : "Mark fulfilled"}
                   primaryActionLoading={actionLoadingId === order.id}
                   onPrimaryAction={() => onFulfill(order.id)}
+                  selected={selectedOrderId === order.id}
                 />
               ))}
             </div>
@@ -181,6 +188,7 @@ export function OrdersSmart({
             onOpenOrder={onOpenOrder}
             initialVisible={5}
             defaultOpen={true}
+            selectedOrderId={selectedOrderId}
           />
         </div>
       )}
@@ -194,6 +202,7 @@ export function OrdersSmart({
           onOpenOrder={onOpenOrder}
           initialVisible={5}
           defaultOpen={false}
+          selectedOrderId={selectedOrderId}
         />
       )}
 
@@ -207,6 +216,7 @@ export function OrdersSmart({
           initialVisible={5}
           defaultOpen={false}
           dim
+          selectedOrderId={selectedOrderId}
         />
       )}
 
@@ -277,6 +287,8 @@ interface SmartOrderCardProps {
   primaryActionLabel: string
   primaryActionLoading?: boolean
   onPrimaryAction?: () => void
+  /** This row is the one currently open in the right detail panel */
+  selected?: boolean
 }
 
 function SmartOrderCard({
@@ -287,6 +299,7 @@ function SmartOrderCard({
   primaryActionLabel,
   primaryActionLoading,
   onPrimaryAction,
+  selected = false,
 }: SmartOrderCardProps) {
   const orderNumber = `#${order.id.slice(-6).toUpperCase()}`
 
@@ -305,9 +318,18 @@ function SmartOrderCard({
   return (
     <ChidiCard
       className={cn(
-        "p-3 chidi-card-lift relative overflow-hidden",
+        "p-3 chidi-card-lift relative overflow-hidden transition-colors",
+        // Aging cues
         isAgingWarn && !isUrgent && "ring-1 ring-[var(--chidi-warning)]/30",
         isUrgent && "ring-1 ring-[var(--chidi-danger,#D14747)]/40",
+        // Selected state — same vocabulary as inbox active conversation:
+        // left-border accent + subtle surface tint so the merchant sees
+        // exactly which order is open in the right pane.
+        selected && [
+          "border-l-[3px] border-l-[var(--chidi-text-primary)]",
+          "bg-[var(--chidi-surface)]",
+          "ring-1 ring-[var(--chidi-text-primary)]/15",
+        ],
       )}
     >
       {/* Age tag for warn-tone orders that have been sitting too long */}
@@ -470,6 +492,7 @@ interface CollapsibleFulfilledSectionProps {
   initialVisible?: number
   defaultOpen?: boolean
   dim?: boolean
+  selectedOrderId?: string | null
 }
 
 /**
@@ -485,6 +508,7 @@ function CollapsibleFulfilledSection({
   initialVisible = 5,
   defaultOpen = false,
   dim = false,
+  selectedOrderId = null,
 }: CollapsibleFulfilledSectionProps) {
   const [open, setOpen] = useState(defaultOpen)
   const [showAll, setShowAll] = useState(false)
@@ -512,7 +536,12 @@ function CollapsibleFulfilledSection({
       {open && (
         <div className="space-y-1.5 pt-2">
           {visible.map((order) => (
-            <FulfilledRow key={order.id} order={order} onOpenOrder={onOpenOrder} />
+            <FulfilledRow
+              key={order.id}
+              order={order}
+              onOpenOrder={onOpenOrder}
+              selected={selectedOrderId === order.id}
+            />
           ))}
           {hidden > 0 && (
             <button
@@ -541,9 +570,10 @@ interface FilteredViewProps {
   onOpenConversation?: (id: string) => void
   onFulfill: (id: string) => void
   actionLoadingId: string | null
+  selectedOrderId?: string | null
 }
 
-function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulfill, actionLoadingId }: FilteredViewProps) {
+function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulfill, actionLoadingId, selectedOrderId = null }: FilteredViewProps) {
   const { orders, copy } = useMemo(() => {
     switch (filter) {
       case "pending":
@@ -604,6 +634,7 @@ function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulf
               }
               primaryActionLoading={actionLoadingId === order.id}
               onPrimaryAction={filter === "in_progress" ? () => onFulfill(order.id) : undefined}
+              selected={selectedOrderId === order.id}
             />
           ))}
         </div>
@@ -616,7 +647,12 @@ function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulf
         >
           <ul className="divide-y divide-[var(--chidi-border-subtle)]">
             {orders.map((order) => (
-              <FulfilledRow key={order.id} order={order} onOpenOrder={onOpenOrder} />
+              <FulfilledRow
+                key={order.id}
+                order={order}
+                onOpenOrder={onOpenOrder}
+                selected={selectedOrderId === order.id}
+              />
             ))}
           </ul>
         </div>
@@ -629,7 +665,15 @@ function orderCountText(count: number, suffix: string): string {
   return `${count} ${count === 1 ? "order" : "orders"} ${suffix}`
 }
 
-function FulfilledRow({ order, onOpenOrder }: { order: Order; onOpenOrder: (o: Order) => void }) {
+function FulfilledRow({
+  order,
+  onOpenOrder,
+  selected = false,
+}: {
+  order: Order
+  onOpenOrder: (o: Order) => void
+  selected?: boolean
+}) {
   const orderNumber = `#${order.id.slice(-6).toUpperCase()}`
   // Show up to 3 product thumbs as a tiny stack
   const thumbs = order.items.slice(0, 3)
@@ -637,7 +681,12 @@ function FulfilledRow({ order, onOpenOrder }: { order: Order; onOpenOrder: (o: O
   return (
     <button
       onClick={() => onOpenOrder(order)}
-      className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--chidi-surface)] active:scale-[0.997] transition-colors text-left"
+      className={cn(
+        "w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[var(--chidi-surface)] active:scale-[0.997] transition-colors text-left relative",
+        // Selected: subtle surface tint + an inset left-border via ring
+        selected &&
+          "bg-[var(--chidi-surface)] shadow-[inset_3px_0_0_0_var(--chidi-text-primary)]",
+      )}
     >
       <div className="relative flex-shrink-0">
         <CustomerCharacter name={order.customer_name} fallbackId={order.id} size="sm" />
