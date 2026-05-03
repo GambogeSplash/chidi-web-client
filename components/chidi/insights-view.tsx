@@ -25,6 +25,7 @@
  */
 
 import { useMemo, useState } from "react"
+import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import {
   Package,
@@ -82,7 +83,7 @@ import {
 import { useOrders } from "@/lib/hooks/use-orders"
 import { formatCurrency } from "@/lib/api/analytics"
 import { useCountUp } from "@/lib/chidi/use-count-up"
-import { CustomerAvatar } from "./customer-avatar"
+import { CustomerCharacter } from "./customer-character"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 
 // ============================================================================
@@ -95,11 +96,6 @@ const PERIOD_OPTIONS: Array<{ id: Period; label: string }> = [
   { id: "30d", label: "30 days" },
   { id: "90d", label: "90 days" },
 ]
-const PERIOD_LABEL: Record<Period, string> = {
-  "7d": "the last 7 days",
-  "30d": "the last 30 days",
-  "90d": "the last 90 days",
-}
 
 const KIND_ICON: Record<DecisionKind, React.ElementType> = {
   restock: Package,
@@ -157,7 +153,6 @@ export function InsightsView() {
   // Refresh state — animates the spinner; the count-up KPIs re-tween via key.
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
-  const [lastUpdated, setLastUpdated] = useState<Date>(() => new Date())
 
   const { data: overview, refetch: refetchOverview } = useSalesOverview(period)
   const { data: channelMix, refetch: refetchChannel } = useChannelMix(period)
@@ -176,7 +171,6 @@ export function InsightsView() {
       refetchCust(),
     ])
     setRefreshKey((k) => k + 1)
-    setLastUpdated(new Date())
     // Spin one full rotation (~700ms) regardless of how fast it returned, so
     // the user perceives feedback for clicking the button.
     setTimeout(() => setRefreshing(false), 700)
@@ -264,9 +258,6 @@ export function InsightsView() {
             <h1 className="ty-page-title text-[var(--chidi-text-primary)]">
               How your shop is doing.
             </h1>
-            <p className="text-[12px] text-[var(--chidi-text-muted)] mt-1.5">
-              Showing {PERIOD_LABEL[period]}. Updated {formatRelativeTime(lastUpdated)}.
-            </p>
           </div>
 
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -364,9 +355,8 @@ export function InsightsView() {
           <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
             <div className="flex items-end justify-between gap-3 flex-wrap mb-3.5">
               <div className="min-w-0">
-                <p className="ty-meta mb-1">Decisions</p>
                 <h2 className="text-[16px] lg:text-[17px] font-semibold text-[var(--chidi-text-primary)] leading-tight">
-                  {DECISIONS.length} decisions waiting on you.
+                  Decisions
                 </h2>
                 {/* Inline money-owed pill — replaces the deleted Cash card.
                     Only shown when there's actually money outstanding. */}
@@ -378,7 +368,7 @@ export function InsightsView() {
                     <Wallet className="w-3 h-3" strokeWidth={2.2} />
                     <span className="tabular-nums">{formatCurrency(owedNow)}</span>
                     <span className="opacity-80">
-                      held in {pendingCount} pending payment{pendingCount === 1 ? "" : "s"}
+                      in {pendingCount} pending
                     </span>
                     <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
                   </button>
@@ -414,7 +404,6 @@ export function InsightsView() {
                     setOpenDecisionId((id) => (id === d.id ? null : d.id))
                   }
                   onAction={() => handleDecisionAction(d.action.deep_link)}
-                  onSecondary={() => handleDecisionAction(d.secondary?.deep_link)}
                 />
               ))}
             </div>
@@ -429,13 +418,7 @@ export function InsightsView() {
             of scrolling 5 panels. */}
         <section className="mb-6">
           <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
-            <div className="flex items-end justify-between gap-3 flex-wrap mb-4">
-              <div className="min-w-0">
-                <p className="ty-meta mb-1">Drill in</p>
-                <h2 className="text-[15px] font-semibold text-[var(--chidi-text-primary)] leading-tight">
-                  Pick a lens to look closer.
-                </h2>
-              </div>
+            <div className="flex items-center justify-end mb-4">
               <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-default)] bg-[var(--card)] p-0.5">
                 {LENS_OPTIONS.map((opt) => (
                   <button
@@ -819,15 +802,14 @@ function RevenueTrendCard({
   return (
     <>
       <CardHeader
-        eyebrow="Trend"
         title={
           metric === "revenue"
-            ? "Revenue, day by day"
+            ? "Revenue"
             : metric === "order_count"
-              ? "Orders, day by day"
-              : "Avg. order value, day by day"
+              ? "Orders"
+              : "Avg. order value"
         }
-        hint={`${totalLabel} ${metric === "aov" ? "average" : "total"} this period`}
+        hint={totalLabel}
         actions={
           <>
             <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/60 p-0.5">
@@ -855,10 +837,7 @@ function RevenueTrendCard({
       />
 
       {chartData.length === 0 ? (
-        <ChartEmpty
-          headline="No sales yet for this window."
-          body="Once orders start landing, this chart will fill in."
-        />
+        <ChartEmpty headline="No sales yet for this window." />
       ) : (
         <div className="h-[220px] -ml-2 -mr-1">
           <ResponsiveContainer width="100%" height="100%">
@@ -958,22 +937,18 @@ function ChannelMixCard({
   return (
     <>
       <CardHeader
-        eyebrow="Channels"
-        title="Where revenue comes from"
-        hint={total > 0 ? `${formatCurrency(total)} this period` : undefined}
+        title="Channels"
+        hint={total > 0 ? formatCurrency(total) : undefined}
         actions={
           <PillButton onClick={onConfigure}>
-            Manage channels
+            Manage
             <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
           </PillButton>
         }
       />
 
       {chartData.length === 0 ? (
-        <ChartEmpty
-          headline="No channel revenue yet."
-          body="Connect a channel in Settings and your mix shows here."
-        />
+        <ChartEmpty headline="No channel revenue yet." />
       ) : (
         // Pie + legend rows. The pie + legend rows are NOT clickable — there's
         // no per-channel filter on the inbox yet, and a click that lands you on
@@ -1026,13 +1001,8 @@ function ChannelMixCard({
                     {d.name}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[var(--chidi-text-muted)] tabular-nums">
-                    {d.orders} order{d.orders === 1 ? "" : "s"}
-                  </span>
-                  <span className="text-[var(--chidi-text-primary)] font-medium tabular-nums w-10 text-right">
-                    {d.pct}%
-                  </span>
+                <span className="text-[var(--chidi-text-primary)] font-medium tabular-nums flex-shrink-0">
+                  {d.pct}%
                 </span>
               </li>
             ))}
@@ -1052,13 +1022,11 @@ function DecisionCard({
   expanded,
   onToggle,
   onAction,
-  onSecondary,
 }: {
   decision: Decision
   expanded: boolean
   onToggle: () => void
   onAction: () => void
-  onSecondary: () => void
 }) {
   const Icon = KIND_ICON[decision.kind]
   const tone =
@@ -1074,25 +1042,27 @@ function DecisionCard({
         onClick={onToggle}
         className="w-full p-4 flex items-start gap-3 text-left"
       >
+        {/* Urgency = ONE indicator: the colored icon tile. No duplicate label
+            chip above the question. */}
         <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 relative"
           style={{ backgroundColor: `${tone}1a` }}
         >
           <Icon className="w-3.5 h-3.5" style={{ color: tone }} strokeWidth={1.8} />
+          {decision.urgency === "now" && (
+            <span
+              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-[var(--card)]"
+              style={{ backgroundColor: tone }}
+              aria-label="Decide today"
+            />
+          )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span
-              className="text-[10px] uppercase tracking-wider font-semibold"
-              style={{ color: tone }}
-            >
-              {DECISION_URGENCY_LABEL[decision.urgency]}
-            </span>
-          </div>
           <h4 className="text-[13.5px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
             {decision.question}
           </h4>
-          <p className="text-[12px] text-[var(--chidi-text-secondary)] mt-1 leading-snug line-clamp-2">
+          {/* Why = ONE line. Anything longer is justification noise. */}
+          <p className="text-[12px] text-[var(--chidi-text-secondary)] mt-1 leading-snug line-clamp-1">
             {decision.why}
           </p>
         </div>
@@ -1115,16 +1085,16 @@ function DecisionCard({
 
           {decision.chart && <DecisionChartView chart={decision.chart} />}
 
-          <div className="border-l-2 border-[var(--chidi-win)] pl-3">
-            <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium mb-1">
-              Chidi recommends
-            </p>
-            <p className="text-[12.5px] text-[var(--chidi-text-primary)] leading-snug">
-              {decision.recommendation}
-            </p>
-          </div>
+          {/* Recommendation — small italic note, not a labelled box. The
+              eyebrow "Chidi recommends" was wallpaper; the action button
+              already says what to do. */}
+          <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug border-l-2 border-[var(--chidi-win)] pl-3 italic">
+            {decision.recommendation}
+          </p>
 
-          <div className="flex items-center gap-2 pt-1">
+          {/* ONE primary action. Secondary CTAs were demoted — they were
+              competing with the recommendation and adding decision fatigue. */}
+          <div className="flex items-center pt-1">
             <button
               onClick={onAction}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors active:scale-[0.97]"
@@ -1132,14 +1102,6 @@ function DecisionCard({
               {decision.action.label}
               <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
             </button>
-            {decision.secondary && (
-              <button
-                onClick={onSecondary}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium text-[var(--chidi-text-secondary)] hover:bg-[var(--card)] transition-colors"
-              >
-                {decision.secondary.label}
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -1212,13 +1174,10 @@ function TopProductsCard({
   }>
   onSeeAll: () => void
 }) {
-  const max = products.reduce((m, p) => Math.max(m, p.revenue), 0) || 1
-
   return (
     <>
       <CardHeader
-        eyebrow="Bestsellers"
-        title="What's driving revenue"
+        title="Bestsellers"
         actions={
           <PillButton onClick={onSeeAll} variant="solid">
             All inventory
@@ -1228,61 +1187,85 @@ function TopProductsCard({
       />
 
       {products.length === 0 ? (
-        <ChartEmpty
-          headline="No products with sales yet."
-          body="Once a product earns its first sale, it'll show up here."
-        />
+        <ChartEmpty headline="No products with sales yet." />
       ) : (
-        <ul className="space-y-2.5">
-          {products.slice(0, 5).map((p, i) => {
-            const pct = (p.revenue / max) * 100
-            return (
-              <li key={`${p.product_id}-${i}`}>
-                {/* Row click → inventory tab. Same destination as "All
-                    inventory" above; merchant can find the SKU there. We do
-                    not pretend to drill to a per-product page that doesn't
-                    exist yet. */}
-                <button
-                  onClick={onSeeAll}
-                  className="w-full text-left group p-2 -m-2 rounded-md hover:bg-[var(--chidi-surface)]/60 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] tabular-nums font-semibold text-[var(--chidi-text-muted)] w-4 text-right flex-shrink-0">
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12.5px] text-[var(--chidi-text-primary)] truncate font-medium">
-                        {p.product_name}
-                      </p>
-                      <div
-                        className="mt-1.5 h-1.5 rounded-full overflow-hidden"
-                        style={{ backgroundColor: "var(--chidi-border-subtle)" }}
-                      >
-                        <div
-                          className="h-full rounded-full transition-[width] duration-700"
-                          style={{
-                            width: `${Math.max(4, pct)}%`,
-                            backgroundColor: "var(--chidi-text-primary)",
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[12.5px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
-                        {formatCurrency(p.revenue)}
-                      </p>
-                      <p className="text-[10.5px] text-[var(--chidi-text-muted)] tabular-nums">
-                        {p.units_sold} sold
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              </li>
-            )
-          })}
+        <ul className="divide-y divide-[var(--chidi-border-subtle)] -mx-1">
+          {products.slice(0, 5).map((p, i) => (
+            <li key={`${p.product_id}-${i}`}>
+              <button
+                onClick={onSeeAll}
+                className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group text-left"
+              >
+                <ProductThumb
+                  src={p.image_url}
+                  name={p.product_name}
+                  size={40}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12.5px] font-medium text-[var(--chidi-text-primary)] truncate">
+                    {p.product_name}
+                  </p>
+                  <p className="text-[10.5px] text-[var(--chidi-text-muted)] mt-0.5 tabular-nums">
+                    {p.units_sold} sold
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[12.5px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
+                    {formatCurrency(p.revenue)}
+                  </p>
+                </div>
+                <span className="ml-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-[var(--chidi-text-secondary)] group-hover:bg-[var(--card)] group-hover:text-[var(--chidi-text-primary)] transition-colors flex-shrink-0">
+                  View
+                  <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+                </span>
+              </button>
+            </li>
+          ))}
         </ul>
       )}
     </>
+  )
+}
+
+/**
+ * Product thumbnail. Falls back to a tinted square with the first letter
+ * when the product has no image.
+ */
+function ProductThumb({
+  src,
+  name,
+  size = 40,
+}: {
+  src?: string | null
+  name: string
+  size?: number
+}) {
+  if (!src) {
+    const letter = name.trim().charAt(0).toUpperCase() || "?"
+    return (
+      <span
+        className="rounded-lg bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-muted)] font-semibold flex-shrink-0"
+        style={{ width: size, height: size, fontSize: size * 0.4 }}
+        aria-hidden
+      >
+        {letter}
+      </span>
+    )
+  }
+  return (
+    <span
+      className="rounded-lg overflow-hidden bg-[var(--chidi-surface)] flex-shrink-0 relative"
+      style={{ width: size, height: size }}
+    >
+      <Image
+        src={src}
+        alt=""
+        width={size}
+        height={size}
+        className="w-full h-full object-cover"
+        unoptimized
+      />
+    </span>
   )
 }
 
@@ -1307,8 +1290,7 @@ function TopCustomersCard({
   return (
     <>
       <CardHeader
-        eyebrow="Customers"
-        title="Top spenders"
+        title="Customers"
         actions={
           <PillButton onClick={onSeeConvo} variant="solid">
             Open inbox
@@ -1318,10 +1300,7 @@ function TopCustomersCard({
       />
 
       {customers.length === 0 ? (
-        <ChartEmpty
-          headline="No customers yet."
-          body="Your top spenders will appear here as orders come in."
-        />
+        <ChartEmpty headline="No customers yet." />
       ) : (
         <ul className="divide-y divide-[var(--chidi-border-subtle)] -mx-1">
           {customers.slice(0, 6).map((c) => (
@@ -1330,35 +1309,30 @@ function TopCustomersCard({
                   filterable by customer once the merchant lands. */}
               <button
                 onClick={onSeeConvo}
-                className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group"
+                className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group text-left"
               >
-                <CustomerAvatar
+                <CustomerCharacter
                   name={c.name ?? c.phone}
                   fallbackId={c.phone}
                   size="sm"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-[12.5px] font-medium text-[var(--chidi-text-primary)] truncate">
-                      {c.name ?? c.phone}
-                    </p>
-                    {c.is_vip && (
-                      <span className="text-[9px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-[var(--chidi-win-soft)] text-[var(--chidi-win)] flex-shrink-0">
-                        VIP
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-[12.5px] font-medium text-[var(--chidi-text-primary)] truncate">
+                    {c.name ?? c.phone}
+                  </p>
                   <p className="text-[10.5px] text-[var(--chidi-text-muted)] mt-0.5 tabular-nums">
-                    {c.order_count} order{c.order_count === 1 ? "" : "s"} ·{" "}
                     {c.last_order ? lastOrderLabel(c.last_order) : "no orders"}
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0 flex items-center gap-1">
+                <div className="text-right flex-shrink-0">
                   <p className="text-[12.5px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
                     {formatCurrency(c.total_spent)}
                   </p>
-                  <ChevronRight className="w-3 h-3 text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <span className="ml-1 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-[var(--chidi-text-secondary)] group-hover:bg-[var(--card)] group-hover:text-[var(--chidi-text-primary)] transition-colors flex-shrink-0">
+                  Open inbox
+                  <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+                </span>
               </button>
             </li>
           ))}
@@ -1841,7 +1815,7 @@ function ChartEmpty({
   body,
 }: {
   headline: string
-  body: string
+  body?: string
 }) {
   return (
     <div className="flex items-center gap-3 px-3 py-5 rounded-lg bg-[var(--chidi-surface)]/40 border border-dashed border-[var(--chidi-border-subtle)]">
@@ -1852,7 +1826,9 @@ function ChartEmpty({
         <p className="text-[12.5px] font-medium text-[var(--chidi-text-primary)]">
           {headline}
         </p>
-        <p className="text-[11px] text-[var(--chidi-text-muted)] mt-0.5">{body}</p>
+        {body && (
+          <p className="text-[11px] text-[var(--chidi-text-muted)] mt-0.5">{body}</p>
+        )}
       </div>
     </div>
   )
@@ -1878,12 +1854,3 @@ function lastOrderLabel(iso: string): string {
   return `${Math.floor(days / 30)}mo ago`
 }
 
-function formatRelativeTime(d: Date): string {
-  const sec = Math.floor((Date.now() - d.getTime()) / 1000)
-  if (sec < 30) return "just now"
-  if (sec < 60) return `${sec}s ago`
-  const min = Math.floor(sec / 60)
-  if (min < 60) return `${min}m ago`
-  const hr = Math.floor(min / 60)
-  return `${hr}h ago`
-}
