@@ -323,13 +323,10 @@ function SmartOrderCard({
         isAgingWarn && !isUrgent && "ring-1 ring-[var(--chidi-warning)]/30",
         isUrgent && "ring-1 ring-[var(--chidi-danger,#D14747)]/40",
         // Selected state — same vocabulary as inbox active conversation:
-        // left-border accent + subtle surface tint so the merchant sees
-        // exactly which order is open in the right pane.
-        selected && [
-          "border-l-[3px] border-l-[var(--chidi-text-primary)]",
-          "bg-[var(--chidi-surface)]",
-          "ring-1 ring-[var(--chidi-text-primary)]/15",
-        ],
+        // inset-left accent (zero layout shift) + subtle surface tint so
+        // the merchant sees exactly which order is open in the right pane.
+        selected &&
+          "bg-[var(--chidi-surface)] shadow-[inset_3px_0_0_0_var(--chidi-text-primary)] ring-1 ring-[var(--chidi-text-primary)]/15",
       )}
     >
       {/* Age tag for warn-tone orders that have been sitting too long */}

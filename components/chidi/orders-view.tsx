@@ -209,17 +209,22 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
   }
 
   return (
-    <div className="flex-1 bg-[var(--background)] flex">
+    // The outer container scrolls (its parent <main> is overflow-y-auto).
+    // Independent inner scroll on the list is intentionally OFF so the
+    // right-side detail panel can `position: sticky` against the page
+    // scroll — otherwise sticky silently no-ops inside an own-scroll list.
+    <div className="flex-1 bg-[var(--background)] flex items-stretch min-h-0">
       {/* Orders List - Hidden on mobile when order is selected.
           Detail pane is now narrower (40% on lg+) so the list breathes. */}
       <div className={cn(
-        'flex flex-col',
+        'flex flex-col min-w-0',
         selectedOrder
           ? 'hidden md:flex md:flex-1 md:border-r border-[var(--chidi-border-subtle)]'
           : 'w-full',
       )}>
-        {/* Header — noun + inline meta + search. Action-first. */}
-        <div className="border-b border-[var(--chidi-border-subtle)]">
+        {/* Header — noun + inline meta + search. Action-first.
+            Sticky so it stays in reach as the orders list scrolls. */}
+        <div className="border-b border-[var(--chidi-border-subtle)] bg-[var(--background)] sticky top-0 z-10">
           <div className="max-w-4xl mx-auto w-full px-4 lg:px-6 py-4 lg:py-5">
             <div className="flex items-center justify-between gap-3 mb-3">
               <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Orders</h1>
@@ -291,8 +296,10 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
           </div>
         </div>
 
-        {/* Orders List */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Orders List — grows naturally; outer <main> handles vertical scroll.
+            Keeping inner overflow off is what lets the right detail pane
+            actually `position: sticky` instead of silently failing. */}
+        <div className="flex-1">
           {isError ? (
             <div className="mx-4 lg:mx-6 mt-4 rounded-lg border border-[var(--chidi-warning)]/30 bg-[var(--chidi-warning)]/8 p-3 flex items-center justify-between gap-3">
               <p className="text-[13px] text-[var(--chidi-text-primary)] font-chidi-voice">
@@ -323,16 +330,27 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
               onFulfill={(id) => handleFulfill(id)}
               actionLoadingId={actionLoadingId ?? null}
               filter={filter}
+              selectedOrderId={selectedOrder?.id ?? null}
             />
           )}
         </div>
       </div>
 
-      {/* Order Detail Panel - Full width on mobile, ~40% on desktop (was 50%) */}
+      {/* Order Detail Panel — sticky-pinned to top of <main> on md+ so it
+          stays in view as the orders list scrolls. Mobile: full-width
+          replacement for the list (own column-flex stack, viewport-tall). */}
       {selectedOrder && (
-        <div className="w-full md:w-[440px] lg:w-[480px] xl:w-[520px] flex flex-col bg-[var(--chidi-surface)]">
+        <div
+          className={cn(
+            "w-full md:w-[440px] lg:w-[480px] xl:w-[520px] bg-[var(--chidi-surface)] flex flex-col",
+            // Mobile: full-viewport overlay so the inner scroll works and the
+            // sticky CTA footer is reachable. Desktop: sticky to the top of
+            // the scrolling main column.
+            "h-[100dvh] md:sticky md:top-0 md:self-start",
+          )}
+        >
           {/* Header */}
-          <div className="px-4 md:px-6 py-4 bg-white border-b border-[var(--chidi-border-subtle)]">
+          <div className="px-4 md:px-6 py-4 bg-white border-b border-[var(--chidi-border-subtle)] flex-shrink-0">
             <div className="flex items-center justify-between gap-3">
               {/* Back button - visible on mobile */}
               <button
@@ -365,8 +383,23 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
             </div>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
+          {/* Content — scrolls within the sticky panel so long orders never
+              push the action button off-screen. min-h-0 is required so the
+              flex child can actually shrink and overflow. */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6">
+            {/* Mobile-only quick meta header — date + channel badge. Desktop
+                shows date in the panel header; mobile hides it there to keep
+                the back button readable, so we surface it here instead. */}
+            <div className="md:hidden flex items-center gap-2 text-[11px] font-chidi-voice text-[var(--chidi-text-muted)]">
+              <Clock className="w-3 h-3" />
+              <span>{formatDate(selectedOrder.created_at)}</span>
+              {selectedOrder.channel && (
+                <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)]">
+                  {selectedOrder.channel}
+                </span>
+              )}
+            </div>
+
             {/* Customer Info */}
             <div className="bg-white rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
@@ -497,38 +530,50 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
             )}
           </div>
 
-          {/* Actions */}
-          {selectedOrder.status === 'CONFIRMED' && (
-            <div className="px-4 md:px-6 py-4 bg-white border-t border-[var(--chidi-border-subtle)]">
-              <Button
-                onClick={() => handleFulfill(selectedOrder.id)}
-                disabled={actionLoadingId === selectedOrder.id}
-                className="w-full bg-[var(--chidi-success)] hover:bg-[var(--chidi-success)]/90"
-              >
-                {actionLoadingId === selectedOrder.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Package className="w-4 h-4 mr-2" />
-                )}
-                Mark as Fulfilled
-              </Button>
-            </div>
-          )}
-          {(selectedOrder.status === 'PENDING_PAYMENT' || selectedOrder.status === 'CONFIRMED') && (
-            <div className="px-4 md:px-6 py-3 bg-white border-t border-[var(--chidi-border-subtle)]">
-              <Button
-                variant="outline"
-                onClick={() => handleCancel(selectedOrder.id)}
-                disabled={actionLoadingId === selectedOrder.id}
-                className="w-full text-red-600 border-red-200 hover:bg-red-50"
-              >
-                {actionLoadingId === selectedOrder.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <XCircle className="w-4 h-4 mr-2" />
-                )}
-                Cancel Order
-              </Button>
+          {/* Actions — sticky footer inside the panel so the primary CTA
+              is always reachable without scrolling the order details. */}
+          {(selectedOrder.status === 'CONFIRMED' ||
+            selectedOrder.status === 'PENDING_PAYMENT') && (
+            <div className="flex-shrink-0 px-4 md:px-6 py-3 bg-white border-t border-[var(--chidi-border-subtle)] flex items-center gap-2 sticky bottom-0 z-10 shadow-[0_-2px_12px_-4px_rgba(0,0,0,0.06)]">
+              {selectedOrder.status === 'CONFIRMED' ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleCancel(selectedOrder.id)}
+                    disabled={actionLoadingId === selectedOrder.id}
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <XCircle className="w-4 h-4 mr-1.5" />
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => handleFulfill(selectedOrder.id)}
+                    disabled={actionLoadingId === selectedOrder.id}
+                    className="flex-1 bg-[var(--chidi-success)] hover:bg-[var(--chidi-success)]/90"
+                  >
+                    {actionLoadingId === selectedOrder.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Package className="w-4 h-4 mr-2" />
+                    )}
+                    Mark as Fulfilled
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => handleCancel(selectedOrder.id)}
+                  disabled={actionLoadingId === selectedOrder.id}
+                  className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  {actionLoadingId === selectedOrder.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <XCircle className="w-4 h-4 mr-2" />
+                  )}
+                  Cancel Order
+                </Button>
+              )}
             </div>
           )}
         </div>

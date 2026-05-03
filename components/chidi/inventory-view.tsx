@@ -635,10 +635,22 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium text-[var(--chidi-text-primary)] truncate">{product.name}</p>
+                        {/* Stock-status pill — clickable; filters list to that status */}
                         {product.stock <= product.reorderLevel && (
-                          <Badge className={cn("text-[9px] border-0 flex-shrink-0", getStockBadgeClasses(stockStatus.variant))}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const target = product.stock === 0 ? "out" : "low"
+                              setStockFilter(stockFilter === target ? "all" : target)
+                            }}
+                            className={cn(
+                              "text-[9px] font-medium border-0 flex-shrink-0 px-1.5 py-0.5 rounded-md motion-safe:active:scale-[0.97] transition-opacity hover:opacity-80",
+                              getStockBadgeClasses(stockStatus.variant),
+                            )}
+                            title={`Filter to ${stockStatus.label.toLowerCase()}`}
+                          >
                             {stockStatus.label}
-                          </Badge>
+                          </button>
                         )}
                         {product.hasVariants && (
                           <button
@@ -651,7 +663,23 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                           </button>
                         )}
                       </div>
-                      <p className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice">{product.category}</p>
+                      {/* Category — clickable; filters list to that category */}
+                      {product.category ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedCategory(
+                              selectedCategory === product.category ? "all" : product.category,
+                            )
+                          }}
+                          className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice hover:text-[var(--chidi-text-secondary)] hover:underline underline-offset-2 motion-safe:active:scale-[0.98] text-left"
+                          title={`Filter to ${product.category}`}
+                        >
+                          {product.category}
+                        </button>
+                      ) : (
+                        <p className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice">—</p>
+                      )}
                     </div>
                     <span className="hidden sm:block w-20 text-right text-sm font-semibold text-[var(--chidi-text-primary)]">
                       <EditableCell
@@ -736,18 +764,24 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                     className="relative aspect-square bg-[var(--chidi-image-placeholder)] overflow-hidden cursor-pointer chidi-paper"
                     onClick={() => onViewProduct(product)}
                   >
-                    {/* Stock status pill — top-right, prominent */}
+                    {/* Stock status pill — clickable; filters to that status */}
                     {product.stock <= product.reorderLevel && (
-                      <div className="absolute top-2 right-10 z-10">
-                        <span className={cn(
-                          "inline-flex items-center gap-1 text-[10px] font-medium font-chidi-voice px-2 py-0.5 rounded-full backdrop-blur-sm",
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const target = product.stock === 0 ? "out" : "low"
+                          setStockFilter(stockFilter === target ? "all" : target)
+                        }}
+                        className={cn(
+                          "absolute top-2 right-10 z-10 inline-flex items-center gap-1 text-[10px] font-medium font-chidi-voice px-2 py-0.5 rounded-full backdrop-blur-sm motion-safe:active:scale-[0.97] hover:opacity-90 transition-opacity",
                           product.stock === 0
                             ? "bg-[var(--chidi-warning)]/95 text-white"
                             : "bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] border border-[var(--chidi-warning)]/30",
-                        )}>
-                          {product.stock === 0 ? "Out" : "Low"}
-                        </span>
-                      </div>
+                        )}
+                        title={`Filter to ${product.stock === 0 ? "out of stock" : "low stock"}`}
+                      >
+                        {product.stock === 0 ? "Out" : "Low"}
+                      </button>
                     )}
 
                     {/* More menu */}
@@ -797,7 +831,9 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                       </DropdownMenu>
                     </div>
 
-                    {/* Image with hover zoom — image is the product, lean into it */}
+                    {/* Image with hover zoom — image is the product, lean into it.
+                        Empty slot routes to the edit modal so "Add image"
+                        actually delivers an image-upload surface. */}
                     {product.image ? (
                       <img
                         src={product.image}
@@ -805,10 +841,17 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                         className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                       />
                     ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-[var(--chidi-text-muted)]">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onEditProduct(product)
+                        }}
+                        className="w-full h-full flex flex-col items-center justify-center text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]/40 transition-colors motion-safe:active:scale-[0.99]"
+                        title="Add a product image"
+                      >
                         <Package className="w-10 h-10 mb-1.5" strokeWidth={1.2} />
                         <span className="text-[10px] font-chidi-voice">Add image</span>
-                      </div>
+                      </button>
                     )}
                   </div>
 
@@ -844,9 +887,23 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice">
-                        {product.category}
-                      </p>
+                      {/* Category — clickable; filters list to that category */}
+                      {product.category ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedCategory(
+                              selectedCategory === product.category ? "all" : product.category,
+                            )
+                          }}
+                          className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice hover:text-[var(--chidi-text-secondary)] hover:underline underline-offset-2 motion-safe:active:scale-[0.98]"
+                          title={`Filter to ${product.category}`}
+                        >
+                          {product.category}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice">—</span>
+                      )}
                       {product.hasVariants && (
                         <button
                           onClick={(e) => {

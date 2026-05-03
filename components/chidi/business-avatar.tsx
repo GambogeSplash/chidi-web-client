@@ -1,5 +1,11 @@
 "use client"
 
+/**
+ * BusinessAvatar = brand mark (square, geometric, optional monogram at lg/xl).
+ * CustomerAvatar = person mark (round, initials, warm tone).
+ * Never use one in the other's slot — businesses are rectangles, people are circles.
+ */
+
 import { useEffect, useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
 
@@ -7,6 +13,10 @@ interface BusinessAvatarProps {
   name: string
   size?: "xs" | "sm" | "md" | "lg" | "xl"
   className?: string
+  /** Optional override for the monogram — defaults to first letter of `name`.
+      Pass a different string (or an empty string to suppress) when you need
+      to display a variant seed but keep the merchant's real initial. */
+  monogramOverride?: string
 }
 
 const AVATAR_SEED_KEY = "chidi_business_avatar_seed"
@@ -89,16 +99,29 @@ const PALETTES: PalettePair[] = [
 ]
 
 const SIZE_MAP = {
-  xs: { box: "w-6 h-6", radius: "rounded-md" },
-  sm: { box: "w-8 h-8", radius: "rounded-lg" },
-  md: { box: "w-10 h-10", radius: "rounded-lg" },
-  lg: { box: "w-14 h-14", radius: "rounded-xl" },
-  xl: { box: "w-20 h-20", radius: "rounded-2xl" },
+  // Always rounded-square (never round) — that alone reads as "not a person".
+  // Smaller sizes have tighter radius so the brand-mark feeling holds.
+  xs: { box: "w-6 h-6", radius: "rounded-[5px]", showMonogram: false, monoSize: 0 },
+  sm: { box: "w-8 h-8", radius: "rounded-md", showMonogram: false, monoSize: 0 },
+  md: { box: "w-10 h-10", radius: "rounded-md", showMonogram: false, monoSize: 0 },
+  lg: { box: "w-14 h-14", radius: "rounded-lg", showMonogram: true, monoSize: 22 },
+  xl: { box: "w-20 h-20", radius: "rounded-xl", showMonogram: true, monoSize: 32 },
 }
 
-export function BusinessAvatar({ name, size = "md", className }: BusinessAvatarProps) {
+export function BusinessAvatar({
+  name,
+  size = "md",
+  className,
+  monogramOverride,
+}: BusinessAvatarProps) {
   const composition = useMemo(() => deriveComposition(name), [name])
-  const { box, radius } = SIZE_MAP[size]
+  const { box, radius, showMonogram, monoSize } = SIZE_MAP[size]
+  // Monogram = first letter of business name (or override). Suppressed when
+  // override is "" — useful in pickers showing variant seeds. Never shown
+  // at xs/sm (would feel cramped).
+  const monogramSource =
+    monogramOverride !== undefined ? monogramOverride : name
+  const monogram = (monogramSource || "").trim().charAt(0).toUpperCase()
 
   return (
     <span
@@ -146,11 +169,12 @@ export function BusinessAvatar({ name, size = "md", className }: BusinessAvatarP
           />
         ))}
 
-        {/* Optional center accent */}
-        {composition.accent === "circle" && (
+        {/* Optional center accent — suppressed when monogram is shown so the
+            letter has room to breathe */}
+        {!showMonogram && composition.accent === "circle" && (
           <circle cx="50" cy="50" r="9" fill="#F4DDC2" opacity="0.45" />
         )}
-        {composition.accent === "diamond" && (
+        {!showMonogram && composition.accent === "diamond" && (
           <rect
             x="42"
             y="42"
@@ -161,12 +185,45 @@ export function BusinessAvatar({ name, size = "md", className }: BusinessAvatarP
             transform="rotate(45 50 50)"
           />
         )}
+
+        {/* Monogram — strong serif overlay at lg/xl. Acts as a brand initial,
+            like a logo's wordmark in miniature. */}
+        {showMonogram && monogram && (
+          <text
+            x="50"
+            y="50"
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="#F4DDC2"
+            fillOpacity={0.92}
+            fontSize={monoSize * 1.45}
+            fontFamily='ui-serif, "ivypresto-display", Georgia, "Times New Roman", serif'
+            fontWeight={500}
+            style={{ letterSpacing: "-0.02em" }}
+          >
+            {monogram}
+          </text>
+        )}
       </svg>
 
-      {/* Inner ring for depth */}
+      {/* Inner highlight + ring for depth — top-edge highlight reads as
+          "designed", not "generated" */}
+      <span
+        className="absolute inset-x-0 top-0 h-1/2 pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, rgba(255,255,255,0.10), rgba(255,255,255,0))",
+          borderTopLeftRadius: "inherit",
+          borderTopRightRadius: "inherit",
+        }}
+      />
       <span
         className="absolute inset-0 pointer-events-none"
-        style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08)", borderRadius: "inherit" }}
+        style={{
+          boxShadow:
+            "inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 -1px 0 0 rgba(0,0,0,0.18)",
+          borderRadius: "inherit",
+        }}
       />
     </span>
   )
