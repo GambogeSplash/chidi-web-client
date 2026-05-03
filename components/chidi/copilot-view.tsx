@@ -542,10 +542,10 @@ function CopilotEmptyState({
           <Image
             src="/logo.png"
             alt="Chidi"
-            width={140}
-            height={140}
+            width={220}
+            height={220}
             priority
-            className="w-[140px] h-[140px] object-contain mb-5 chidi-brief-card"
+            className="w-[200px] h-[200px] object-contain mb-6 chidi-brief-card"
           />
           <p className="ty-body-voice text-[var(--chidi-text-secondary)] chidi-brief-card mb-6" style={{ animationDelay: "120ms" }}>
             Ask me anything about your shop.

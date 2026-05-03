@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { hapticTap } from "@/lib/chidi/haptics"
 import { PRIMARY_TABS } from "@/lib/chidi/navigation"
 
@@ -88,9 +88,9 @@ export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: Bot
             >
               <span className="relative">
                 {isChidi ? (
-                  <ChidiMark
-                    size={20}
-                    className={cn("mb-0.5 transition-all", isActive && "text-[var(--chidi-win)]")}
+                  <ArcFace
+                    size={28}
+                    className={cn("mb-0.5 -my-1 transition-all", isActive ? "text-[var(--chidi-win)]" : "text-current")}
                   />
                 ) : Icon ? (
                   <Icon
