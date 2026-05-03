@@ -1,232 +1,211 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+/**
+ * Playbook — rebuilt from scratch (2026-05-03).
+ *
+ * What the merchant wants to do here, ranked by frequency:
+ *   1. See what's running for me right now and what it's earning ("did Chidi
+ *      actually do anything for me this month?").
+ *   2. Turn a play on or off without thinking about it ("pause the receipt
+ *      thank-you while I'm closed for Salah").
+ *   3. Peek at what a play is and tweak it ("show me the message it sends").
+ *
+ * Primary action this surface optimizes for: TOGGLING a play on/off and
+ * SEEING the proof it earned its keep.
+ *
+ * Metaphor: a list of tireless workers the merchant can hire or send home for
+ * the day. NOT a workflow editor. NOT an automations IDE. NOT a fleet of
+ * agents with stats dashboards. Authoring is demoted to a single quiet "+"
+ * at the bottom — most Lagos merchants will live entirely off the seeded
+ * plays, and that's fine.
+ *
+ * Layout: ONE column. Each row = name + 1-line summary + ₦ earned + a real
+ * toggle. Tap the row → slide-up sheet with full description, sample message,
+ * customize, run-now, recent runs. That's it. No master/detail, no KPI
+ * strip stealing space, no filter chips, no composer leaking inline.
+ */
+
+import { useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
-import {
-  Zap,
-  Repeat,
-  ShoppingBag,
-  Package,
-  Clock,
-  Plus,
-  ChevronRight,
-  Pause,
-  Play as PlayIcon,
-  X as XIcon,
-} from "lucide-react"
+import { Plus, ChevronRight, X as XIcon } from "lucide-react"
+import { toast } from "sonner"
 import { AppHeader } from "@/components/chidi/app-header"
 import { NavRail } from "@/components/chidi/nav-rail"
 import { ChidiPage } from "@/components/chidi/page-shell"
 import { EmptyState } from "@/components/chidi/empty-state"
 import { ChidiMark } from "@/components/chidi/chidi-mark"
 import { cn } from "@/lib/utils"
-import { useCountUp } from "@/lib/chidi/use-count-up"
 import { useRailCollapsed } from "@/lib/chidi/use-rail-collapsed"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import {
   PLAYS,
-  PLAY_CATEGORY_LABEL,
   formatNGN,
   type PlaybookPlay,
-  type PlayCategory,
 } from "@/lib/chidi/playbook-plays"
 
 /**
- * Lazy-load the rehearsal panel. Pulls in `customer-character` (~670 lines),
- * `approval-guardrail`, recharts-free but still bulky — keeping it out of the
- * route's first paint shaves the perceived "Playbook is slow to open" delay.
- * The skeleton placeholder matches the eventual panel shape so the layout
- * doesn't jump when the chunk lands.
+ * Lazy-load the slide-up sheet body. Keeps the route's first paint fast — the
+ * list itself is tiny; the sheet only matters once a play is tapped.
  */
-const PlaySandboxPanel = dynamic(
-  () => import("@/components/chidi/play-sandbox").then((m) => m.PlaySandboxPanel),
+const PlaySheetBody = dynamic(
+  () => import("@/components/chidi/play-sandbox").then((m) => m.PlaySheetBody),
   {
     ssr: false,
-    loading: () => <SandboxSkeleton />,
+    loading: () => <SheetBodySkeleton />,
   },
 )
 
-/**
- * Playbook — rebuild (2026-05-03).
- *
- * Mental model: the merchant's playbook of repeatable moves they keep running.
- * NOT a fleet of agents. NOT a workflow graph. The vocabulary is borrowed
- * from Front Rules (When → Then), with Shopify Flow's trigger→action
- * thinking, and Linear's quiet inline-create empty states. Every play reads
- * as a concrete tactic the merchant chose to keep — with a sample WhatsApp
- * message right there as proof of what it actually does.
- *
- * Layout: master-detail at lg+. List on the left, the open play's sandbox
- * (or the new-play composer) renders inline on the right. No modal. On
- * mobile, list collapses with the sandbox stacking below the active row.
- */
-
-const CATEGORY_ICON: Record<PlayCategory, React.ElementType> = {
-  recovery: Zap,
-  conversion: ShoppingBag,
-  retention: Repeat,
-  inventory: Package,
-  routine: Clock,
-}
-
-const CATEGORIES: PlayCategory[] = ["recovery", "conversion", "retention", "inventory", "routine"]
-
-// Tones share vocabulary with the Insights filter chip dots.
-const CATEGORY_TONE: Record<PlayCategory, string> = {
-  recovery: "var(--chidi-warning)",
-  conversion: "var(--chidi-win)",
-  retention: "#7AB89A",
-  inventory: "var(--chidi-text-primary)",
-  routine: "var(--chidi-text-muted)",
-}
-
-// Trigger presets used by the new-play composer. Mirrors the language the
-// existing PLAYS use so authored plays read consistently with seeded ones.
-const TRIGGER_PRESETS: { id: string; category: PlayCategory; label: string }[] = [
-  { id: "pending-payment-24h", category: "recovery", label: "An order has been in PENDING_PAYMENT for 24 hours." },
-  { id: "chat-silent-3h", category: "recovery", label: "A customer asked about a product and went silent for 3+ hours." },
-  { id: "bulk-quote", category: "conversion", label: "A customer asks about quantities of 10+ units." },
-  { id: "beauty-add", category: "conversion", label: "A customer adds a beauty item to their order." },
-  { id: "vip-quiet-6w", category: "retention", label: "A repeat customer (3+ orders) has gone 6 weeks without a message." },
-  { id: "order-fulfilled", category: "retention", label: "An order is marked FULFILLED." },
-  { id: "stock-30pct", category: "inventory", label: "A product hits 30% of its reorder threshold." },
-  { id: "stale-45d", category: "inventory", label: "A product hasn't sold in 45 days." },
-  { id: "weekday-morning", category: "routine", label: "Every weekday at 7:30am." },
-  { id: "friday-evening", category: "routine", label: "Every Friday at 6pm — Saturday prep." },
-]
-
 interface DraftPlay {
   title: string
-  category: PlayCategory
-  triggerId: string
-  triggerCustom: string
-  steps: string
-  sample_message: string
+  trigger: string
+  message: string
 }
 
-const EMPTY_DRAFT: DraftPlay = {
-  title: "",
-  category: "recovery",
-  triggerId: "pending-payment-24h",
-  triggerCustom: "",
-  steps: "",
-  sample_message: "",
-}
+const EMPTY_DRAFT: DraftPlay = { title: "", trigger: "", message: "" }
+
+// ============================================================================
+// Page
+// ============================================================================
 
 export default function PlaybookPage() {
   const router = useRouter()
   const params = useParams()
   const slug = params.slug as string
+  const railCollapsed = useRailCollapsed()
 
-  const [activeCat, setActiveCat] = useState<PlayCategory | "all">("all")
-  // Pause state held client-side; sandbox/composer panel is the right rail.
-  const [pausedIds, setPausedIds] = useState<Set<string>>(() => new Set())
-  // Locally-authored plays persist across navigations via sessionStorage.
-  const [authoredPlays, setAuthoredPlays, clearAuthored] = usePersistedState<PlaybookPlay[]>(
+  // Mounting flag — render skeleton on first paint while the sessionStorage
+  // hooks hydrate. Avoids a flash of "all on" then snap to user's saved state.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // The merchant's on/off ledger. Default = whatever the seed says (active).
+  // Persists per-merchant via sessionStorage.
+  const [pausedIds, setPausedIds] = usePersistedState<string[]>(
+    "playbook:paused",
+    PLAYS.filter((p) => p.state === "paused").map((p) => p.id),
+  )
+  const pausedSet = useMemo(() => new Set(pausedIds), [pausedIds])
+
+  // Per-play customizations: the merchant's edited message, persisted.
+  const [customMessages, setCustomMessages] = usePersistedState<Record<string, string>>(
+    "playbook:custom-messages",
+    {},
+  )
+
+  // Locally-authored plays (the optional "+ New play" path).
+  const [authoredPlays, setAuthoredPlays] = usePersistedState<PlaybookPlay[]>(
     "playbook:authored",
     [],
   )
-  const [activePanel, setActivePanel] = useState<
+
+  // Sheet state — which play (or "compose") is open in the slide-up sheet.
+  const [sheetTarget, setSheetTarget] = useState<
     | { kind: "play"; id: string }
     | { kind: "compose" }
     | null
   >(null)
-  const [draft, setDraft, clearDraft] = usePersistedState<DraftPlay>("playbook:draft", EMPTY_DRAFT)
-  const railCollapsed = useRailCollapsed()
 
-  const allPlays = useMemo<PlaybookPlay[]>(() => [...authoredPlays, ...PLAYS], [authoredPlays])
-
-  const visible = useMemo(
-    () => (activeCat === "all" ? allPlays : allPlays.filter((p) => p.category === activeCat)),
-    [activeCat, allPlays],
+  const [draft, setDraft, clearDraft] = usePersistedState<DraftPlay>(
+    "playbook:draft",
+    EMPTY_DRAFT,
   )
 
-  const totals = useMemo(() => {
-    const active = allPlays.filter((p) => p.state === "active" && !pausedIds.has(p.id)).length
-    const recoveredLast30d = allPlays.reduce(
-      (s, p) => s + (p.stats.last_30d_value_recovered_ngn ?? 0),
-      0,
-    )
-    const totalRuns = allPlays.reduce((s, p) => s + p.stats.runs, 0)
-    const totalWon = allPlays.reduce((s, p) => s + p.stats.won, 0)
-    const winRate = totalRuns > 0 ? Math.round((totalWon / totalRuns) * 100) : 0
-    return { active, recoveredLast30d, totalRuns, totalWon, winRate }
-  }, [allPlays, pausedIds])
+  const allPlays = useMemo(
+    () => [...authoredPlays, ...PLAYS],
+    [authoredPlays],
+  )
 
-  // Default-open the first play, but defer to an idle callback so the route's
-  // first paint isn't blocked by the dynamic-imported PlaySandboxPanel chunk.
-  // Composer takes priority. On systems without requestIdleCallback (Safari)
-  // we fall back to a short setTimeout — still off the critical path.
-  useEffect(() => {
-    if (activePanel) return
-    if (visible.length === 0) return
-    const open = () => setActivePanel({ kind: "play", id: visible[0].id })
-    const w = typeof window !== "undefined" ? (window as Window & { requestIdleCallback?: (cb: () => void) => number }) : null
-    const handle = w?.requestIdleCallback
-      ? w.requestIdleCallback(open)
-      : (setTimeout(open, 80) as unknown as number)
-    return () => {
-      const cancelIdle = (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback
-      if (cancelIdle) cancelIdle(handle)
-      else clearTimeout(handle)
+  // Two groups: Running (top) + Paused (below). No filter chips. No tabs.
+  const { running, paused } = useMemo(() => {
+    const running: PlaybookPlay[] = []
+    const paused: PlaybookPlay[] = []
+    for (const p of allPlays) {
+      if (pausedSet.has(p.id)) paused.push(p)
+      else running.push(p)
     }
-  }, [visible, activePanel])
+    return { running, paused }
+  }, [allPlays, pausedSet])
 
-  const activePlay = useMemo(() => {
-    if (activePanel?.kind !== "play") return null
-    return allPlays.find((p) => p.id === activePanel.id) ?? null
-  }, [activePanel, allPlays])
+  const totalRecovered = useMemo(
+    () =>
+      allPlays
+        .filter((p) => !pausedSet.has(p.id))
+        .reduce((s, p) => s + (p.stats.last_30d_value_recovered_ngn ?? 0), 0),
+    [allPlays, pausedSet],
+  )
 
   const togglePause = (id: string) => {
     setPausedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
+      const set = new Set(prev)
+      if (set.has(id)) {
+        set.delete(id)
+        toast.success("Play resumed", { description: "Chidi will run this again." })
+      } else {
+        set.add(id)
+        toast("Play paused", { description: "Chidi won't run this until you turn it back on." })
+      }
+      return Array.from(set)
     })
   }
 
+  const handleSaveCustom = (id: string, message: string) => {
+    setCustomMessages((prev) => ({ ...prev, [id]: message }))
+    toast.success("Message saved", {
+      description: "Chidi will use your version from now on.",
+    })
+  }
+
+  const handleResetCustom = (id: string) => {
+    setCustomMessages((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+    toast("Reset to default", { description: "Back to Chidi's original message." })
+  }
+
   const handleSaveDraft = () => {
-    if (!draft.title.trim()) return
-    const triggerLabel =
-      draft.triggerId === "custom"
-        ? draft.triggerCustom.trim() || "Custom trigger"
-        : TRIGGER_PRESETS.find((t) => t.id === draft.triggerId)?.label ?? draft.triggerCustom.trim()
+    const title = draft.title.trim()
+    const trigger = draft.trigger.trim()
+    if (!title || !trigger) return
     const newPlay: PlaybookPlay = {
       id: `authored-${Date.now()}`,
-      category: draft.category,
-      title: draft.title.trim(),
-      trigger: triggerLabel,
-      steps: draft.steps
-        .split(/\n+/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-      outcome: "Authored by you. Track record will fill in once it runs.",
+      category: "routine",
+      title,
+      trigger,
+      steps: ["Chidi will run this when the moment matches."],
+      outcome: "Track record will fill in once it runs.",
       stats: { runs: 0, won: 0, win_rate_pct: 0 },
       state: "active",
       recent: [],
-      sample_message: draft.sample_message.trim() || undefined,
+      sample_message: draft.message.trim() || undefined,
     }
     setAuthoredPlays((prev) => [newPlay, ...prev])
     clearDraft()
     setDraft(EMPTY_DRAFT)
-    setActivePanel({ kind: "play", id: newPlay.id })
+    setSheetTarget(null)
+    toast.success("Play added", {
+      description: `"${title}" is now in your playbook.`,
+    })
   }
 
-  const handleDiscardDraft = () => {
-    clearDraft()
-    setDraft(EMPTY_DRAFT)
-    setActivePanel(visible.length > 0 ? { kind: "play", id: visible[0].id } : null)
-  }
+  const activePlay = useMemo(() => {
+    if (sheetTarget?.kind !== "play") return null
+    return allPlays.find((p) => p.id === sheetTarget.id) ?? null
+  }, [sheetTarget, allPlays])
 
-  const handleResetAll = () => {
-    setAuthoredPlays([])
-    clearAuthored()
-  }
-
-  const noPlaysAtAll = allPlays.length === 0
-  const noMatches = !noPlaysAtAll && visible.length === 0
+  // Close sheet on Escape.
+  useEffect(() => {
+    if (!sheetTarget) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSheetTarget(null)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [sheetTarget])
 
   return (
     <div
@@ -246,25 +225,26 @@ export default function PlaybookPage() {
       <ChidiPage
         eyebrow="Playbook"
         title="Plays you keep running."
-        width="wide"
-        actions={
-          <button
-            onClick={() => setActivePanel({ kind: "compose" })}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors active:scale-[0.97]"
-          >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-            New play
-          </button>
+        subtitle={
+          mounted
+            ? totalRecovered > 0
+              ? `${formatNGN(totalRecovered)} recovered for you in the last 30 days.`
+              : "Turn a play on and Chidi will run it for you."
+            : undefined
         }
+        voice
+        width="default"
       >
-        {noPlaysAtAll ? (
+        {!mounted ? (
+          <ListSkeleton />
+        ) : allPlays.length === 0 ? (
           <EmptyState
             art="copilot"
             title="Your playbook is empty."
-            description="A play is a move you decide to keep running — like nudging cold pending payments, or pinging a VIP at week six. Author your first one to get started."
+            description="A play is a move Chidi runs for you on repeat — like nudging cold pending payments. Author your first one."
             action={
               <button
-                onClick={() => setActivePanel({ kind: "compose" })}
+                onClick={() => setSheetTarget({ kind: "compose" })}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
               >
                 <Plus className="w-4 h-4" strokeWidth={2.4} />
@@ -274,573 +254,404 @@ export default function PlaybookPage() {
           />
         ) : (
           <>
-            {/* Snapshot — same compact pattern as Insights */}
-            <SnapshotStrip totals={totals} totalCount={allPlays.length} />
-
-            {/* Filter chips — own row with breathing room above and below.
-                Eyebrow lets the merchant know what they're filtering. */}
-            <div className="mb-7 mt-8">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-2.5">
-                Filter by category
-              </p>
-              <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 pb-1">
-                <FilterChip
-                  active={activeCat === "all"}
-                  onClick={() => setActiveCat("all")}
-                  label="All"
-                  count={allPlays.length}
-                />
-                {CATEGORIES.map((c) => {
-                  const count = allPlays.filter((p) => p.category === c).length
-                  return (
-                    <FilterChip
-                      key={c}
-                      active={activeCat === c}
-                      onClick={() => setActiveCat(c)}
-                      label={PLAY_CATEGORY_LABEL[c]}
-                      count={count}
-                      tone={CATEGORY_TONE[c]}
-                    />
-                  )
-                })}
-                {authoredPlays.length > 0 && (
-                  <button
-                    onClick={handleResetAll}
-                    className="ml-auto text-[11px] text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
-                    title="Remove your authored plays (keeps seeded ones)"
-                  >
-                    Reset authored ({authoredPlays.length})
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {noMatches ? (
-              <EmptyState
-                art="search"
-                title="No plays in this category yet."
-                description="Try another filter, or author a new play targeted at this kind of moment."
-                action={
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setActiveCat("all")}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium border border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] transition-colors"
-                    >
-                      Show all plays
-                    </button>
-                    <button
-                      onClick={() => {
-                        const cat = activeCat === "all" ? "recovery" : (activeCat as PlayCategory)
-                        setDraft((d) => ({ ...d, category: cat }))
-                        setActivePanel({ kind: "compose" })
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
-                    >
-                      <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-                      New {activeCat === "all" ? "play" : PLAY_CATEGORY_LABEL[activeCat as PlayCategory].toLowerCase()} play
-                    </button>
-                  </div>
-                }
-              />
-            ) : (
-              // Master/detail layout. List left, sandbox panel right.
-              // On mobile (< lg), they stack: list on top, panel below.
-              // Wider gap (gap-8) so the two panes read as separate columns,
-              // not one mashed-together strip.
-              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] gap-6 lg:gap-8">
-                {/* === LIST === */}
-                <div>
-                  <div className="flex items-baseline justify-between mb-3">
-                    <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
-                      {activeCat === "all" ? "All plays" : PLAY_CATEGORY_LABEL[activeCat as PlayCategory]}
-                    </p>
-                    <span className="text-[10px] tabular-nums text-[var(--chidi-text-muted)]">
-                      {visible.length}
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    {visible.map((play) => {
-                      const isActive =
-                        activePanel?.kind === "play" && activePanel.id === play.id
-                      const isPaused = pausedIds.has(play.id)
-                      return (
-                        <PlayRow
-                          key={play.id}
-                          play={play}
-                          active={isActive}
-                          paused={isPaused}
-                          onOpen={() => setActivePanel({ kind: "play", id: play.id })}
-                          onTogglePause={() => togglePause(play.id)}
-                        />
-                      )
-                    })}
-                    {/* Inline-create row — visibly secondary so it doesn't
-                        compete with real plays. Dashed, muted, smaller. */}
-                    <button
-                      onClick={() => setActivePanel({ kind: "compose" })}
-                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-[var(--chidi-border-subtle)] text-[12px] font-medium text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] hover:border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface)]/40 transition-colors motion-safe:active:scale-[0.99]"
-                    >
-                      <Plus className="w-3 h-3" strokeWidth={2.2} />
-                      New play
-                    </button>
-                  </div>
-                </div>
-
-                {/* === DETAIL PANEL ===
-                    No sticky / max-height here. The previous version forced an
-                    inner overflow-y-auto on the column which clipped the
-                    sandbox's bottom action bar and let its 3-pane internal
-                    grid overlap on narrow widths. The page-level scroll
-                    (ChidiPage's overflow-y-auto) is enough. */}
-                <div className="min-w-0">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-3 hidden lg:block">
-                    {activePanel?.kind === "compose"
-                      ? "New play"
-                      : activePlay
-                        ? "Rehearse"
-                        : "Pick a play"}
-                  </p>
-                  {activePanel?.kind === "compose" ? (
-                    <ComposePanel
-                      draft={draft}
-                      onChange={setDraft}
-                      onSave={handleSaveDraft}
-                      onDiscard={handleDiscardDraft}
-                    />
-                  ) : activePlay ? (
-                    <PlaySandboxPanel
-                      play={activePlay}
-                      paused={pausedIds.has(activePlay.id)}
-                      onTogglePause={() => togglePause(activePlay.id)}
-                    />
-                  ) : (
-                    /* Calm, centered empty state — no fake chrome, no
-                       composer leaking through. Just an invitation. */
-                    <div className="rounded-2xl border border-dashed border-[var(--chidi-border-default)] p-12 lg:p-16 flex flex-col items-center text-center bg-[var(--card)]/40">
-                      <div className="w-12 h-12 rounded-2xl bg-[var(--chidi-surface)] flex items-center justify-center mb-4">
-                        <ChidiMark size={20} variant="muted" />
-                      </div>
-                      <h3 className="text-[15px] font-semibold text-[var(--chidi-text-primary)] mb-1.5">
-                        Pick a play to rehearse it.
-                      </h3>
-                      <p className="text-[12px] text-[var(--chidi-text-muted)] max-w-xs leading-snug">
-                        Tap one on the left and you'll see the trigger, steps, and the actual message Chidi sends — safe to tweak before you commit.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {/* RUNNING — primary section */}
+            {running.length > 0 && (
+              <SectionGroup
+                title="Running"
+                count={running.length}
+                tone="win"
+              >
+                {running.map((play) => (
+                  <PlayRow
+                    key={play.id}
+                    play={play}
+                    paused={false}
+                    customMessage={customMessages[play.id]}
+                    onOpen={() => setSheetTarget({ kind: "play", id: play.id })}
+                    onTogglePause={() => togglePause(play.id)}
+                  />
+                ))}
+              </SectionGroup>
             )}
+
+            {/* PAUSED — secondary, quieter */}
+            {paused.length > 0 && (
+              <SectionGroup
+                title="Paused"
+                count={paused.length}
+                tone="muted"
+                className="mt-8"
+              >
+                {paused.map((play) => (
+                  <PlayRow
+                    key={play.id}
+                    play={play}
+                    paused
+                    customMessage={customMessages[play.id]}
+                    onOpen={() => setSheetTarget({ kind: "play", id: play.id })}
+                    onTogglePause={() => togglePause(play.id)}
+                  />
+                ))}
+              </SectionGroup>
+            )}
+
+            {/* Author button — quiet, below the list */}
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => setSheetTarget({ kind: "compose" })}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium border border-dashed border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)] transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" strokeWidth={2.2} />
+                New play
+              </button>
+            </div>
           </>
         )}
       </ChidiPage>
+
+      {/* Slide-up sheet — single overlay surface for play detail OR compose */}
+      {sheetTarget && (
+        <Sheet onClose={() => setSheetTarget(null)}>
+          {sheetTarget.kind === "compose" ? (
+            <ComposeSheet
+              draft={draft}
+              onChange={setDraft}
+              onSave={handleSaveDraft}
+              onCancel={() => {
+                clearDraft()
+                setDraft(EMPTY_DRAFT)
+                setSheetTarget(null)
+              }}
+            />
+          ) : activePlay ? (
+            <PlaySheetBody
+              play={activePlay}
+              paused={pausedSet.has(activePlay.id)}
+              customMessage={customMessages[activePlay.id]}
+              onTogglePause={() => togglePause(activePlay.id)}
+              onSaveMessage={(msg) => handleSaveCustom(activePlay.id, msg)}
+              onResetMessage={() => handleResetCustom(activePlay.id)}
+              onClose={() => setSheetTarget(null)}
+            />
+          ) : (
+            <SheetBodySkeleton />
+          )}
+        </Sheet>
+      )}
     </div>
   )
 }
 
 // ============================================================================
-// SnapshotStrip — 3 KPIs that count up
+// SectionGroup — quiet eyebrow + count
 // ============================================================================
 
-function SnapshotStrip({
-  totals,
-  totalCount,
-}: {
-  totals: {
-    active: number
-    recoveredLast30d: number
-    totalRuns: number
-    totalWon: number
-    winRate: number
-  }
-  totalCount: number
-}) {
-  // Lighter shell — same numbers, less competing with the play list.
-  return (
-    <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] px-4 lg:px-6 py-4 lg:py-5">
-      <div className="grid grid-cols-3 gap-4 lg:gap-8">
-        <CountMetric
-          label="Running"
-          value={totals.active}
-          format="int"
-          sub={`of ${totalCount} plays`}
-        />
-        <CountMetric
-          label="Recovered (30d)"
-          value={totals.recoveredLast30d}
-          format="ngn"
-          sub="across all plays"
-        />
-        <CountMetric
-          label="Win rate"
-          value={totals.winRate}
-          format="pct"
-          sub={`${totals.totalWon} of ${totals.totalRuns} runs`}
-        />
-      </div>
-    </div>
-  )
-}
-
-function CountMetric({
-  label,
-  value,
-  format,
-  sub,
-}: {
-  label: string
-  value: number
-  format: "int" | "ngn" | "pct"
-  sub?: string
-}) {
-  const tweened = useCountUp(value, 950)
-  const display =
-    format === "ngn"
-      ? formatNGN(Math.round(tweened))
-      : format === "pct"
-        ? `${Math.round(tweened)}%`
-        : Math.round(tweened).toLocaleString("en-NG")
-  return (
-    <div>
-      <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium mb-1">
-        {label}
-      </p>
-      <p className="text-[18px] font-semibold tabular-nums text-[var(--chidi-text-primary)] leading-none truncate">
-        {display}
-      </p>
-      {sub && <p className="text-[11px] text-[var(--chidi-text-muted)] mt-1">{sub}</p>}
-    </div>
-  )
-}
-
-// ============================================================================
-// FilterChip
-// ============================================================================
-
-function FilterChip({
-  active,
-  onClick,
-  label,
+function SectionGroup({
+  title,
   count,
   tone,
+  className,
+  children,
 }: {
-  active: boolean
-  onClick: () => void
-  label: string
+  title: string
   count: number
-  tone?: string
+  tone: "win" | "muted"
+  className?: string
+  children: React.ReactNode
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors flex-shrink-0 border",
-        active
-          ? "bg-[var(--chidi-text-primary)] text-[var(--background)] border-[var(--chidi-text-primary)]"
-          : "bg-[var(--card)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-default)] hover:text-[var(--chidi-text-primary)]",
-      )}
-    >
-      {!active && tone && (
-        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tone }} />
-      )}
-      <span>{label}</span>
-      <span
-        className={cn(
-          "tabular-nums",
-          active ? "text-[var(--background)]/70" : "text-[var(--chidi-text-muted)]",
-        )}
-      >
-        {count}
-      </span>
-    </button>
+    <div className={className}>
+      <div className="flex items-baseline gap-2 mb-3 px-0.5">
+        <span
+          className="w-1.5 h-1.5 rounded-full"
+          style={{
+            backgroundColor:
+              tone === "win" ? "var(--chidi-win)" : "var(--chidi-text-muted)",
+          }}
+        />
+        <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+          {title}
+        </p>
+        <span className="text-[10px] tabular-nums text-[var(--chidi-text-muted)]">
+          {count}
+        </span>
+      </div>
+      <div className="space-y-2">{children}</div>
+    </div>
   )
 }
 
 // ============================================================================
-// PlayRow — collapsed row card (no expand; opens detail in right pane)
+// PlayRow — the heart of the surface
 // ============================================================================
 
 function PlayRow({
   play,
-  active,
   paused,
+  customMessage,
   onOpen,
   onTogglePause,
 }: {
   play: PlaybookPlay
-  active: boolean
   paused: boolean
+  customMessage?: string
   onOpen: () => void
   onTogglePause: () => void
 }) {
-  const Icon = CATEGORY_ICON[play.category]
-  const tone = CATEGORY_TONE[play.category]
-  const effectivelyRunning = play.state === "active" && !paused
-  // Win-rate dot color — same tone vocabulary as the right pane's bar.
-  const wrTone =
-    play.stats.runs === 0
-      ? "var(--chidi-text-muted)"
-      : play.stats.win_rate_pct >= 60
-        ? "var(--chidi-win)"
-        : play.stats.win_rate_pct >= 30
-          ? "var(--chidi-text-muted)"
-          : "var(--chidi-warning)"
+  const recovered = play.stats.last_30d_value_recovered_ngn ?? 0
+  const customized = !!customMessage && customMessage !== play.sample_message
 
   return (
     <article
       className={cn(
-        "rounded-xl chidi-paper bg-[var(--card)] border transition-all relative group",
-        active
-          ? "border-[var(--chidi-text-primary)] shadow-[0_0_0_1px_var(--chidi-text-primary)]"
+        "group relative rounded-xl bg-[var(--card)] border transition-all",
+        paused
+          ? "border-[var(--chidi-border-subtle)] opacity-75"
           : "border-[var(--chidi-border-default)] hover:border-[var(--chidi-text-muted)]",
       )}
     >
-      {/* Single-tap open. The full row is the click target so there's no
-          confusion about which surface is clickable. Pause moved to a
-          subtle hover-revealed action so it stops competing visually. */}
-      <button
-        onClick={onOpen}
-        className="w-full p-3.5 lg:p-4 flex items-start gap-3 text-left"
-      >
-        <div
-          className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
-          style={{ backgroundColor: `${tone}1a` }}
+      <div className="flex items-stretch">
+        {/* Main tap target — opens the sheet */}
+        <button
+          onClick={onOpen}
+          className="flex-1 min-w-0 px-4 py-3.5 lg:px-5 lg:py-4 text-left flex items-center gap-3"
         >
-          <Icon className="w-3.5 h-3.5" style={{ color: tone }} strokeWidth={1.8} />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <h3 className="text-[13px] font-semibold text-[var(--chidi-text-primary)] leading-snug truncate flex-1 min-w-0">
-              {play.title}
-            </h3>
-            {/* Win-rate dot — silent proof. No number, no bar. Tap into the
-                right pane to see the full stat. */}
-            <span
-              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-              style={{ backgroundColor: wrTone }}
-              title={
-                play.stats.runs === 0
-                  ? "No runs yet"
-                  : `${play.stats.win_rate_pct}% win rate`
-              }
-            />
-            {!effectivelyRunning && (
-              <span className="text-[9px] uppercase tracking-wider text-[var(--chidi-text-muted)] flex-shrink-0">
-                Paused
-              </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <h3 className="text-[13.5px] font-semibold text-[var(--chidi-text-primary)] leading-snug truncate">
+                {play.title}
+              </h3>
+              {customized && (
+                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] flex-shrink-0">
+                  Yours
+                </span>
+              )}
+            </div>
+            <p className="text-[11.5px] text-[var(--chidi-text-secondary)] leading-snug truncate">
+              <span className="text-[var(--chidi-text-muted)]">When </span>
+              {play.trigger}
+            </p>
+            {recovered > 0 && !paused && (
+              <p className="text-[11px] text-[var(--chidi-win)] mt-1 tabular-nums font-medium">
+                Recovered {formatNGN(recovered)} this month
+              </p>
             )}
           </div>
-          {/* Trigger one-liner — single line, ellipsis on overflow. The
-              full trigger lives in the sandbox header. */}
-          <p className="text-[11.5px] text-[var(--chidi-text-secondary)] leading-snug truncate">
-            <span className="text-[var(--chidi-text-muted)]">When </span>
-            {play.trigger}
-          </p>
+          <ChevronRight
+            className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0 group-hover:translate-x-0.5 transition-transform"
+            strokeWidth={2}
+          />
+        </button>
+
+        {/* Toggle — always visible, real switch, big tap target */}
+        <div className="flex items-center pr-4 lg:pr-5 border-l border-[var(--chidi-border-subtle)] pl-3 lg:pl-4">
+          <Toggle
+            on={!paused}
+            onChange={onTogglePause}
+            label={paused ? "Resume play" : "Pause play"}
+          />
         </div>
-
-        <ChevronRight
-          className={cn(
-            "w-3.5 h-3.5 flex-shrink-0 mt-1 transition-transform",
-            active
-              ? "text-[var(--chidi-text-primary)] translate-x-0.5"
-              : "text-[var(--chidi-text-muted)]",
-          )}
-        />
-      </button>
-
-      {/* Pause/Resume mini-action — only visible on hover or when active.
-          Doesn't add a permanent strip under every row anymore. */}
-      <button
-        onClick={(e) => {
-          e.stopPropagation()
-          onTogglePause()
-        }}
-        className={cn(
-          "absolute right-9 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-opacity",
-          active ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
-        )}
-        aria-label={effectivelyRunning ? "Pause play" : "Resume play"}
-      >
-        {effectivelyRunning ? (
-          <Pause className="w-3 h-3" strokeWidth={2} />
-        ) : (
-          <PlayIcon className="w-3 h-3" strokeWidth={2} />
-        )}
-      </button>
+      </div>
     </article>
   )
 }
 
 // ============================================================================
-// ComposePanel — author a new play (inline, not a modal)
+// Toggle — accessible switch, --chidi-* tokens
 // ============================================================================
 
-function ComposePanel({
+function Toggle({
+  on,
+  onChange,
+  label,
+}: {
+  on: boolean
+  onChange: () => void
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onChange}
+      className={cn(
+        "relative inline-flex items-center h-6 w-11 rounded-full transition-colors flex-shrink-0",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-text-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]",
+        on
+          ? "bg-[var(--chidi-win)]"
+          : "bg-[var(--chidi-border-default)]",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-block h-5 w-5 rounded-full bg-white shadow-sm transform motion-safe:transition-transform",
+          on ? "translate-x-[22px]" : "translate-x-0.5",
+        )}
+      />
+    </button>
+  )
+}
+
+// ============================================================================
+// Sheet — slide-up overlay
+// ============================================================================
+
+function Sheet({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode
+  onClose: () => void
+}) {
+  // Lock body scroll while sheet is open.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Backdrop */}
+      <button
+        aria-label="Close"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/40 motion-safe:animate-[chidiBackdropIn_180ms_ease-out]"
+      />
+      {/* Sheet */}
+      <div
+        className="relative w-full sm:max-w-xl bg-[var(--card)] sm:rounded-2xl rounded-t-2xl border border-[var(--chidi-border-default)] shadow-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col motion-safe:animate-[chidiSheetIn_280ms_cubic-bezier(0.22,1,0.36,1)]"
+      >
+        {children}
+        <style jsx>{`
+          @keyframes chidiSheetIn {
+            from {
+              transform: translateY(24px);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          @keyframes chidiBackdropIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+        `}</style>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// ComposeSheet — author a new play, kept very small
+// ============================================================================
+
+function ComposeSheet({
   draft,
   onChange,
   onSave,
-  onDiscard,
+  onCancel,
 }: {
   draft: DraftPlay
   onChange: React.Dispatch<React.SetStateAction<DraftPlay>>
   onSave: () => void
-  onDiscard: () => void
+  onCancel: () => void
 }) {
-  const triggersForCategory = TRIGGER_PRESETS.filter((t) => t.category === draft.category)
-  // If category changes such that current trigger isn't valid, reset it.
+  const titleRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
-    if (draft.triggerId === "custom") return
-    const stillValid = triggersForCategory.some((t) => t.id === draft.triggerId)
-    if (!stillValid && triggersForCategory[0]) {
-      onChange((d) => ({ ...d, triggerId: triggersForCategory[0].id }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.category])
+    setTimeout(() => titleRef.current?.focus(), 100)
+  }, [])
 
-  const canSave = draft.title.trim().length > 1 && draft.steps.trim().length > 0
+  const canSave = draft.title.trim().length > 1 && draft.trigger.trim().length > 1
 
   return (
-    <section className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] overflow-hidden">
-      <header className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)]">
-        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center">
-          <ChidiMark size={18} variant="default" />
+    <>
+      <header className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)] flex-shrink-0">
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center">
+          <ChidiMark size={16} variant="default" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-1">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-0.5">
             New play
           </p>
-          <h2 className="ty-page-title text-[var(--chidi-text-primary)]">
-            What move do you want to keep running?
+          <h2 className="text-[16px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
+            What move should Chidi keep running?
           </h2>
-          <p className="text-[12px] text-[var(--chidi-text-secondary)] mt-1.5 leading-snug">
-            Give it a name, pick when it should fire, and write what happens.
-          </p>
         </div>
         <button
-          onClick={onDiscard}
-          aria-label="Discard draft"
-          className="p-2 -mr-2 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors"
+          onClick={onCancel}
+          aria-label="Close"
+          className="p-2 -mr-2 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors flex-shrink-0"
         >
           <XIcon className="w-4 h-4" />
         </button>
       </header>
 
-      <div className="p-5 lg:p-6 space-y-7">
-        {/* --- Group: Identify --- */}
-        <FieldGroup title="Name & shape">
-        {/* Title */}
-        <Field label="Name">
+      <div className="px-5 lg:px-6 py-5 space-y-5 overflow-y-auto flex-1">
+        <div>
+          <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-1.5 block">
+            Name
+          </label>
           <input
+            ref={titleRef}
             type="text"
             value={draft.title}
             onChange={(e) => onChange((d) => ({ ...d, title: e.target.value }))}
-            placeholder="e.g. Chase the cold pending payment"
-            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors"
+            placeholder="e.g. Chase cold pending payments"
+            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2.5 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors"
           />
-        </Field>
+        </div>
 
-        {/* Category */}
-        <Field label="Category">
-          <div className="flex flex-wrap gap-1.5">
-            {CATEGORIES.map((c) => {
-              const active = draft.category === c
-              const tone = CATEGORY_TONE[c]
-              return (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => onChange((d) => ({ ...d, category: c }))}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors border",
-                    active
-                      ? "bg-[var(--chidi-text-primary)] text-[var(--background)] border-[var(--chidi-text-primary)]"
-                      : "bg-[var(--card)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-default)] hover:text-[var(--chidi-text-primary)]",
-                  )}
-                >
-                  {!active && (
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tone }} />
-                  )}
-                  {PLAY_CATEGORY_LABEL[c]}
-                </button>
-              )
-            })}
+        <div>
+          <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-1.5 block">
+            When this happens
+          </label>
+          <input
+            type="text"
+            value={draft.trigger}
+            onChange={(e) => onChange((d) => ({ ...d, trigger: e.target.value }))}
+            placeholder="e.g. An order has been pending for 24 hours."
+            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2.5 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors"
+          />
+        </div>
+
+        <div>
+          <div className="flex items-baseline justify-between mb-1.5">
+            <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+              Message Chidi sends
+            </label>
+            <span className="text-[11px] text-[var(--chidi-text-muted)]">Optional</span>
           </div>
-        </Field>
-        </FieldGroup>
-
-        {/* --- Group: Trigger + steps --- */}
-        <FieldGroup title="What it does">
-        {/* Trigger */}
-        <Field label="When this happens">
-          <div className="space-y-2">
-            <select
-              value={draft.triggerId}
-              onChange={(e) => onChange((d) => ({ ...d, triggerId: e.target.value }))}
-              className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2 text-[13px] text-[var(--chidi-text-primary)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors"
-            >
-              {triggersForCategory.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
-                </option>
-              ))}
-              <option value="custom">Custom trigger…</option>
-            </select>
-            {draft.triggerId === "custom" && (
-              <input
-                type="text"
-                value={draft.triggerCustom}
-                onChange={(e) => onChange((d) => ({ ...d, triggerCustom: e.target.value }))}
-                placeholder="Describe the moment in plain English."
-                className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors"
-              />
-            )}
-          </div>
-        </Field>
-
-        {/* Steps */}
-        <Field label="Then do this" hint="One step per line.">
           <textarea
-            value={draft.steps}
-            onChange={(e) => onChange((d) => ({ ...d, steps: e.target.value }))}
+            value={draft.message}
+            onChange={(e) => onChange((d) => ({ ...d, message: e.target.value }))}
             rows={4}
-            placeholder={"Send a soft nudge in your voice.\nIf no reply by 36h, drop bank details + a deadline.\nIf still cold by 48h, free the stock back."}
-            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors resize-none leading-snug"
-          />
-        </Field>
-        </FieldGroup>
-
-        {/* --- Group: Voice --- */}
-        <FieldGroup title="The actual message">
-        {/* Sample message */}
-        <Field label="Sample message" hint="WhatsApp text. Optional.">
-          <textarea
-            value={draft.sample_message}
-            onChange={(e) => onChange((d) => ({ ...d, sample_message: e.target.value }))}
-            rows={3}
             placeholder="Hey! Still want to grab that one? I'm holding it till tomorrow noon."
-            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors resize-none leading-snug"
+            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2.5 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors resize-none leading-snug"
           />
-        </Field>
-
-        {/* Live message preview — show, don't tell. */}
-        {draft.sample_message.trim() && (
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-2">
-              Preview
-            </p>
-            <WhatsAppBubblePreview text={draft.sample_message} />
-          </div>
-        )}
-        </FieldGroup>
+        </div>
       </div>
 
-      <div className="px-5 lg:px-6 py-3 border-t border-[var(--chidi-border-subtle)] flex items-center justify-between gap-3 bg-[var(--card)]">
+      <div className="px-5 lg:px-6 py-3 border-t border-[var(--chidi-border-subtle)] flex items-center justify-between gap-3 bg-[var(--card)] flex-shrink-0">
         <button
-          onClick={onDiscard}
+          onClick={onCancel}
           className="text-[13px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] px-3 py-2 rounded-md hover:bg-[var(--chidi-surface)] transition-colors"
         >
-          Discard
+          Cancel
         </button>
         <button
           onClick={onSave}
@@ -851,110 +662,62 @@ function ComposePanel({
           Add to playbook
         </button>
       </div>
-    </section>
+    </>
   )
 }
 
-/**
- * FieldGroup — section divider inside the composer. Adds a quiet header and
- * a 4-px space-y so related fields read as a chunk, with breathing room
- * between chunks (5-7 px controlled by the parent's space-y-7).
- */
-function FieldGroup({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <p className="text-[11px] font-semibold text-[var(--chidi-text-secondary)] mb-3 font-chidi-voice">
-        {title}
-      </p>
-      <div className="space-y-4">{children}</div>
-    </div>
-  )
-}
+// ============================================================================
+// Skeletons — proper row-shaped placeholders, not Loader2
+// ============================================================================
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string
-  hint?: string
-  children: React.ReactNode
-}) {
+function ListSkeleton() {
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1.5">
-        <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
-          {label}
-        </label>
-        {hint && <span className="text-[11px] text-[var(--chidi-text-muted)]">{hint}</span>}
+    <div className="space-y-2">
+      <div className="flex items-baseline gap-2 mb-3 px-0.5">
+        <div className="h-1.5 w-1.5 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+        <div className="h-2 w-16 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
       </div>
-      {children}
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-xl bg-[var(--card)] border border-[var(--chidi-border-default)] px-4 py-3.5 lg:px-5 lg:py-4 flex items-center gap-3"
+        >
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div
+              className="h-3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
+              style={{ width: `${55 + (i % 3) * 12}%` }}
+            />
+            <div
+              className="h-2.5 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
+              style={{ width: `${70 + (i % 2) * 10}%` }}
+            />
+          </div>
+          <div className="h-6 w-11 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse flex-shrink-0" />
+        </div>
+      ))}
     </div>
   )
 }
 
-/**
- * SandboxSkeleton — shown while next/dynamic resolves the PlaySandboxPanel
- * chunk. Same outer shell + roughly the same internal proportions so the
- * eventual swap-in doesn't shift layout. Pure CSS pulse, no JS.
- */
-function SandboxSkeleton() {
+function SheetBodySkeleton() {
   return (
-    <section className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] overflow-hidden">
+    <>
       <div className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)]">
-        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
         <div className="flex-1 min-w-0 space-y-2">
-          <div className="h-2.5 w-32 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
-          <div className="h-5 w-3/4 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
-          <div className="h-3 w-1/2 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+          <div className="h-2.5 w-24 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+          <div className="h-4 w-3/4 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
         </div>
       </div>
       <div className="p-5 lg:p-6 space-y-4">
-        <div className="h-14 rounded-xl bg-[var(--chidi-surface)]/60 motion-safe:animate-pulse" />
+        <div className="h-3 w-1/3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
         <div className="space-y-2">
-          <div className="h-3 w-1/3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
           <div className="h-3 w-5/6 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
           <div className="h-3 w-4/6 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
         </div>
         <div className="h-32 rounded-xl bg-[var(--chidi-surface)]/60 motion-safe:animate-pulse" />
       </div>
-    </section>
+    </>
   )
 }
 
-// Internal preview bubble — same WhatsApp styling as PlaySandboxPanel and
-// channel-chat. Used in the composer's live preview.
-function WhatsAppBubblePreview({ text }: { text: string }) {
-  return (
-    <div
-      className="rounded-xl p-4 border border-[var(--chidi-border-subtle)]"
-      style={{
-        backgroundColor: "#ECE5DD",
-        backgroundImage:
-          "radial-gradient(circle at 10% 20%, rgba(7,94,84,0.04) 0px, transparent 1px), radial-gradient(circle at 80% 70%, rgba(7,94,84,0.04) 0px, transparent 1px)",
-        backgroundSize: "40px 40px",
-      }}
-    >
-      <div className="flex justify-end">
-        <div
-          className="max-w-[88%] rounded-lg rounded-tr-none px-3 py-2 shadow-sm border-l-2 w-full"
-          style={{
-            backgroundColor: "var(--chidi-channel-whatsapp-bubble)",
-            borderLeftColor: "var(--chidi-win)",
-          }}
-        >
-          <p className="text-[13px] text-[var(--chidi-channel-whatsapp-bubble-text)] leading-snug whitespace-pre-line">
-            {text}
-          </p>
-          <p className="text-[9px] text-[#999] mt-1 text-right">just now ✓✓</p>
-        </div>
-      </div>
-    </div>
-  )
-}
