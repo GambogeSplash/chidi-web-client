@@ -270,7 +270,10 @@ export function CopilotView({
   // Empty state (new chat) — proactive briefing seeded from real business state
   if (messages.length === 0 && !isLoading) {
     return (
-      <CopilotEmptyState onShowHistory={() => setShowHistory(true)}>
+      <CopilotEmptyState
+        onShowHistory={() => setShowHistory(true)}
+        onPromptClick={handlePromptChipClick}
+      >
         {/* Input - fixed at bottom */}
         <div className="flex-shrink-0 p-4 pb-4 bg-[var(--chidi-surface)] border-t border-[var(--chidi-border-subtle)]">
           <form onSubmit={handleSubmit} className="max-w-lg mx-auto">
@@ -488,11 +491,23 @@ export function CopilotView({
 
 interface CopilotEmptyStateProps {
   onShowHistory: () => void
+  onPromptClick: (prompt: string) => void
   children: React.ReactNode
 }
 
+// Short, evergreen example prompts. Chips, not cards. The merchant scans
+// them in <2s. Different from the verbose 5-card "proactive prompts" we
+// removed — those duplicated other tabs and felt loud.
+const QUICK_ASKS = [
+  "How are sales today?",
+  "What should I restock?",
+  "Draft a chase message",
+  "Best customers this month",
+] as const
+
 function CopilotEmptyState({
   onShowHistory,
+  onPromptClick,
   children,
 }: CopilotEmptyStateProps) {
   return (
@@ -519,16 +534,37 @@ function CopilotEmptyState({
         </Button>
       </div>
 
-      {/* Quiet empty state — the mark IS the surface. Merchant types into
-          the input bar at the bottom. The previous greeting + 5 proactive
-          prompt cards repeated work other tabs (Inbox unread, Insights
-          decisions, Inventory low-stock) already surface. */}
+      {/* Quiet empty state — big mark + tagline + 4 example chips.
+          Merchant types into the input bar at the bottom OR taps a chip
+          to seed the input with one of the canonical asks. */}
       <div className="flex-1 flex items-center justify-center px-6 pb-6">
-        <div className="flex flex-col items-center text-center">
-          <ChidiMark size={88} className="text-[var(--chidi-text-primary)] mb-5 chidi-brief-card" />
-          <p className="ty-body-voice text-[var(--chidi-text-secondary)] chidi-brief-card" style={{ animationDelay: "120ms" }}>
+        <div className="flex flex-col items-center text-center max-w-md w-full">
+          <ChidiMark
+            size={140}
+            className="text-[var(--chidi-text-primary)] mb-5 chidi-brief-card"
+          />
+          <p className="ty-body-voice text-[var(--chidi-text-secondary)] chidi-brief-card mb-6" style={{ animationDelay: "120ms" }}>
             Ask me anything about your shop.
           </p>
+          <ul className="flex flex-wrap justify-center gap-2">
+            {QUICK_ASKS.map((q, i) => (
+              <li key={q} className="chidi-brief-card" style={{ animationDelay: `${200 + i * 60}ms` }}>
+                <button
+                  onClick={() => onPromptClick(q)}
+                  className={cn(
+                    "px-3.5 py-2 rounded-full text-[13px] font-chidi-voice",
+                    "bg-white border border-[var(--chidi-border-subtle)]",
+                    "text-[var(--chidi-text-primary)]",
+                    "hover:border-[var(--chidi-border-default)] hover:shadow-card",
+                    "transition-all duration-200 active:scale-[0.97]",
+                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)] focus-visible:ring-offset-2",
+                  )}
+                >
+                  {q}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 

@@ -46,11 +46,22 @@ export interface UseChidiSpeech {
   boundary: number
 }
 
-/** Pick the best available voice — Nigerian first, English fallbacks after. */
+/** Pick the best available voice — Nigerian first, then prefer "premium" /
+ *  "enhanced" / "natural" variants of nearby English voices, since stock
+ *  browser voices sound robotic. Falls back gracefully through African
+ *  English → UK → AU → any en-*. */
 function pickVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   if (!voices.length) return null
-  const byLang = (lang: string) =>
-    voices.find((v) => v.lang?.toLowerCase().startsWith(lang.toLowerCase()))
+
+  const isPremium = (v: SpeechSynthesisVoice) =>
+    /(premium|enhanced|neural|natural|google|siri)/i.test(v.name)
+
+  const byLang = (lang: string, premiumOnly = false): SpeechSynthesisVoice | undefined => {
+    const matches = voices.filter((v) => v.lang?.toLowerCase().startsWith(lang.toLowerCase()))
+    if (!matches.length) return undefined
+    if (premiumOnly) return matches.find(isPremium)
+    return matches.find(isPremium) ?? matches[0]
+  }
 
   return (
     byLang("en-NG") ||
@@ -116,8 +127,11 @@ export function useChidiSpeech(): UseChidiSpeech {
     const u = new SpeechSynthesisUtterance(text)
     if (voiceRef.current) u.voice = voiceRef.current
     u.lang = voiceRef.current?.lang || "en-GB"
-    u.rate = opts?.rate ?? 0.95
-    u.pitch = opts?.pitch ?? 1.0
+    // Slower + slightly lower pitch reads as warmer / more deliberate, which
+    // smooths over the robotic edge of stock browser voices. Tuned for a
+    // Nigerian-English cadence — unhurried, grounded.
+    u.rate = opts?.rate ?? 0.88
+    u.pitch = opts?.pitch ?? 0.95
     u.volume = 1.0
 
     onEndRef.current = opts?.onEnd ?? null

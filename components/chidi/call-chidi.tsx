@@ -296,16 +296,11 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
       aria-modal="true"
       aria-label="Call Chidi"
     >
-      {/* Background — Hyper-Lagos Neon: 5 vivid blobs orbiting on a deep
-          electric-violet base. Replaces the v1 muddy sunset gradient.
-          See globals.css → ".chidi-call-bg-v2" section for palette + motion. */}
-      <div className="absolute inset-0 chidi-call-bg-v2" aria-hidden="true">
-        <div className="chidi-call-blob chidi-call-blob-1" />
-        <div className="chidi-call-blob chidi-call-blob-2" />
-        <div className="chidi-call-blob chidi-call-blob-3" />
-        <div className="chidi-call-blob chidi-call-blob-4" />
-        <div className="chidi-call-blob chidi-call-blob-5" />
-      </div>
+      {/* Background — single electric-purple gradient that flows.
+          One color family (violet → deep indigo), animated via background-position
+          drift. Replaces the busy 5-blob mesh per user feedback.
+          See globals.css → ".chidi-call-bg-v2" section. */}
+      <div className="absolute inset-0 chidi-call-bg-v2" aria-hidden="true" />
 
       {/* Subtle vignette for focal depth — slight bright bloom under the
           mascot, slight darkening at the bottom edge so the controls read. */}
@@ -368,33 +363,15 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
         {/* Middle — mascot is the focal point */}
         <div className="flex-1 w-full flex items-center justify-center">
           <div className="flex flex-col items-center gap-8 w-full max-w-[480px]">
-            <div
-              className={cn(
-                "relative flex items-center justify-center",
-                "rounded-full",
-                mascotClass,
-              )}
-              style={{
-                width: 220,
-                height: 220,
-              }}
-            >
-              {/* Soft halo behind the mascot */}
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background:
-                    "radial-gradient(closest-side, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 72%)",
-                }}
-              />
-              <ArcFace
-                size={170}
-                state={mouthState}
-                speakingPulse={speech.boundary}
-                className="relative drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
-              />
-            </div>
+            {/* Face stands alone on the gradient — no halo, no container.
+                Matches Arc's pattern exactly: face sits on the background
+                with a subtle drop shadow for depth, nothing else. */}
+            <ArcFace
+              size={200}
+              state={mouthState}
+              speakingPulse={speech.boundary}
+              className={cn("drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)]", mascotClass)}
+            />
 
             {/* Bubbles stack — newest at the bottom, plain stack flows naturally */}
             <div className="w-full flex flex-col gap-3 items-stretch min-h-[80px]">

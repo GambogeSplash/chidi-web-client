@@ -1275,94 +1275,21 @@ select:focus-visible {
    ========================================================================= */
 .chidi-call-bg-v2 {
   background:
-    radial-gradient(120% 120% at 50% 50%, #1A0033 0%, #0A001A 70%, #000000 100%);
+    radial-gradient(120% 90% at 30% 30%, #7C3AED 0%, transparent 60%),
+    radial-gradient(110% 80% at 70% 70%, #4C1D95 0%, transparent 65%),
+    radial-gradient(140% 100% at 50% 100%, #1E0742 0%, #0A0118 100%);
+  background-size: 180% 180%, 180% 180%, 100% 100%;
+  background-position: 0% 0%, 100% 100%, 0% 0%;
+  animation: chidiCallBgFlow 18s ease-in-out infinite;
   overflow: hidden;
   isolation: isolate;
 }
 
-.chidi-call-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.85;
-  will-change: transform;
-  pointer-events: none;
-}
-.chidi-call-blob-1 {
-  width: 55%;
-  aspect-ratio: 1 / 1;
-  top: -10%;
-  left: -10%;
-  background: radial-gradient(circle, #E91E63 0%, rgba(233, 30, 99, 0) 70%);
-  animation: chidiBlobOrbit1 16s ease-in-out infinite;
-}
-.chidi-call-blob-2 {
-  width: 60%;
-  aspect-ratio: 1 / 1;
-  top: 10%;
-  right: -15%;
-  background: radial-gradient(circle, #00B8D4 0%, rgba(0, 184, 212, 0) 70%);
-  animation: chidiBlobOrbit2 19s ease-in-out infinite;
-}
-.chidi-call-blob-3 {
-  width: 65%;
-  aspect-ratio: 1 / 1;
-  bottom: -15%;
-  left: 5%;
-  background: radial-gradient(circle, #00C853 0%, rgba(0, 200, 83, 0) 70%);
-  animation: chidiBlobOrbit3 22s ease-in-out infinite;
-}
-.chidi-call-blob-4 {
-  width: 50%;
-  aspect-ratio: 1 / 1;
-  bottom: 5%;
-  right: -10%;
-  background: radial-gradient(circle, #FFB300 0%, rgba(255, 179, 0, 0) 70%);
-  animation: chidiBlobOrbit4 14s ease-in-out infinite;
-}
-.chidi-call-blob-5 {
-  width: 45%;
-  aspect-ratio: 1 / 1;
-  top: 35%;
-  left: 25%;
-  background: radial-gradient(circle, #6200EA 0%, rgba(98, 0, 234, 0) 70%);
-  animation: chidiBlobOrbit5 18s ease-in-out infinite;
-  opacity: 0.6;
-}
-
-@keyframes chidiBlobOrbit1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25%      { transform: translate(35vw, 20vh) scale(1.15); }
-  50%      { transform: translate(50vw, 55vh) scale(0.95); }
-  75%      { transform: translate(20vw, 40vh) scale(1.1); }
-}
-@keyframes chidiBlobOrbit2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33%      { transform: translate(-40vw, 30vh) scale(1.2); }
-  66%      { transform: translate(-25vw, 65vh) scale(0.9); }
-}
-@keyframes chidiBlobOrbit3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  25%      { transform: translate(30vw, -25vh) scale(0.95); }
-  50%      { transform: translate(55vw, -10vh) scale(1.15); }
-  75%      { transform: translate(15vw, -35vh) scale(1.05); }
-}
-@keyframes chidiBlobOrbit4 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  40%      { transform: translate(-45vw, -30vh) scale(1.2); }
-  70%      { transform: translate(-20vw, -50vh) scale(0.9); }
-}
-@keyframes chidiBlobOrbit5 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  20%      { transform: translate(20vw, -15vh) scale(1.1); }
-  50%      { transform: translate(-15vw, 20vh) scale(0.95); }
-  80%      { transform: translate(15vw, 15vh) scale(1.15); }
+@keyframes chidiCallBgFlow {
+  0%, 100% { background-position: 0% 0%, 100% 100%, 0% 0%; }
+  50%      { background-position: 100% 50%, 0% 0%, 0% 0%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chidi-call-blob-1,
-  .chidi-call-blob-2,
-  .chidi-call-blob-3,
-  .chidi-call-blob-4,
-  .chidi-call-blob-5 { animation: none; }
+  .chidi-call-bg-v2 { animation: none; }
 }
