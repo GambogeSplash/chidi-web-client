@@ -171,16 +171,8 @@ export function CustomersView() {
   return (
     <div className="flex flex-col h-full">
       <ChidiPage
-        eyebrow="Customers"
-        title="Everyone you've sold to."
-        subtitle={
-          isLoading
-            ? "Pulling your people…"
-            : customers.length === 0
-            ? "No customers yet — they'll appear here as they message you."
-            : `${customers.length.toLocaleString()} ${customers.length === 1 ? "person" : "people"} you've reached on Telegram or WhatsApp.`
-        }
-        voice
+        title="Customers"
+        subtitle="Everyone you've sold to."
         width="wide"
         actions={
           customers.length > 0 ? (
@@ -401,7 +393,17 @@ function CustomerTable({
         {customers.map((c) => (
           <li
             key={c.phone}
-            className="grid grid-cols-[1fr_auto] lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-3 hover:bg-[var(--chidi-surface)]/50 transition-colors"
+            onClick={() => onOpenConversation(c)}
+            className="grid grid-cols-[1fr_auto] lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--chidi-surface)]/50 transition-colors focus:outline-none focus-visible:bg-[var(--chidi-surface)]/50"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                onOpenConversation(c)
+              }
+            }}
+            role="button"
+            aria-label={`Open conversation with ${c.name || c.phone}`}
           >
             {/* Customer name + avatar — full width on mobile */}
             <div className="flex items-center gap-3 min-w-0 col-span-2 lg:col-span-1">

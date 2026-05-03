@@ -165,8 +165,11 @@ export function BroadcastComposer({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "sm:max-w-xl flex flex-col gap-0 p-0 overflow-hidden",
-          "max-h-[92vh] sm:max-h-[88vh]",
+          // Lock the content to a centered card on desktop. The bottom-sheet
+          // override on mobile (Dialog primitive) handles narrow viewports.
+          "sm:!w-[min(640px,calc(100vw-3rem))] sm:!max-w-none sm:!max-h-[88vh]",
+          "flex flex-col gap-0 p-0 overflow-hidden",
+          "max-h-[92vh]",
         )}
       >
         {/* Header — Chidi-voiced, eyebrow + bold title */}
