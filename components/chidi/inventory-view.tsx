@@ -733,7 +733,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
 
                   {/* Product Image */}
                   <div
-                    className="relative aspect-square bg-[#F4DDC2] overflow-hidden cursor-pointer chidi-paper"
+                    className="relative aspect-square bg-[var(--chidi-image-placeholder)] overflow-hidden cursor-pointer chidi-paper"
                     onClick={() => onViewProduct(product)}
                   >
                     {/* Stock status pill — top-right, prominent */}

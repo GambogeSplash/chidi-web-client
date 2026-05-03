@@ -379,7 +379,7 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
                         tailCorner,
                         isCustomer
                           ? 'bg-white text-[var(--chidi-text-primary)] border border-[var(--chidi-border-subtle)]/40'
-                          : 'bg-[#DCF8C6] text-[var(--chidi-text-primary)]',
+                          : 'bg-[var(--chidi-channel-whatsapp-bubble)] text-[var(--chidi-channel-whatsapp-bubble-text)]',
                         isAI && 'chidi-bubble-settle',
                       )}
                     >

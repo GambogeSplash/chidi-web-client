@@ -81,6 +81,15 @@
   --chidi-win-soft: rgba(232, 163, 61, 0.12);
   --chidi-win-foreground: #2A1F0F;
 
+  /* Channel-bubble colors (themable for dark mode). Was hardcoded #DCF8C6
+     in channel-chat which broke any theme override. */
+  --chidi-channel-whatsapp-bubble: #DCF8C6;
+  --chidi-channel-whatsapp-bubble-text: #1C1917;
+
+  /* Image placeholder tone — warm cream that matches the app's paper aesthetic.
+     Was hardcoded #F4DDC2 in inventory cards. */
+  --chidi-image-placeholder: #F4DDC2;
+
   /* === Opacity scale (Skiff-style) =========================================
      24-stop opacity ramp for color modulation. Lifted from Skiff's design
      system — instead of maintaining separate light/dark variants for every

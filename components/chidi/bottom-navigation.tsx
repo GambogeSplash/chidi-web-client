@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChidiMark } from "./chidi-mark"
@@ -23,9 +24,47 @@ const navItems = PRIMARY_TABS.map((t) => ({
   icon: t.icon,
 }))
 
+/**
+ * Hide the bottom nav while an input/textarea/contenteditable is focused so
+ * the iOS soft keyboard doesn't push it up over the field. Vercel's mobile
+ * dashboard ships this exact pattern. Listens at document level via focusin/
+ * focusout, returns true while a typeable element is focused.
+ */
+function useInputFocused(): boolean {
+  const [focused, setFocused] = useState(false)
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    const isTypeable = (el: EventTarget | null) => {
+      if (!(el instanceof HTMLElement)) return false
+      const tag = el.tagName
+      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable
+    }
+    const onFocus = (e: FocusEvent) => {
+      if (isTypeable(e.target)) setFocused(true)
+    }
+    const onBlur = (e: FocusEvent) => {
+      if (isTypeable(e.target)) setFocused(false)
+    }
+    document.addEventListener("focusin", onFocus)
+    document.addEventListener("focusout", onBlur)
+    return () => {
+      document.removeEventListener("focusin", onFocus)
+      document.removeEventListener("focusout", onBlur)
+    }
+  }, [])
+  return focused
+}
+
 export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: BottomNavigationProps) {
+  const inputFocused = useInputFocused()
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-[var(--chidi-border-default)] safe-area-bottom">
+    <nav
+      className={cn(
+        "fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-[var(--chidi-border-default)] safe-area-bottom transition-transform duration-200",
+        inputFocused && "translate-y-full",
+      )}
+      aria-hidden={inputFocused}
+    >
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
         {navItems.map((item) => {
           const isActive = activeTab === item.id
