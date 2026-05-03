@@ -145,7 +145,7 @@ export const authAPI = {
         businessName: user.businessName,
         businessSlug: user.businessSlug,
         inventory_id: 'dev-inventory',
-      } as AuthResponse
+      } as unknown as AuthResponse
     }
 
     try {

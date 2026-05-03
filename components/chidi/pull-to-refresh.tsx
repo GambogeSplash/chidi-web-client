@@ -105,15 +105,21 @@ export function PullToRefresh({
             transition: "transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
-          <ChidiMark
-            size={18}
-            variant="muted"
-            className={refreshing ? "chidi-loader-breathe" : ""}
+          {/* ChidiMark wrapped in a span so we can apply transform — the
+              component itself doesn't accept a style prop. */}
+          <span
             style={{
+              display: "inline-flex",
               transform: refreshing ? "rotate(0deg)" : `rotate(${progress * 360}deg)`,
               transition: "transform 200ms ease-out",
-            } as any}
-          />
+            }}
+          >
+            <ChidiMark
+              size={18}
+              variant="muted"
+              className={refreshing ? "chidi-loader-breathe" : ""}
+            />
+          </span>
           <span className="text-xs">
             {refreshing
               ? "Catching up…"

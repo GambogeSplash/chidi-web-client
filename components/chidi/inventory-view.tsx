@@ -74,7 +74,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     if (!inventoryId || selectedCount === 0) return
     if (!confirm(`Delete ${selectedCount} product${selectedCount === 1 ? "" : "s"}? This can't be undone.`)) return
     await Promise.all(
-      Array.from(selectedIds).map((id) => productsAPI.deleteProduct(inventoryId, id).catch(() => null)),
+      Array.from(selectedIds).map((id) => productsAPI.deleteProduct(id).catch(() => null)),
     )
     queryClient.invalidateQueries({ queryKey: productsKeys.all })
     clearSelection()
@@ -97,7 +97,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
         if (!p) return null
         const discounted = Math.round(p.sellingPrice * (1 - pct / 100))
         return productsAPI
-          .updateProduct(inventoryId, id, { discount_price: discounted })
+          .updateProduct(id, { discount_price: discounted })
           .catch(() => null)
       }),
     )
@@ -112,7 +112,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     if (!confirm(`Archive ${selectedCount} product${selectedCount === 1 ? "" : "s"}? They'll stop showing to customers but stay in your records.`)) return
     await Promise.all(
       Array.from(selectedIds).map((id) =>
-        productsAPI.updateProduct(inventoryId, id, { status: "INACTIVE" as any }).catch(() => null),
+        productsAPI.updateProduct(id, { status: "INACTIVE" as any }).catch(() => null),
       ),
     )
     queryClient.invalidateQueries({ queryKey: productsKeys.all })
@@ -136,9 +136,9 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     if (!Number.isFinite(value)) return
     try {
       if (field === "stock_quantity") {
-        await productsAPI.updateStock(inventoryId, productId, value)
+        await productsAPI.updateStock(productId, value, "set")
       } else {
-        await productsAPI.updateProduct(inventoryId, productId, { selling_price: value })
+        await productsAPI.updateProduct(productId, { selling_price: value })
       }
       queryClient.invalidateQueries({ queryKey: productsKeys.all })
       hapticSoft()
