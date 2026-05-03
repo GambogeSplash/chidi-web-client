@@ -45,7 +45,6 @@ import { CustomerCharacter } from "./customer-character"
 import { OrdersSmart, type OrdersFilter } from "./orders-smart"
 import { EmptyArt } from "./empty-art"
 import { cn } from "@/lib/utils"
-import { ChidiLoader } from "./chidi-loader"
 import { MilestoneModal } from "./milestone-modal"
 import { detectMilestone, type MilestoneCard } from "@/lib/chidi/milestones"
 
@@ -187,8 +186,24 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
 
   if (isLoading && orders.length === 0) {
     return (
-      <div className="flex-1 bg-[var(--background)] flex items-center justify-center">
-        <ChidiLoader context="orders" size="md" />
+      <div className="flex-1 bg-[var(--background)] flex flex-col">
+        <div className="border-b border-[var(--chidi-border-subtle)]">
+          <div className="max-w-4xl mx-auto w-full px-4 lg:px-6 py-4 lg:py-5">
+            <div className="h-6 w-24 chidi-skeleton" />
+          </div>
+        </div>
+        <div className="max-w-4xl mx-auto w-full px-4 lg:px-6 py-4 space-y-3" aria-label="Loading orders">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-3 p-3 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)]">
+              <div className="w-10 h-10 rounded-full chidi-skeleton flex-shrink-0" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-3 w-40 chidi-skeleton" />
+                <div className="h-3 w-2/3 chidi-skeleton" />
+              </div>
+              <div className="h-4 w-16 chidi-skeleton flex-shrink-0 mt-1" />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -279,8 +294,18 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
         {/* Orders List */}
         <div className="flex-1 overflow-y-auto">
           {isError ? (
-            <div className="p-6 text-center text-red-600">
-              {(error as Error)?.message || 'Failed to load orders'}
+            <div className="mx-4 lg:mx-6 mt-4 rounded-lg border border-[var(--chidi-warning)]/30 bg-[var(--chidi-warning)]/8 p-3 flex items-center justify-between gap-3">
+              <p className="text-[13px] text-[var(--chidi-text-primary)] font-chidi-voice">
+                Couldn't load orders.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefresh}
+                className="h-8 px-3 text-[12px] font-chidi-voice text-[var(--chidi-text-primary)] hover:bg-white"
+              >
+                Try again
+              </Button>
             </div>
           ) : orders.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">

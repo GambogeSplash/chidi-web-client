@@ -22,7 +22,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import { productsAPI } from "@/lib/api"
-import type { 
+import type {
   DisplayProduct,
   DisplayProductWithVariations,
   VariationTypeResponse,
@@ -31,6 +31,7 @@ import type {
 } from "@/lib/types/product"
 import { cn } from "@/lib/utils"
 import { formatCurrency } from "@/lib/utils/product-transformer"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface ManageVariationsSheetProps {
   isOpen: boolean
@@ -304,9 +305,27 @@ export function ManageVariationsSheet({
 
           {/* Loading State */}
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 text-[var(--chidi-text-muted)]">
-              <Loader2 className="w-8 h-8 animate-spin mb-3" />
-              <p className="text-sm">Loading variations...</p>
+            <div className="space-y-4" aria-busy>
+              {/* Skeleton matches summary stats + types + variants table */}
+              <div className="flex gap-4 p-3 bg-[var(--chidi-surface)] rounded-lg">
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-5 w-8" />
+                </div>
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3 w-14" />
+                  <Skeleton className="h-5 w-8" />
+                </div>
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-5 w-8" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-16 w-full rounded-lg" />
+                <Skeleton className="h-16 w-full rounded-lg" />
+              </div>
             </div>
           ) : !productData?.hasVariants && productData?.variationTypes?.length === 0 ? (
             /* No Variations Yet */
@@ -316,7 +335,7 @@ export function ManageVariationsSheet({
                 No variations yet
               </p>
               <p className="text-xs text-[var(--chidi-text-muted)] max-w-[200px]">
-                Add variation types like Size, Color, or Material to create product variants.
+                Add a type like Size or Color to start.
               </p>
             </div>
           ) : (
@@ -388,8 +407,8 @@ export function ManageVariationsSheet({
                     Variants ({productData.variants.length})
                   </h3>
                   
-                  <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
+                  <div className="border border-[var(--chidi-border-subtle)] rounded-lg overflow-x-auto">
+                    <table className="w-full text-sm min-w-[420px]">
                       <thead className="bg-[var(--chidi-surface)]">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-medium text-[var(--chidi-text-muted)]">
@@ -678,7 +697,7 @@ export function ManageVariationsSheet({
               </div>
               
               <p className="text-xs text-[var(--chidi-text-muted)]">
-                Variation types define product attributes (e.g., Size, Color). After adding types, create specific variants using the "Add Variant" section above.
+                Add a type, then create variants above.
               </p>
             </div>
           )}

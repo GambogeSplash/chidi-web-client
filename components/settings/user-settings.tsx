@@ -350,8 +350,41 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--chidi-text-muted)]" />
+      <div className="space-y-4 pt-4" aria-busy="true" aria-label="Loading settings">
+        {/* Profile card skeleton */}
+        <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-5 lg:p-6">
+          <div className="h-2.5 w-16 chidi-skeleton mb-2" />
+          <div className="h-4 w-32 chidi-skeleton mb-5" />
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-12 h-12 rounded-full chidi-skeleton" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 w-40 chidi-skeleton" />
+              <div className="h-3 w-56 chidi-skeleton" />
+            </div>
+          </div>
+          <div className="space-y-3 pt-4 border-t border-[var(--chidi-border-subtle)]">
+            <div className="h-3 w-20 chidi-skeleton" />
+            <div className="h-9 w-full chidi-skeleton" />
+            <div className="h-3 w-12 chidi-skeleton" />
+            <div className="h-9 w-full chidi-skeleton" />
+          </div>
+        </div>
+        {/* Channels card skeleton */}
+        <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-5 lg:p-6">
+          <div className="h-2.5 w-20 chidi-skeleton mb-2" />
+          <div className="h-4 w-40 chidi-skeleton mb-5" />
+          <div className="space-y-4">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl chidi-skeleton" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-28 chidi-skeleton" />
+                  <div className="h-3 w-44 chidi-skeleton" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -389,7 +422,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   {businessName}
                 </p>
                 <p className="text-[12px] text-[var(--chidi-text-muted)] truncate">
-                  Shown to customers and across the app.
+                  Shown to customers.
                 </p>
               </div>
             </div>
@@ -421,7 +454,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                     onClick={handleSaveAccount}
                     disabled={updateAccountMutation.isPending}
                     size="sm"
-                    className="btn-cta"
+                    className="btn-cta min-h-[44px] sm:min-h-0"
                   >
                     {updateAccountMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                     Save
@@ -474,7 +507,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   <div className="min-w-0">
                     <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Instagram</p>
                     <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-                      DM commerce on the way.
+                      Coming soon
                     </p>
                   </div>
                 </div>
@@ -500,7 +533,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   <ScrollText className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
                   <div>
                     <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Business policies</p>
-                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">FAQs, returns, and rules that shape my replies</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">FAQs, returns, rules</p>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
@@ -514,7 +547,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   <Brain className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
                   <div>
                     <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Memory</p>
-                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Things I've learned from your conversations</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">What I've learned</p>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
@@ -553,7 +586,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                       No payment details yet
                     </p>
                     <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-                      Add a bank account or mobile money so I can share it with customers.
+                      Add bank or mobile money.
                     </p>
                   </>
                 )}
@@ -577,7 +610,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   Export everything
                 </p>
                 <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-                  Customers, orders, products, conversations. CSV bundle.
+                  CSV bundle.
                 </p>
               </div>
             </div>
@@ -595,7 +628,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               <div className="px-1 py-3 flex items-center justify-between">
                 <div className="min-w-0 pr-3">
                   <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Stock alerts</p>
-                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Get notified when items are low</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">When items run low</p>
                 </div>
                 <Switch
                   checked={notificationForm.stock_alerts}
@@ -607,7 +640,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                 <div className="flex items-center justify-between mb-2.5">
                   <div>
                     <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Low-stock threshold</p>
-                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Alert when stock falls to this level</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Alert level</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -625,7 +658,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                       onClick={handleSaveLowStockThreshold}
                       disabled={updateBizPreferencesMutation.isPending}
                       size="sm"
-                      className="ml-auto btn-cta"
+                      className="ml-auto btn-cta min-h-[44px] sm:min-h-0"
                     >
                       {updateBizPreferencesMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                       Save
@@ -637,7 +670,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               <div className="px-1 py-3 flex items-center justify-between border-t border-[var(--chidi-border-subtle)]">
                 <div className="min-w-0 pr-3">
                   <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">New messages</p>
-                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Customer inquiries and orders</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Inquiries and orders</p>
                 </div>
                 <Switch
                   checked={notificationForm.order_updates}
@@ -648,7 +681,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               <div className="px-1 py-3 flex items-center justify-between border-t border-[var(--chidi-border-subtle)]">
                 <div className="min-w-0 pr-3">
                   <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Morning brief</p>
-                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">A daily summary before you open the app</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Daily summary</p>
                 </div>
                 <Switch
                   checked={notificationForm.daily_summary}
@@ -670,7 +703,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                 <Shield className="w-4 h-4 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
                 <div>
                   <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Change password</p>
-                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Update your account password</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Update password</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
@@ -710,7 +743,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
           <DialogHeader>
             <DialogTitle>Product Categories</DialogTitle>
             <DialogDescription>
-              Manage your inventory categories for better organization
+              Organize your inventory.
             </DialogDescription>
           </DialogHeader>
           <CategorySettings />
@@ -726,7 +759,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               Change Password
             </DialogTitle>
             <DialogDescription>
-              Update your password to keep your account secure
+              Keep your account secure.
             </DialogDescription>
           </DialogHeader>
           
@@ -787,17 +820,17 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setShowSecurityModal(false)}
-                className="border-[var(--chidi-border-default)]"
+                className="border-[var(--chidi-border-default)] min-h-[44px]"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleChangePassword}
                 disabled={changePasswordMutation.isPending || !passwordForm.currentPassword || !passwordForm.newPassword}
-                className="btn-cta"
+                className="btn-cta min-h-[44px]"
               >
                 {changePasswordMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Change Password
@@ -816,14 +849,14 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               Business Hours
             </DialogTitle>
             <DialogDescription>
-              Set your operating hours to let customers know when you're available
+              When you're open.
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 pt-2 max-h-[60vh] overflow-y-auto">
             {(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const).map((day) => (
-              <div key={day} className="flex items-center gap-3 p-3 bg-[var(--chidi-surface)] rounded-lg">
-                <div className="w-24">
+              <div key={day} className="flex flex-wrap items-center gap-3 p-3 bg-[var(--chidi-surface)] rounded-lg">
+                <div className="w-20 sm:w-24">
                   <span className="text-sm font-medium text-[var(--chidi-text-primary)] capitalize">{day}</span>
                 </div>
 
@@ -874,20 +907,20 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-[var(--chidi-border-subtle)]">
-            <Button 
+            <Button
               variant="outline"
               onClick={() => setShowBusinessHoursModal(false)}
-              className="border-[var(--chidi-border-default)]"
+              className="border-[var(--chidi-border-default)] min-h-[44px]"
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={() => {
                 setSuccess("Business hours saved")
                 setShowBusinessHoursModal(false)
                 setTimeout(() => setSuccess(""), 3000)
               }}
-              className="btn-cta"
+              className="btn-cta min-h-[44px]"
             >
               Save Hours
             </Button>
@@ -904,14 +937,14 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               Business Policies
             </DialogTitle>
             <DialogDescription>
-              Manage FAQs and business rules your AI assistant follows
+              FAQs and rules I follow.
             </DialogDescription>
           </DialogHeader>
           {businessId ? (
             <PolicySettings businessId={businessId} />
           ) : (
-            <div className="py-8 text-center text-[var(--chidi-text-muted)]">
-              No business selected. Please set up your business first.
+            <div className="py-8 text-center text-[var(--chidi-text-muted)] text-sm">
+              Set up your business first.
             </div>
           )}
         </DialogContent>
@@ -926,14 +959,14 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               AI Memory
             </DialogTitle>
             <DialogDescription>
-              Browse and manage what your AI assistant remembers about your business
+              What I remember.
             </DialogDescription>
           </DialogHeader>
           {businessId ? (
             <MemorySettings businessId={businessId} />
           ) : (
-            <div className="py-8 text-center text-[var(--chidi-text-muted)]">
-              No business selected. Please set up your business first.
+            <div className="py-8 text-center text-[var(--chidi-text-muted)] text-sm">
+              Set up your business first.
             </div>
           )}
         </DialogContent>
@@ -948,7 +981,7 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
               Payment Settings
             </DialogTitle>
             <DialogDescription>
-              Set up your bank details to receive payments from customers
+              Where customers pay you.
             </DialogDescription>
           </DialogHeader>
           
@@ -998,22 +1031,22 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                 placeholder="e.g., Use your name as payment reference"
               />
               <p className="text-xs text-[var(--chidi-text-muted)]">
-                Additional instructions shown to customers when making payment
+                Shown to customers at payment.
               </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button 
+              <Button
                 variant="outline"
                 onClick={() => setShowPaymentModal(false)}
-                className="border-[var(--chidi-border-default)]"
+                className="border-[var(--chidi-border-default)] min-h-[44px]"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleSavePaymentSettings}
                 disabled={updatePaymentMutation.isPending || !paymentForm.bank_name || !paymentForm.account_name || !paymentForm.account_number}
-                className="btn-cta"
+                className="btn-cta min-h-[44px]"
               >
                 {updatePaymentMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Save Payment Details

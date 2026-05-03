@@ -314,9 +314,6 @@ export function CopilotView({
                 </Button>
               </div>
             </div>
-            <p className="text-xs text-[var(--chidi-text-muted)] text-center mt-2 font-chidi-voice">
-              Hold the mic to speak. I draw from your inventory, orders, and conversations.
-            </p>
           </form>
         </div>
 

@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Onboarding } from '@/components/chidi/onboarding'
+import { ChidiLoader } from '@/components/chidi/chidi-loader'
 import { authAPI } from '@/lib/api'
 import type { User } from '@/lib/api'
-import { Loader2 } from 'lucide-react'
 import { EmailVerificationPending } from '@/components/auth/email-verification-pending'
 
 export default function OnboardingPage() {
@@ -64,11 +64,8 @@ export default function OnboardingPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
-          <p className="text-[var(--chidi-text-muted)]">Loading...</p>
-        </div>
+      <div className="min-h-[100dvh] bg-[var(--background)] flex items-center justify-center p-4">
+        <ChidiLoader context="general" size="lg" />
       </div>
     )
   }

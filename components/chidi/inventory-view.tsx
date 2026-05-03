@@ -508,8 +508,8 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             title={searchQuery ? "Nothing matched that." : "Let's stock the shop."}
             description={
               searchQuery
-                ? "Try a different search term or clear the filter."
-                : "Add the products you sell. The more I know about them, the better I can answer your customers."
+                ? "Try a different search or clear the filter."
+                : "Add the products you sell."
             }
             action={
               !searchQuery && (
@@ -528,7 +528,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             {/* First product hint */}
             {showFirstProductHint && products.length > 0 && (
               <HintBanner onDismiss={dismissFirstProductHint}>
-                Your AI can now answer customer questions about your products.
+                Chidi can now answer customer questions about these products.
               </HintBanner>
             )}
             

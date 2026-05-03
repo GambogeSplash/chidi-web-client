@@ -127,8 +127,30 @@ export function MemorySettings({ businessId }: MemorySettingsProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--chidi-text-muted)]" />
+      <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading memory">
+        <div className="grid grid-cols-4 gap-1 p-1 bg-[var(--chidi-surface)] rounded-lg">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-7 chidi-skeleton" />
+          ))}
+        </div>
+        <div className="space-y-2 mt-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-white border border-[var(--chidi-border-subtle)] rounded-lg p-3 flex items-start gap-3"
+            >
+              <div className="w-8 h-8 rounded-lg chidi-skeleton flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3.5 w-3/4 chidi-skeleton" />
+                <div className="h-3 w-full chidi-skeleton" />
+                <div className="flex gap-2 mt-1">
+                  <div className="h-3 w-12 chidi-skeleton" />
+                  <div className="h-3 w-16 chidi-skeleton" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -189,6 +211,7 @@ export function MemorySettings({ businessId }: MemorySettingsProps) {
                     size="sm"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
+                    className="min-h-[44px] sm:min-h-0"
                   >
                     {loadingMore ? (
                       <>
@@ -297,13 +320,13 @@ function EmptyState({ activeTab }: { activeTab: 'all' | MemoryType }) {
   const getMessage = () => {
     switch (activeTab) {
       case 'episodic':
-        return 'No episodic memories yet. These are created from specific interactions and events.'
+        return 'No episodic memories yet.'
       case 'semantic':
-        return 'No semantic memories yet. These store general knowledge and facts about your business.'
+        return 'No semantic memories yet.'
       case 'procedural':
-        return 'No procedural memories yet. These capture how-to knowledge and patterns.'
+        return 'No procedural memories yet.'
       default:
-        return 'No memories stored yet. Memories are automatically created as you use Chidi.'
+        return 'No memories yet. They build as you use Chidi.'
     }
   }
 

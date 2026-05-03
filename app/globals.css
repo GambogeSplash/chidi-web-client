@@ -983,6 +983,20 @@ select:focus-visible {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* DetailPanel — right-side slide-in on desktop, bottom slide-up on mobile */
+@keyframes detailPanelFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes detailPanelSlideIn {
+  from { transform: translateX(24px); opacity: 0.7; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes detailPanelSlideUp {
+  from { transform: translateY(28px); opacity: 0.7; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
 /* === Polish-pass primitives (2026-05-03) =====================================
    Six low-level utilities every surface can lean on. Built once, reused
    everywhere so the app feels like one product instead of N pages.

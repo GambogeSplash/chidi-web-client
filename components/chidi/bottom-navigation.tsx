@@ -40,7 +40,7 @@ export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: Bot
                 onTabChange(item.id)
               }}
               className={cn(
-                "relative flex flex-col items-center justify-center flex-1 h-full px-2 transition-transform active:scale-[0.92]",
+                "relative flex flex-col items-center justify-center flex-1 h-full min-h-[44px] px-2 transition-transform active:scale-[0.92]",
                 "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40",
                 isActive
                   ? "text-[var(--chidi-win)]"
@@ -70,7 +70,7 @@ export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: Bot
               </span>
               <span
                 className={cn(
-                  "text-[10px] leading-tight font-chidi-voice",
+                  "text-[10px] leading-tight font-chidi-voice whitespace-nowrap max-w-full truncate",
                   isActive
                     ? "text-[var(--chidi-text-primary)] font-medium"
                     : "font-medium",

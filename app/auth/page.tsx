@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { AuthScreen } from '@/components/auth/auth-screen'
 import { ResetPassword } from '@/components/auth/reset-password'
 import { authAPI, type User } from '@/lib/api'
-import { Loader2 } from 'lucide-react'
 
 function AuthPageContent() {
   const router = useRouter()
@@ -131,10 +130,23 @@ function AuthPageContent() {
 
   if (isProcessingCallback) {
     return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
-          <p className="text-[var(--chidi-text-muted)]">Setting up your account...</p>
+      <div
+        className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4"
+        aria-busy="true"
+        aria-label="Setting up your account"
+      >
+        <div className="w-full max-w-md space-y-4">
+          <div className="flex flex-col items-center gap-3 mb-2">
+            <div className="w-16 h-16 rounded-full chidi-skeleton" />
+            <div className="h-4 w-48 chidi-skeleton" />
+            <div className="h-3 w-64 chidi-skeleton" />
+          </div>
+          <div className="space-y-3 pt-4 border-t border-[var(--chidi-border-subtle)]">
+            <div className="h-3 w-20 chidi-skeleton" />
+            <div className="h-12 w-full chidi-skeleton" />
+            <div className="h-3 w-20 chidi-skeleton" />
+            <div className="h-12 w-full chidi-skeleton" />
+          </div>
         </div>
       </div>
     )
@@ -194,10 +206,23 @@ function AuthPageContent() {
 export default function AuthPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin mx-auto mb-4" />
-          <p className="text-[var(--chidi-text-muted)]">Loading...</p>
+      <div
+        className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4"
+        aria-busy="true"
+        aria-label="Loading"
+      >
+        <div className="w-full max-w-md space-y-4">
+          <div className="flex flex-col items-center gap-3 mb-2">
+            <div className="w-16 h-16 rounded-full chidi-skeleton" />
+            <div className="h-4 w-48 chidi-skeleton" />
+          </div>
+          <div className="space-y-3 pt-4">
+            <div className="h-3 w-20 chidi-skeleton" />
+            <div className="h-12 w-full chidi-skeleton" />
+            <div className="h-3 w-20 chidi-skeleton" />
+            <div className="h-12 w-full chidi-skeleton" />
+            <div className="h-12 w-full chidi-skeleton mt-2" />
+          </div>
         </div>
       </div>
     }>

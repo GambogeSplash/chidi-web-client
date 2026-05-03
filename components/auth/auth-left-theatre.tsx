@@ -201,7 +201,7 @@ export function AuthLeftTheatre() {
 
       {/* Caption underneath */}
       <p className="text-center mt-4 text-xs text-[var(--chidi-text-muted)] font-chidi-voice">
-        Live preview. This is what Chidi does, all day.
+        Live preview.
       </p>
     </div>
   )

@@ -28,8 +28,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { WhatsAppIcon } from '@/components/ui/channel-icons'
-import { 
-  whatsappAPI, 
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  whatsappAPI,
   type WhatsAppStatus
 } from '@/lib/api/whatsapp'
 import { WhatsAppConnectDialog } from './whatsapp-connect-dialog'
@@ -109,8 +110,8 @@ export function WhatsAppSettings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="w-5 h-5 animate-spin text-[var(--chidi-text-muted)]" />
+      <div className="w-full" aria-busy>
+        <Skeleton className="h-[60px] w-full rounded-lg" />
       </div>
     )
   }
@@ -236,7 +237,6 @@ export function WhatsAppSettings() {
           <DialogHeader>
             <DialogTitle className="text-[var(--chidi-text-primary)]">Disconnect WhatsApp?</DialogTitle>
             <DialogDescription className="text-[var(--chidi-text-secondary)]">
-              This will disconnect your WhatsApp Business number from Chidi. 
               All conversation history will be deleted.
             </DialogDescription>
           </DialogHeader>

@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
   DialogContent,
@@ -195,7 +196,7 @@ export function WhatsAppConnectDialog({
             <DialogHeader>
               <DialogTitle className="text-[var(--chidi-text-primary)]">Connect WhatsApp Business</DialogTitle>
               <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                Connect your WhatsApp Business account to start receiving and responding to customer messages.
+                Authorize via Meta to start receiving messages.
               </DialogDescription>
             </DialogHeader>
             <div className="py-6">
@@ -207,8 +208,7 @@ export function WhatsAppConnectDialog({
                   Meta Embedded Signup
                 </h3>
                 <p className="text-sm text-[var(--chidi-text-secondary)] max-w-sm mb-4">
-                  You'll be redirected to Meta to authorize your WhatsApp Business account. 
-                  This is a secure process that lets Chidi send and receive messages on your behalf.
+                  Meta will open in a popup. Once authorized, Chidi can reply on your behalf.
                 </p>
                 <div className="bg-[var(--chidi-surface)] rounded-lg p-3 w-full text-left">
                   <p className="text-xs font-medium text-[var(--chidi-text-muted)] mb-2">What you'll need:</p>
@@ -240,16 +240,25 @@ export function WhatsAppConnectDialog({
         )
 
       case 'launching':
+        // Content-shaped skeleton matching the upcoming "confirm" form
         return (
           <>
             <DialogHeader>
-              <DialogTitle className="text-[var(--chidi-text-primary)]">Connecting to Meta...</DialogTitle>
+              <DialogTitle className="text-[var(--chidi-text-primary)]">Connecting to Meta…</DialogTitle>
+              <DialogDescription className="text-[var(--chidi-text-secondary)]">
+                Complete the popup to continue.
+              </DialogDescription>
             </DialogHeader>
-            <div className="py-12 flex flex-col items-center">
-              <Loader2 className="w-10 h-10 animate-spin text-[#25D366] mb-4" />
-              <p className="text-sm text-[var(--chidi-text-secondary)]">
-                Complete the authorization in the popup window
-              </p>
+            <div className="space-y-4 py-4" aria-busy>
+              <Skeleton className="h-12 w-full rounded-lg bg-green-50" />
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="h-9 w-full" />
+              </div>
             </div>
           </>
         )
@@ -260,7 +269,7 @@ export function WhatsAppConnectDialog({
             <DialogHeader>
               <DialogTitle className="text-[var(--chidi-text-primary)]">Confirm Your Details</DialogTitle>
               <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                Enter your WhatsApp Business phone number and display name.
+                Phone number and display name.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -321,16 +330,22 @@ export function WhatsAppConnectDialog({
         )
 
       case 'completing':
+        // Skeleton matches the upcoming "polling" status panel shape
         return (
           <>
             <DialogHeader>
-              <DialogTitle className="text-[var(--chidi-text-primary)]">Setting Up WhatsApp...</DialogTitle>
+              <DialogTitle className="text-[var(--chidi-text-primary)]">Setting up WhatsApp…</DialogTitle>
             </DialogHeader>
-            <div className="py-12 flex flex-col items-center">
-              <Loader2 className="w-10 h-10 animate-spin text-[#25D366] mb-4" />
-              <p className="text-sm text-[var(--chidi-text-secondary)]">
-                Creating your WhatsApp Business connection...
-              </p>
+            <div className="py-8 space-y-6" aria-busy>
+              <div className="flex flex-col items-center space-y-4">
+                <Skeleton className="w-16 h-16 rounded-full" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-2 w-full max-w-xs" />
+              </div>
+              <div className="bg-[var(--chidi-surface)] rounded-lg p-3 space-y-2">
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
             </div>
           </>
         )
@@ -340,9 +355,9 @@ export function WhatsAppConnectDialog({
         return (
           <>
             <DialogHeader>
-              <DialogTitle className="text-[var(--chidi-text-primary)]">Registering WhatsApp Sender...</DialogTitle>
+              <DialogTitle className="text-[var(--chidi-text-primary)]">Registering WhatsApp Sender…</DialogTitle>
               <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                This may take a minute. Please wait while we complete the registration.
+                This may take a minute.
               </DialogDescription>
             </DialogHeader>
             <div className="py-8 space-y-6">
@@ -387,7 +402,7 @@ export function WhatsAppConnectDialog({
                 WhatsApp Connected!
               </h3>
               <p className="text-sm text-[var(--chidi-text-secondary)] max-w-xs mb-4">
-                Your WhatsApp Business number is ready to receive messages from customers.
+                Your number is ready to receive messages.
               </p>
               <div className="bg-[var(--chidi-surface)] rounded-lg p-3 w-full mb-4">
                 <p className="text-xs text-[var(--chidi-text-muted)] mb-1">Connected number</p>
@@ -456,7 +471,7 @@ export function WhatsAppConnectDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white border-[var(--chidi-border-subtle)] sm:max-w-md">
+      <DialogContent className="bg-white border-[var(--chidi-border-subtle)] mx-3 sm:mx-auto sm:max-w-md">
         {renderContent()}
       </DialogContent>
     </Dialog>

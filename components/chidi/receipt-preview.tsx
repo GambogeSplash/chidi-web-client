@@ -247,11 +247,11 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
         </div>
 
         {/* Action bar — outside the receipt itself */}
-        <div className="flex items-center justify-between gap-2 mt-3 print:hidden">
-          <p className="text-[11px] text-white/85 font-sans">
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-3 print:hidden">
+          <p className="text-[11px] text-white/85 font-sans flex-shrink-0">
             This is what your customer sees.
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"

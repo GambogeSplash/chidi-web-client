@@ -121,7 +121,7 @@ export function SetupStatus({ onJumpToSection }: SetupStatusProps) {
               <button
                 key={item.id}
                 onClick={() => handleJump(item.id)}
-                className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--chidi-border-default)] bg-[var(--chidi-surface)] hover:bg-white text-[12px] font-chidi-voice text-[var(--chidi-text-primary)] transition-colors active:scale-[0.98]"
+                className="group inline-flex items-center gap-2 px-3 py-1.5 min-h-[44px] sm:min-h-0 rounded-full border border-[var(--chidi-border-default)] bg-[var(--chidi-surface)] hover:bg-white text-[12px] font-chidi-voice text-[var(--chidi-text-primary)] transition-colors active:scale-[0.98]"
                 title={item.sub}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-warning)]" />

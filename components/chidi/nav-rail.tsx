@@ -140,20 +140,27 @@ export function NavRail({
             const isChidi = tab.icon === "chidi-mark"
             const Icon = isChidi ? null : (tab.icon as LucideIcon)
             const count = tabCounts[tab.id] ?? 0
+            // Mid-onboarding (no slug yet) → primary tabs route to nothing.
+            // Disable so we don't surface a dead nav.
+            const disabled = !slug
             return (
               <li key={tab.id}>
                 <button
                   onClick={() => {
+                    if (disabled) return
                     if ((isOnNotebook || isOnSettings) && slug) {
                       router.push(`/dashboard/${slug}`)
                     }
                     onTabChange(tab.id)
                   }}
-                  title={collapsed ? tab.label : undefined}
+                  disabled={disabled}
+                  aria-disabled={disabled}
+                  title={collapsed ? tab.label : disabled ? "Finish setup to enable" : undefined}
                   className={cn(
                     "group relative w-full flex items-center rounded-lg text-[13px] font-chidi-voice transition-colors active:scale-[0.98]",
                     "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40",
                     collapsed ? "justify-center py-2" : "gap-3 px-2.5 py-1.5",
+                    disabled && "opacity-40 cursor-not-allowed pointer-events-none",
                     isActive
                       ? "bg-[var(--chidi-surface)] text-[var(--chidi-text-primary)] font-medium"
                       : "text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]/60 hover:text-[var(--chidi-text-primary)]",

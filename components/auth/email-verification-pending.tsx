@@ -166,7 +166,7 @@ export function EmailVerificationPending({ email, onBackToSignIn }: EmailVerific
         </form>
       ) : (
         <p className="text-sm text-[var(--chidi-text-muted)] mb-6 font-chidi-voice text-center lg:text-left">
-          Click the link in the email to verify your account and continue.
+          Click the link to verify and continue.
         </p>
       )}
 
@@ -203,7 +203,7 @@ export function EmailVerificationPending({ email, onBackToSignIn }: EmailVerific
 
         <button
           onClick={onBackToSignIn}
-          className="flex items-center justify-center gap-2 w-full py-2.5 text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] font-chidi-voice transition-colors"
+          className="flex items-center justify-center gap-2 w-full min-h-[44px] py-2.5 text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] font-chidi-voice transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to sign in

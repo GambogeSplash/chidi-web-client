@@ -122,14 +122,11 @@ export function OrdersSmart({
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-warning)]" />
             <p className="ty-meta text-[var(--chidi-warning)]">Need your attention</p>
           </div>
-          <h3 className="ty-section text-[var(--chidi-text-primary)]">
+          <h3 className="ty-section text-[var(--chidi-text-primary)] mb-3">
             {grouped.needsAttention.length === 1
-              ? "1 order is waiting on payment."
-              : `${grouped.needsAttention.length} orders are waiting on payment.`}
+              ? "1 order waiting on payment"
+              : `${grouped.needsAttention.length} orders waiting on payment`}
           </h3>
-          <p className="ty-body-voice text-[var(--chidi-text-secondary)] mt-1 mb-3">
-            Confirm payment when it lands. I'll let the customer know.
-          </p>
           <div className="space-y-2">
             {grouped.needsAttention.map((order) => (
               <SmartOrderCard
@@ -152,10 +149,9 @@ export function OrdersSmart({
             eyebrow="In progress"
             title={
               grouped.inProgress.length === 1
-                ? "1 order ready to ship."
-                : `${grouped.inProgress.length} orders ready to ship.`
+                ? "1 order ready to ship"
+                : `${grouped.inProgress.length} orders ready to ship`
             }
-            description="Mark fulfilled once it's on its way."
           >
             <div className="space-y-2">
               {grouped.inProgress.map((order) => (
@@ -219,7 +215,7 @@ export function OrdersSmart({
         <div className="text-center py-16">
           <ChidiMark size={32} variant="muted" className="mx-auto mb-4" />
           <p className="ty-body-voice text-[var(--chidi-text-secondary)]">
-            No orders to show. When customers commit, I'll capture them here.
+            No orders yet.
           </p>
         </div>
       )}
@@ -577,10 +573,7 @@ function FilteredView({ filter, grouped, onOpenOrder, onOpenConversation, onFulf
     return (
       <div className="max-w-4xl mx-auto w-full px-4 lg:px-6 py-12 text-center">
         <p className="ty-meta mb-1.5">{copy.eyebrow}</p>
-        <h3 className="ty-section text-[var(--chidi-text-primary)] mb-2">{copy.empty}</h3>
-        <p className="ty-body-voice text-[var(--chidi-text-muted)]">
-          When something matches this filter, it'll show up here.
-        </p>
+        <h3 className="ty-section text-[var(--chidi-text-primary)]">{copy.empty}</h3>
       </div>
     )
   }

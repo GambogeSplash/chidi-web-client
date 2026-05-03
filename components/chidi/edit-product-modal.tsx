@@ -250,7 +250,7 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError, on
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-white border border-[var(--chidi-border-default)] rounded-xl shadow-xl flex flex-col">
+      <div className="relative w-full max-w-md mx-3 sm:mx-4 max-h-[90vh] bg-white border border-[var(--chidi-border-default)] rounded-xl shadow-xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
           <div className="flex items-center gap-3">
@@ -568,8 +568,8 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError, on
                       <ImageIcon className="w-6 h-6 text-[var(--chidi-text-muted)]" />
                     </div>
                     <div>
-                      <p className="text-sm text-[var(--chidi-text-secondary)]">Click to upload or drag and drop</p>
-                      <p className="text-xs text-[var(--chidi-text-muted)] mt-1">PNG, JPG, WEBP up to 5MB</p>
+                      <p className="text-sm text-[var(--chidi-text-secondary)]">Drop a photo, or click to upload</p>
+                      <p className="text-xs text-[var(--chidi-text-muted)] mt-1">PNG, JPG, WEBP · up to 5MB</p>
                     </div>
                   </div>
                 </div>

@@ -28,7 +28,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
   categoriesAPI, 
   type ProductCategory, 
@@ -262,8 +261,29 @@ export function CategorySettings() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--chidi-text-muted)]" />
+      <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading categories">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-4 w-40 chidi-skeleton" />
+            <div className="h-3 w-64 chidi-skeleton" />
+          </div>
+          <div className="h-9 w-32 chidi-skeleton" />
+        </div>
+        <div className="space-y-2 pt-2">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 p-3 rounded-lg border border-[var(--chidi-border-subtle)]"
+            >
+              <div className="w-3 h-8 chidi-skeleton" />
+              <div className="w-10 h-10 rounded-lg chidi-skeleton" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3.5 w-32 chidi-skeleton" />
+                <div className="h-3 w-48 chidi-skeleton" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -272,10 +292,18 @@ export function CategorySettings() {
     <div className="space-y-6">
       {/* Status Messages */}
       {error && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span className="flex-1 text-sm">{error}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={loadCategories}
+            className="text-red-700 hover:text-red-800 h-7 px-2"
+          >
+            Try again
+          </Button>
+        </div>
       )}
       
       {success && (
@@ -286,14 +314,14 @@ export function CategorySettings() {
       )}
 
       <Card className="bg-white border-[var(--chidi-border-subtle)]">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-2 space-y-0 pb-4">
           <div>
             <CardTitle className="text-[var(--chidi-text-primary)] flex items-center gap-2">
               <Folder className="w-5 h-5" />
               Product Categories
             </CardTitle>
             <CardDescription className="text-[var(--chidi-text-muted)] mt-1">
-              Organize your products into categories. These are used for filtering and SKU generation.
+              For filtering and SKUs.
             </CardDescription>
           </div>
           <Button
@@ -301,7 +329,7 @@ export function CategorySettings() {
               resetForm()
               setShowAddDialog(true)
             }}
-            className="btn-cta"
+            className="btn-cta min-h-[44px] sm:min-h-0 sm:self-auto self-start"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Category
@@ -399,7 +427,7 @@ export function CategorySettings() {
           <DialogHeader>
             <DialogTitle className="text-[var(--chidi-text-primary)]">Add Category</DialogTitle>
             <DialogDescription className="text-[var(--chidi-text-secondary)]">
-              Create a new product category for your inventory.
+              New product category.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -452,7 +480,7 @@ export function CategorySettings() {
                 className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] uppercase font-mono"
               />
               <p className="text-xs text-[var(--chidi-text-muted)]">
-                3-4 letter code used in product SKUs (e.g., ELC for Electronics → SKU: BUS-ELC-0001)
+                3-4 letters used in SKUs (e.g., ELC → BUS-ELC-0001).
               </p>
             </div>
           </div>
@@ -460,14 +488,14 @@ export function CategorySettings() {
             <Button
               variant="outline"
               onClick={() => setShowAddDialog(false)}
-              className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)]"
+              className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)] min-h-[44px]"
             >
               Cancel
             </Button>
             <Button
               onClick={handleAddCategory}
               disabled={isSaving || !formData.name.trim()}
-              className="btn-cta"
+              className="btn-cta min-h-[44px]"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Add Category
@@ -482,7 +510,7 @@ export function CategorySettings() {
           <DialogHeader>
             <DialogTitle className="text-[var(--chidi-text-primary)]">Edit Category</DialogTitle>
             <DialogDescription className="text-[var(--chidi-text-secondary)]">
-              Update the category details.
+              Update details.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -535,7 +563,7 @@ export function CategorySettings() {
                 className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] uppercase font-mono"
               />
               <p className="text-xs text-[var(--chidi-text-muted)]">
-                Changing this will not affect existing product SKUs.
+                Existing SKUs unchanged.
               </p>
             </div>
           </div>
@@ -543,14 +571,14 @@ export function CategorySettings() {
             <Button
               variant="outline"
               onClick={() => setShowEditDialog(false)}
-              className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)]"
+              className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)] min-h-[44px]"
             >
               Cancel
             </Button>
             <Button
               onClick={handleEditCategory}
               disabled={isSaving || !formData.name.trim()}
-              className="btn-cta"
+              className="btn-cta min-h-[44px]"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Save Changes
@@ -582,7 +610,7 @@ export function CategorySettings() {
             <Button
               variant="outline"
               onClick={() => setShowDeleteDialog(false)}
-              className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)]"
+              className="border-[var(--chidi-border-subtle)] text-[var(--chidi-text-secondary)] min-h-[44px]"
             >
               Cancel
             </Button>
@@ -590,7 +618,7 @@ export function CategorySettings() {
               variant="destructive"
               onClick={handleDeleteCategory}
               disabled={isSaving}
-              className="bg-[var(--chidi-danger)] text-[var(--chidi-danger-foreground)] hover:bg-[var(--chidi-danger)]/90"
+              className="bg-[var(--chidi-danger)] text-[var(--chidi-danger-foreground)] hover:bg-[var(--chidi-danger)]/90 min-h-[44px]"
             >
               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Delete Category

@@ -241,9 +241,6 @@ export default function PlaybookPage() {
           </div>
         )}
 
-        <p className="text-[11px] text-[var(--chidi-text-muted)] text-center pt-6">
-          Plays are mine to run, yours to direct. Open any in the sandbox to rehearse before committing.
-        </p>
       </ChidiPage>
 
       {/* Sandbox sheet — opens when handleRunPlay is called from the featured

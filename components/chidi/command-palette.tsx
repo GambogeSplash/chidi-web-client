@@ -18,6 +18,7 @@ import {
   Quote as QuoteIcon,
 } from "lucide-react"
 import type { TabId } from "./bottom-navigation"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { ChidiMark, ChidiCharacter } from "./chidi-mark"
 import { CustomerCharacter } from "./customer-character"
@@ -194,9 +195,17 @@ export function CommandPalette({ onTabChange, onAddProduct }: CommandPaletteProp
       )}
 
       {open && (
-        <div className="fixed left-1/2 top-[12vh] -translate-x-1/2 z-[101] w-full max-w-[640px] px-4 animate-in fade-in slide-in-from-top-4 duration-200">
+        <div
+          className={cn(
+            // Mobile: full-screen sheet anchored to bottom safe area, slides
+            // up from bottom. Desktop (sm+): centered modal at the top third.
+            "fixed z-[101] animate-in duration-200",
+            "inset-x-0 bottom-0 top-0 sm:top-[12vh] sm:bottom-auto sm:left-1/2 sm:right-auto sm:inset-x-auto sm:-translate-x-1/2 sm:w-full sm:max-w-[640px] sm:px-4",
+            "fade-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:slide-in-from-top-4",
+          )}
+        >
           <Command
-            className="bg-[var(--card)] rounded-2xl shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] border border-[var(--chidi-border-subtle)] overflow-hidden chidi-paper"
+            className="bg-[var(--card)] sm:rounded-2xl rounded-t-2xl shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] border-t border-l-0 border-r-0 border-b-0 sm:border sm:border-[var(--chidi-border-subtle)] border-[var(--chidi-border-subtle)] overflow-hidden chidi-paper h-full sm:h-auto flex flex-col safe-area-bottom"
             shouldFilter={hasQuery}
           >
             {/* Input row — Chidi's reactive blob is the surface's identity */}
@@ -214,7 +223,7 @@ export function CommandPalette({ onTabChange, onAddProduct }: CommandPaletteProp
               </kbd>
             </div>
 
-            <Command.List className="max-h-[440px] overflow-y-auto p-2 relative z-[2]">
+            <Command.List className="flex-1 sm:flex-none sm:max-h-[440px] overflow-y-auto p-2 relative z-[2]">
               {/* Pinned: Ask Chidi about the current query */}
               {hasQuery && (
                 <Command.Group className="mb-2">

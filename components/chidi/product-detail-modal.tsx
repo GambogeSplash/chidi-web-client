@@ -88,7 +88,7 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 max-h-[90vh] bg-white border border-[var(--chidi-border-default)] rounded-xl shadow-xl flex flex-col">
+      <div className="relative w-full max-w-md mx-3 sm:mx-4 max-h-[90vh] bg-white border border-[var(--chidi-border-default)] rounded-xl shadow-xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--chidi-border-subtle)]">
           <div className="flex items-center gap-3">

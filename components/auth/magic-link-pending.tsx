@@ -52,7 +52,7 @@ export function MagicLinkPending({ email, onBackToSignIn }: MagicLinkPendingProp
           </p>
 
           <p className="text-sm text-[var(--chidi-text-muted)] mb-8">
-            Click the link in the email to sign in instantly — no password needed.
+            Click the link to sign in. No password needed.
           </p>
 
           {resendSuccess && (
@@ -96,7 +96,7 @@ export function MagicLinkPending({ email, onBackToSignIn }: MagicLinkPendingProp
 
           <div className="mt-8 pt-6 border-t border-[var(--chidi-border-default)]">
             <p className="text-xs text-[var(--chidi-text-muted)]">
-              Didn't receive the email? Check your spam folder or try resending.
+              Didn't get it? Check spam or hit resend.
             </p>
           </div>
         </div>

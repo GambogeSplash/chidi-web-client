@@ -320,13 +320,24 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--chidi-surface)]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[var(--chidi-surface)]">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-6 h-6 animate-spin text-[var(--chidi-accent)]" />
+          <div className="space-y-3" aria-label="Loading messages">
+            {[
+              { side: 'left', w: 'w-2/3' },
+              { side: 'right', w: 'w-1/2' },
+              { side: 'left', w: 'w-3/4' },
+              { side: 'right', w: 'w-1/3' },
+              { side: 'left', w: 'w-1/2' },
+              { side: 'right', w: 'w-2/3' },
+            ].map((row, i) => (
+              <div key={i} className={cn('flex', row.side === 'right' ? 'justify-end' : 'justify-start')}>
+                <div className={cn('chidi-skeleton h-9 rounded-md', row.w)} />
+              </div>
+            ))}
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-[var(--chidi-text-muted)]">
+          <div className="flex items-center justify-center h-full text-[var(--chidi-text-muted)] text-sm font-chidi-voice">
             No messages yet
           </div>
         ) : (
@@ -577,9 +588,6 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
             )}
           </Button>
         </div>
-        <p className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice mt-2 text-right">
-          Sending via {channelInfo?.name || 'connected channel'}
-        </p>
       </div>
       </div>
 

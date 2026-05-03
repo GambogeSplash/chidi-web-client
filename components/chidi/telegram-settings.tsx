@@ -37,8 +37,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { TelegramIcon } from '@/components/ui/channel-icons'
-import { 
-  messagingAPI, 
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  messagingAPI,
   type ConnectionStatusResponse
 } from '@/lib/api/messaging'
 
@@ -142,8 +143,8 @@ export function TelegramSettings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <Loader2 className="w-5 h-5 animate-spin text-[var(--chidi-text-muted)]" />
+      <div className="w-full" aria-busy>
+        <Skeleton className="h-[60px] w-full rounded-lg" />
       </div>
     )
   }
@@ -194,7 +195,7 @@ export function TelegramSettings() {
                     Telegram Connected!
                   </h3>
                   <p className="text-sm text-[var(--chidi-text-secondary)] max-w-xs mb-4">
-                    Your bot is ready to receive messages. Share your bot link with customers to start conversations.
+                    Your bot is ready to receive messages.
                   </p>
                   <div className="bg-[var(--chidi-surface)] rounded-lg p-3 w-full mb-4">
                     <p className="text-xs text-[var(--chidi-text-muted)] mb-1">Next step</p>
@@ -220,7 +221,7 @@ export function TelegramSettings() {
                 <DialogHeader>
                   <DialogTitle className="text-[var(--chidi-text-primary)]">Connect Telegram</DialogTitle>
                   <DialogDescription className="text-[var(--chidi-text-secondary)]">
-                    Enter your Telegram bot token to start receiving messages.
+                    Paste your bot token to connect.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -365,7 +366,6 @@ export function TelegramSettings() {
           <DialogHeader>
             <DialogTitle className="text-[var(--chidi-text-primary)]">Disconnect Telegram?</DialogTitle>
             <DialogDescription className="text-[var(--chidi-text-secondary)]">
-              This will disconnect your Telegram bot from Chidi. 
               All conversation history will be deleted.
             </DialogDescription>
           </DialogHeader>

@@ -68,7 +68,7 @@ export function ForgotPassword({ onBackToSignIn }: ForgotPasswordProps) {
             </p>
 
             <p className="text-sm text-[var(--chidi-text-muted)] mb-8">
-              You'll receive a link to reset your password. The link will expire in 1 hour.
+              Reset link sent. Expires in 1 hour.
             </p>
 
             <Button
@@ -109,7 +109,7 @@ export function ForgotPassword({ onBackToSignIn }: ForgotPasswordProps) {
             </h1>
 
             <p className="text-[var(--chidi-text-secondary)] text-sm">
-              No worries! Enter your email and we'll send you a reset link.
+              Enter your email for a reset link.
             </p>
           </div>
 

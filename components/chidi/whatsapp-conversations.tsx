@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -195,8 +196,23 @@ export function WhatsAppConversations({ onConversationSelect }: WhatsAppConversa
 
       {/* Conversation List */}
       {loading ? (
-        <div className="flex items-center justify-center p-8">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+        <div className="space-y-2" aria-busy>
+          {/* Skeleton rows shaped like the conversation cards below */}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="bg-gray-900 border-gray-800">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <Skeleton className="w-10 h-10 rounded-full bg-gray-700" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-1/3 bg-gray-700" />
+                    <Skeleton className="h-3 w-1/4 bg-gray-700" />
+                    <Skeleton className="h-3 w-1/2 bg-gray-800" />
+                  </div>
+                  <Skeleton className="h-3 w-12 bg-gray-700" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : filteredConversations.length === 0 ? (
         <Card className="bg-gray-900 border-gray-800">
@@ -208,7 +224,7 @@ export function WhatsAppConversations({ onConversationSelect }: WhatsAppConversa
                 : 'No conversations yet'}
             </p>
             <p className="text-sm text-gray-500 text-center mt-1">
-              Conversations will appear here when customers message you on WhatsApp
+              They'll show up here when customers message you.
             </p>
           </CardContent>
         </Card>

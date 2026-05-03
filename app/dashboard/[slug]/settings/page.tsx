@@ -155,7 +155,7 @@ export default function SettingsPage() {
                 key={s.id}
                 onClick={() => switchSection(s.id)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-chidi-voice flex-shrink-0',
+                  'inline-flex items-center gap-1.5 px-3 min-h-[44px] py-2 rounded-full text-[12px] font-chidi-voice flex-shrink-0',
                   isActive
                     ? 'bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)]'
                     : 'bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border border-[var(--chidi-border-subtle)]',

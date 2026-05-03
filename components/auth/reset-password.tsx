@@ -104,7 +104,7 @@ export function ResetPassword({ accessToken, onSuccess, onError }: ResetPassword
             </h1>
 
             <p className="text-[var(--chidi-text-secondary)] mb-8">
-              Your password has been successfully reset. You can now sign in with your new password.
+              Password reset. Sign in to continue.
             </p>
 
             <Button
@@ -133,7 +133,7 @@ export function ResetPassword({ accessToken, onSuccess, onError }: ResetPassword
             </h1>
 
             <p className="text-[var(--chidi-text-secondary)] text-sm">
-              Create a strong password for your account
+              Pick a strong password.
             </p>
           </div>
 

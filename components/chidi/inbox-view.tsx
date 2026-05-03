@@ -64,7 +64,6 @@ import { buildVoiceContext, emptyInboxMood } from "@/lib/chidi/voice"
 import { CustomerCharacter } from "./customer-character"
 import { EmptyArt } from "./empty-art"
 import { EmptyState } from "./empty-state"
-import { ChidiLoader } from "./chidi-loader"
 import { PullToRefresh } from "./pull-to-refresh"
 
 interface InboxViewProps {
@@ -98,10 +97,11 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
   
   const hasAnyConnection = connections && connections.total > 0
   
-  const { 
-    data: conversationsData, 
-    isLoading: loadingConversations, 
-    isRefetching 
+  const {
+    data: conversationsData,
+    isLoading: loadingConversations,
+    isRefetching,
+    isError: conversationsError,
   } = useConversations(status, channel)
   
   const connectTelegram = useConnectTelegram()
@@ -276,7 +276,7 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
           <EmptyState
             art="inbox"
             title="Let's plug in your customers."
-            description="Connect WhatsApp or Telegram and I'll start handling customer messages, drafting replies, tracking orders, and flagging anything that needs you."
+            description="Connect WhatsApp or Telegram to start receiving messages."
             action={
               <div className="flex flex-col items-center gap-3">
                 <Button
@@ -564,10 +564,36 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
         disabled={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches}
       >
       <div className="flex-1 overflow-auto">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <ChidiLoader context="inbox" size="md" />
+        {conversationsError && !loading ? (
+          <div className="mx-4 lg:mx-6 mt-4 rounded-lg border border-[var(--chidi-warning)]/30 bg-[var(--chidi-warning)]/8 p-3 flex items-center justify-between gap-3">
+            <p className="text-[13px] text-[var(--chidi-text-primary)] font-chidi-voice">
+              Couldn't load conversations.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              className="h-8 px-3 text-[12px] font-chidi-voice text-[var(--chidi-text-primary)] hover:bg-white"
+            >
+              Try again
+            </Button>
           </div>
+        ) : null}
+        {loading ? (
+          <ul className="divide-y divide-[var(--chidi-border-subtle)]" aria-label="Loading conversations">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <li key={i} className="px-4 lg:px-6 py-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full chidi-skeleton flex-shrink-0" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="h-3 w-32 chidi-skeleton" />
+                    <div className="h-3 w-3/4 chidi-skeleton" />
+                  </div>
+                  <div className="h-3 w-12 chidi-skeleton flex-shrink-0 mt-1" />
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : sortedConversations.length === 0 ? (
           searchQuery ? (
             <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 lg:px-6">

@@ -177,8 +177,26 @@ export function PolicySettings({ businessId }: PolicySettingsProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--chidi-text-muted)]" />
+      <div className="space-y-3 py-2" aria-busy="true" aria-label="Loading policies">
+        <div className="grid grid-cols-2 gap-1 p-1 bg-[var(--chidi-surface)] rounded-lg">
+          <div className="h-8 chidi-skeleton" />
+          <div className="h-8 chidi-skeleton" />
+        </div>
+        <div className="flex items-center justify-between mt-4">
+          <div className="h-3 w-48 chidi-skeleton" />
+          <div className="h-8 w-20 chidi-skeleton" />
+        </div>
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] rounded-lg p-3 space-y-2"
+            >
+              <div className="h-3.5 w-2/3 chidi-skeleton" />
+              <div className="h-3 w-full chidi-skeleton" />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -186,8 +204,16 @@ export function PolicySettings({ businessId }: PolicySettingsProps) {
   return (
     <div className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+          <span className="flex-1">{error}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => loadPolicies()}
+            className="text-red-700 hover:text-red-800 h-7 px-2"
+          >
+            Try again
+          </Button>
         </div>
       )}
 
@@ -204,11 +230,11 @@ export function PolicySettings({ businessId }: PolicySettingsProps) {
         </TabsList>
 
         <TabsContent value="faqs" className="mt-4 space-y-3">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center gap-3">
             <p className="text-sm text-[var(--chidi-text-muted)]">
-              Common questions your AI can answer
+              Questions I can answer
             </p>
-            <Button size="sm" onClick={() => handleAddItem('FAQ')}>
+            <Button size="sm" onClick={() => handleAddItem('FAQ')} className="min-h-[44px] sm:min-h-0 flex-shrink-0">
               <Plus className="w-4 h-4 mr-1" />
               Add FAQ
             </Button>
@@ -235,11 +261,11 @@ export function PolicySettings({ businessId }: PolicySettingsProps) {
         </TabsContent>
 
         <TabsContent value="rules" className="mt-4 space-y-3">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center gap-3">
             <p className="text-sm text-[var(--chidi-text-muted)]">
-              Business rules and policies your AI follows
+              Rules I follow
             </p>
-            <Button size="sm" onClick={() => handleAddItem('RULE')}>
+            <Button size="sm" onClick={() => handleAddItem('RULE')} className="min-h-[44px] sm:min-h-0 flex-shrink-0">
               <Plus className="w-4 h-4 mr-1" />
               Add Rule
             </Button>
@@ -275,8 +301,8 @@ export function PolicySettings({ businessId }: PolicySettingsProps) {
             </DialogTitle>
             <DialogDescription>
               {formData.type === 'FAQ'
-                ? 'Add a question and answer your AI can use to help customers.'
-                : 'Add a rule or policy your AI should follow.'}
+                ? 'Question and answer.'
+                : 'A rule I follow.'}
             </DialogDescription>
           </DialogHeader>
           <PolicyForm
@@ -378,14 +404,14 @@ function EmptyState({
       )}
       <p className="text-sm text-[var(--chidi-text-muted)] mb-4">
         {type === 'FAQ'
-          ? 'No FAQs yet. Add questions your AI can answer.'
-          : 'No rules yet. Add policies your AI should follow.'}
+          ? 'No FAQs yet.'
+          : 'No rules yet.'}
       </p>
-      <div className="flex justify-center gap-2">
-        <Button variant="outline" size="sm" onClick={onInitialize}>
+      <div className="flex justify-center gap-2 flex-wrap">
+        <Button variant="outline" size="sm" onClick={onInitialize} className="min-h-[44px] sm:min-h-0">
           Load Defaults
         </Button>
-        <Button size="sm" onClick={onAdd}>
+        <Button size="sm" onClick={onAdd} className="min-h-[44px] sm:min-h-0">
           <Plus className="w-4 h-4 mr-1" />
           Add {type === 'FAQ' ? 'FAQ' : 'Rule'}
         </Button>
@@ -444,13 +470,13 @@ function PolicyForm({
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="outline" onClick={onCancel} disabled={saving}>
+        <Button variant="outline" onClick={onCancel} disabled={saving} className="min-h-[44px]">
           Cancel
         </Button>
         <Button
           onClick={onSave}
           disabled={saving || !formData.title.trim() || !formData.content.trim()}
-          className="btn-cta"
+          className="btn-cta min-h-[44px]"
         >
           {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Save

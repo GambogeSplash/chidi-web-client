@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Store, MessageCircle, BarChart3, ArrowRight, Check, Clock, Loader2, Globe } from "lucide-react"
-import Image from "next/image"
+import { Store, ArrowRight, Check, Globe } from "lucide-react"
 import { ChidiAvatar } from "./chidi-mark"
+import { ChidiLoader } from "./chidi-loader"
 import { SetupCelebration } from "./setup-celebration"
 import type { User } from "@/lib/api"
 import { authAPI } from "@/lib/api"
@@ -74,30 +74,24 @@ function ChidiSays({ title, subtitle }: { title: string; subtitle?: string }) {
 
 // Setup progress phases - calibrated to match typical API response time
 const SETUP_PHASES = [
-  { label: "Creating your business...", icon: Store },
-  { label: "Setting up your profile...", icon: Store },
-  { label: "Configuring preferences...", icon: Store },
-  { label: "Setting up inventory...", icon: Store },
-  { label: "Configuring categories...", icon: Store },
-  { label: "Finalizing setup...", icon: Store },
-  { label: "Almost ready...", icon: Check },
+  { label: "Creating your business", icon: Store },
+  { label: "Setting up your profile", icon: Store },
+  { label: "Configuring preferences", icon: Store },
+  { label: "Setting up inventory", icon: Store },
+  { label: "Configuring categories", icon: Store },
+  { label: "Finalizing setup", icon: Store },
+  { label: "Almost ready", icon: Check },
 ] as const
 
-// Setup progress animation component
+// Setup progress — branded ChidiLoader replaces generic spinner. Skeleton rows
+// build up underneath so the user sees scaffolding take shape, not a stalled
+// page.
 function SetupProgress({ currentPhase }: { currentPhase: number }) {
   return (
-    <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-[var(--background)] flex items-center justify-center p-4 overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)]">
       <div className="w-full max-w-lg animate-in fade-in duration-500">
-        <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-[var(--chidi-accent)]/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Loader2 className="w-8 h-8 text-[var(--chidi-accent)] animate-spin" />
-          </div>
-          <h1 className="text-2xl font-bold text-[var(--chidi-text-primary)] tracking-tight mb-2">
-            Setting up your workspace
-          </h1>
-          <p className="text-[var(--chidi-text-secondary)] text-sm">
-            This will only take a moment
-          </p>
+        <div className="text-center mb-10">
+          <ChidiLoader context="general" size="lg" phrases={[SETUP_PHASES[Math.min(currentPhase, SETUP_PHASES.length - 1)].label]} />
         </div>
 
         <div className="space-y-3">
@@ -105,19 +99,19 @@ function SetupProgress({ currentPhase }: { currentPhase: number }) {
             const isCompleted = index < currentPhase
             const isCurrent = index === currentPhase
             const isPending = index > currentPhase
-            
+
             return (
               <div
                 key={index}
                 className={cn(
-                  "flex items-center p-4 rounded-xl border transition-all duration-300",
+                  "flex items-center p-3.5 rounded-xl border transition-all duration-300",
                   isCompleted && "bg-[var(--chidi-success)]/5 border-[var(--chidi-success)]/20",
                   isCurrent && "bg-[var(--chidi-accent)]/5 border-[var(--chidi-accent)]/30",
                   isPending && "bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] opacity-50"
                 )}
               >
                 <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center mr-4 transition-all duration-300",
+                  "w-8 h-8 rounded-full flex items-center justify-center mr-4 transition-all duration-300 flex-shrink-0",
                   isCompleted && "bg-[var(--chidi-success)] text-white",
                   isCurrent && "bg-[var(--chidi-accent)] text-white",
                   isPending && "bg-[var(--chidi-border-subtle)] text-[var(--chidi-text-muted)]"
@@ -125,19 +119,24 @@ function SetupProgress({ currentPhase }: { currentPhase: number }) {
                   {isCompleted ? (
                     <Check className="w-4 h-4 animate-in zoom-in duration-200" />
                   ) : isCurrent ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="w-2 h-2 rounded-full bg-white chidi-loader-breathe" />
                   ) : (
                     <span className="text-xs font-medium">{index + 1}</span>
                   )}
                 </div>
-                <span className={cn(
-                  "font-medium text-sm transition-colors duration-300",
-                  isCompleted && "text-[var(--chidi-success)]",
-                  isCurrent && "text-[var(--chidi-text-primary)]",
-                  isPending && "text-[var(--chidi-text-muted)]"
-                )}>
-                  {phase.label}
-                </span>
+                {isPending ? (
+                  // Skeleton bar in place of pending text — shows scaffolding
+                  // building, not a list of "not yet" labels.
+                  <span className="flex-1 h-3 rounded-full bg-[var(--chidi-border-subtle)]/60 animate-pulse" />
+                ) : (
+                  <span className={cn(
+                    "font-medium text-sm transition-colors duration-300 font-chidi-voice",
+                    isCompleted && "text-[var(--chidi-success)]",
+                    isCurrent && "text-[var(--chidi-text-primary)]"
+                  )}>
+                    {phase.label}
+                  </span>
+                )}
               </div>
             )
           })}
@@ -332,13 +331,13 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     const greeting = firstName ? `Hi ${firstName}, I'm Chidi.` : "Hi, I'm Chidi."
 
     return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-[var(--background)] flex items-center justify-center p-4 overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)]">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
           <ChidiSays
             title={greeting}
-            subtitle="I'm going to be your assistant. I'll handle WhatsApp messages, track orders, and learn your business. Let's get you set up — it takes about two minutes."
+            subtitle="I'll handle your WhatsApp, track every order, and learn your business. Two minutes to set me up."
           />
 
           {/* Step preview — what's coming, in plain language */}
@@ -389,7 +388,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
       (!needsNameUpdate || (userData.name.trim().length >= 2 && userData.name.trim() !== PLACEHOLDER_NAME))
     
     return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-[var(--background)] flex items-center justify-center p-4 overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)]">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
@@ -400,10 +399,22 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
               : "What you call it, your phone number, and which currency you sell in."}
           />
 
-          {/* API Error Banner */}
+          {/* API Error Banner — message + inline retry. Re-tapping the
+              primary CTA also retries; this is for moments when the user
+              wants the failure acknowledged without leaving the banner. */}
           {apiError && (
-            <div className="mb-6 p-4 bg-[var(--chidi-danger)]/10 border border-[var(--chidi-danger)]/20 rounded-xl">
-              <p className="text-sm text-[var(--chidi-danger)]">{apiError}</p>
+            <div className="mb-6 p-4 bg-[var(--chidi-danger)]/10 border border-[var(--chidi-danger)]/20 rounded-xl flex items-start justify-between gap-3">
+              <p className="text-sm text-[var(--chidi-danger)] flex-1">{apiError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setApiError("")
+                  void handleNext()
+                }}
+                className="text-xs font-medium font-chidi-voice text-[var(--chidi-danger)] underline underline-offset-2 hover:no-underline flex-shrink-0"
+              >
+                Try again
+              </button>
             </div>
           )}
 
@@ -542,7 +553,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
     ]
 
     return (
-      <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-[var(--background)] flex items-center justify-center p-4 overflow-y-auto pb-[max(env(safe-area-inset-bottom),16px)]">
         <div className="w-full max-w-lg animate-in fade-in duration-500">
           <ProgressBar currentStep={step} totalSteps={totalSteps} />
 
@@ -551,10 +562,22 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
             subtitle="Pick whatever fits — I'll set up the right product categories for you. You can pick more than one."
           />
 
-          {/* API Error Banner */}
+          {/* API Error Banner — message + inline retry. Re-tapping the
+              primary CTA also retries; this is for moments when the user
+              wants the failure acknowledged without leaving the banner. */}
           {apiError && (
-            <div className="mb-6 p-4 bg-[var(--chidi-danger)]/10 border border-[var(--chidi-danger)]/20 rounded-xl">
-              <p className="text-sm text-[var(--chidi-danger)]">{apiError}</p>
+            <div className="mb-6 p-4 bg-[var(--chidi-danger)]/10 border border-[var(--chidi-danger)]/20 rounded-xl flex items-start justify-between gap-3">
+              <p className="text-sm text-[var(--chidi-danger)] flex-1">{apiError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setApiError("")
+                  void handleNext()
+                }}
+                className="text-xs font-medium font-chidi-voice text-[var(--chidi-danger)] underline underline-offset-2 hover:no-underline flex-shrink-0"
+              >
+                Try again
+              </button>
             </div>
           )}
 

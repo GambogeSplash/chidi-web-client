@@ -83,10 +83,6 @@ export function InsightsView() {
           <h1 className="ty-page-title text-[var(--chidi-text-primary)]">
             Decisions waiting for you.
           </h1>
-          <p className="text-[13px] text-[var(--chidi-text-secondary)] mt-1.5 leading-snug max-w-md">
-            Every card is one move I think you should make today. The numbers
-            are right underneath. Pick what you want to do.
-          </p>
         </header>
 
         {/* Snapshot — one row of business pulse. Numbers tween from 0 → target
@@ -139,9 +135,6 @@ export function InsightsView() {
           ))}
         </div>
 
-        <p className="text-[11px] text-[var(--chidi-text-muted)] text-center pt-8">
-          I refresh decisions every morning. Pin one if you want to come back to it.
-        </p>
       </div>
     </div>
   )

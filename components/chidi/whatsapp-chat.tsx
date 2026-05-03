@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import { 
   whatsappAPI, 
   type WhatsAppConversation, 
@@ -206,8 +207,20 @@ export function WhatsAppChat({ conversation, onBack, onConversationUpdate }: Wha
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+          <div className="space-y-3" aria-busy>
+            {/* Skeleton bubbles shaped like incoming/outgoing messages */}
+            <div className="flex gap-2 justify-start">
+              <Skeleton className="w-8 h-8 rounded-full bg-gray-700" />
+              <Skeleton className="h-12 w-[60%] max-w-[320px] rounded-lg bg-gray-800" />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Skeleton className="h-10 w-[50%] max-w-[280px] rounded-lg bg-indigo-600/40" />
+              <Skeleton className="w-8 h-8 rounded-full bg-indigo-600/40" />
+            </div>
+            <div className="flex gap-2 justify-start">
+              <Skeleton className="w-8 h-8 rounded-full bg-gray-700" />
+              <Skeleton className="h-16 w-[70%] max-w-[360px] rounded-lg bg-gray-800" />
+            </div>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-500">

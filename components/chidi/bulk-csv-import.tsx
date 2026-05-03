@@ -280,7 +280,7 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
       <div className="space-y-2">
         <Label className="text-[var(--chidi-text-secondary)]">Upload Product File</Label>
         <div className="border-2 border-dashed border-[var(--chidi-border-subtle)] rounded-lg p-8 hover:border-[var(--chidi-accent)]/50 transition-colors">
-          <label className="flex flex-col items-center gap-3 cursor-pointer">
+          <label className="flex flex-col items-center gap-3 cursor-pointer min-h-[140px] justify-center">
             {isLoading ? (
               <Loader2 className="w-10 h-10 text-[var(--chidi-accent)] animate-spin" />
             ) : (
@@ -291,7 +291,7 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
                 {isLoading ? "Analyzing file..." : "Click to upload or drag and drop"}
               </span>
               <span className="text-xs text-[var(--chidi-text-muted)] block mt-1">
-                CSV, TSV, or Excel (XLSX) • Supports Meta Catalog, Shopify, and custom formats
+                CSV, TSV or XLSX · Meta, Shopify or custom
               </span>
             </div>
             <input 
@@ -634,7 +634,7 @@ export function BulkCSVImport({ isOpen, onClose, onImport, onError }: BulkCSVImp
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col bg-white border-[var(--chidi-border-default)]">
+      <DialogContent className="max-w-2xl max-h-[85vh] mx-3 sm:mx-auto flex flex-col bg-white border-[var(--chidi-border-default)]">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-[var(--chidi-text-primary)]">{getStepTitle()}</DialogTitle>
         </DialogHeader>

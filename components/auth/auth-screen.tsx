@@ -610,7 +610,7 @@ export function AuthScreen({ onAuthSuccess, showVerified = false }: AuthScreenPr
                 </Button>
               </div>
               <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice text-center mt-2">
-                Either way works. Magic link skips the password.
+                Magic link skips the password.
               </p>
             </form>
           )}

@@ -48,7 +48,7 @@ export function HelpSheet({ isOpen, onClose }: HelpSheetProps) {
       content: (
         <div className="space-y-3">
           <p className="text-sm text-[var(--chidi-text-secondary)]">
-            Connect your Telegram bot to receive customer messages.
+            Connect your Telegram bot.
           </p>
           <ol className="text-sm text-[var(--chidi-text-secondary)] space-y-2 pl-4 list-decimal">
             <li>Open Telegram and search for <strong>@BotFather</strong></li>
@@ -76,7 +76,7 @@ export function HelpSheet({ isOpen, onClose }: HelpSheetProps) {
       content: (
         <div className="space-y-3">
           <p className="text-sm text-[var(--chidi-text-secondary)]">
-            Chidi uses Twilio to connect to WhatsApp Business.
+            Uses Twilio for WhatsApp Business.
           </p>
           <ol className="text-sm text-[var(--chidi-text-secondary)] space-y-2 pl-4 list-decimal">
             <li>Create a <strong>Twilio account</strong> if you don't have one</li>
@@ -104,7 +104,7 @@ export function HelpSheet({ isOpen, onClose }: HelpSheetProps) {
       content: (
         <div className="space-y-3">
           <p className="text-sm text-[var(--chidi-text-secondary)]">
-            Chidi uses your product inventory to help customers.
+            I use your inventory to help customers.
           </p>
           <ul className="text-sm text-[var(--chidi-text-secondary)] space-y-2 pl-4 list-disc">
             <li>Add products with clear names, descriptions, and prices</li>
@@ -113,9 +113,6 @@ export function HelpSheet({ isOpen, onClose }: HelpSheetProps) {
             <li>Add variations (sizes, colors) for products with options</li>
             <li>Set reorder thresholds to get low-stock alerts</li>
           </ul>
-          <p className="text-sm text-[var(--chidi-text-secondary)]">
-            The more products you add, the better Chidi can answer customer questions and take orders.
-          </p>
         </div>
       ),
     },
@@ -126,7 +123,7 @@ export function HelpSheet({ isOpen, onClose }: HelpSheetProps) {
       content: (
         <div className="space-y-3">
           <p className="text-sm text-[var(--chidi-text-secondary)]">
-            Orders are created when customers purchase through your messaging channels.
+            Created when customers purchase.
           </p>
           <div className="text-sm text-[var(--chidi-text-secondary)] space-y-2">
             <p><strong>Order lifecycle:</strong></p>
@@ -137,7 +134,7 @@ export function HelpSheet({ isOpen, onClose }: HelpSheetProps) {
             </ol>
           </div>
           <p className="text-sm text-[var(--chidi-text-secondary)]">
-            When you confirm or fulfill an order, Chidi automatically notifies the customer on their messaging channel.
+            Status updates auto-notify the customer.
           </p>
         </div>
       ),
@@ -165,7 +162,7 @@ export function HelpSheet({ isOpen, onClose }: HelpSheetProps) {
                 open={isExpanded}
                 onOpenChange={() => toggleSection(section.id)}
               >
-                <CollapsibleTrigger className="w-full flex items-center gap-3 p-3 rounded-lg border border-[var(--chidi-border-subtle)] hover:bg-[var(--chidi-surface)] transition-colors text-left">
+                <CollapsibleTrigger className="w-full flex items-center gap-3 p-3 min-h-[44px] rounded-lg border border-[var(--chidi-border-subtle)] hover:bg-[var(--chidi-surface)] transition-colors text-left">
                   <Icon className="w-5 h-5 text-[var(--chidi-text-muted)] flex-shrink-0" />
                   <span className="flex-1 font-medium text-sm text-[var(--chidi-text-primary)]">
                     {section.title}

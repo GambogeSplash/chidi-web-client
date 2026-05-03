@@ -415,7 +415,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
       />
       
       {/* Modal — wider for breathing room (max-w-2xl) and image-first hero */}
-      <div className="relative w-full max-w-2xl mx-4 max-h-[92vh] bg-white border border-[var(--chidi-border-default)] rounded-2xl shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] flex flex-col">
+      <div className="relative w-full max-w-2xl mx-3 sm:mx-4 max-h-[92vh] bg-white border border-[var(--chidi-border-default)] rounded-2xl shadow-[0_24px_64px_-16px_rgba(0,0,0,0.25)] flex flex-col">
         {/* Header — noun title, no conversational fluff */}
         <div className="flex items-center justify-between px-6 lg:px-8 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)]">
           <div className="min-w-0">
@@ -477,7 +477,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                         Drop a photo, or click to upload
                       </p>
                       <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mt-1">
-                        Customers buy what they can see. PNG, JPG, WEBP up to 5MB.
+                        PNG, JPG, WEBP · up to 5MB
                       </p>
                     </div>
                   </div>
@@ -715,7 +715,7 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
               {showVariations && (
                 <div className="space-y-4 pt-3 border-t border-[var(--chidi-border-subtle)]">
                   <p className="text-xs text-[var(--chidi-text-muted)]">
-                    Add variations like Size, Color, or Material. Each combination will have its own stock.
+                    Each combo gets its own stock.
                   </p>
 
                   {/* Existing variation types */}
@@ -833,8 +833,8 @@ export function AddProductModal({ isOpen, onClose, onAddProduct, isLoading, onEr
                           Reset
                         </button>
                       </div>
-                      <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--chidi-border-subtle)]">
-                        <table className="w-full text-sm">
+                      <div className="max-h-48 overflow-auto rounded-lg border border-[var(--chidi-border-subtle)]">
+                        <table className="w-full text-sm min-w-[400px]">
                           <thead className="bg-[var(--chidi-surface)] sticky top-0">
                             <tr>
                               {variationTypes.map(vt => (

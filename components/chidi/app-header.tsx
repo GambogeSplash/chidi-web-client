@@ -67,13 +67,14 @@ export function AppHeader({
             />
           )}
 
-          {/* Settings Button */}
+          {/* Settings Button — 44×44 mobile tap target (WCAG 2.5.5). */}
           {showSettings && (
             <Button
               variant="ghost"
               size="icon"
               onClick={handleSettingsClick}
-              className="h-9 w-9 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
+              aria-label="Settings"
+              className="h-11 w-11 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
             >
               <Settings className="w-5 h-5" />
               <span className="sr-only">Settings</span>
