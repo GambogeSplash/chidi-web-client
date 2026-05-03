@@ -6,27 +6,18 @@ import { NotificationDropdown } from "./notification-dropdown"
 import { BusinessAvatar, useBusinessAvatarSeed } from "./business-avatar"
 import { useDashboardAuth } from "@/lib/providers/dashboard-auth-context"
 
-interface Notification {
-  id: string
-  type: "stock" | "message" | "sale" | "system" | "activity"
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-  priority: "low" | "medium" | "high"
-  referenceType?: string
-  referenceId?: string
-}
-
 interface AppHeaderProps {
   /** Kept for callsite compatibility — the entire identity block now navigates
       to settings, so a separate cog is redundant. */
   showSettings?: boolean
-  notifications?: Notification[]
-  onMarkAsRead?: (id: string) => void
-  onMarkAllAsRead?: () => void
-  onDismiss?: (id: string) => void
-  onNotificationClick?: (notification: Notification) => void
+  // Notification props are accepted for legacy DashboardContent wiring but
+  // forwarded to NotificationDropdown as `unknown` — that component now owns
+  // its own state via lib/chidi/notifications.ts and ignores legacy callbacks.
+  notifications?: unknown
+  onMarkAsRead?: unknown
+  onMarkAllAsRead?: unknown
+  onDismiss?: unknown
+  onNotificationClick?: unknown
 }
 
 /**
