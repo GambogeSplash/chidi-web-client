@@ -63,11 +63,11 @@ export function SetupCelebration({
       icon: <ChidiAvatar size="lg" tone="default" />,
     },
     {
-      headline: "I'll watch your WhatsApp.",
-      body: "When customers message, I'll reply in your voice. When they order, I'll capture it. When something needs you, I'll flag it.",
+      headline: "I'll watch your channels.",
+      body: "Telegram, WhatsApp — wherever your customers reach you. When they message, I'll reply in your voice. When they order, I'll capture it. When something needs you, I'll flag it.",
       icon: (
-        <div className="w-12 h-12 rounded-full bg-[#25D366]/10 flex items-center justify-center">
-          <MessageSquare className="w-6 h-6 text-[#25D366]" />
+        <div className="w-12 h-12 rounded-full bg-[var(--chidi-accent)]/10 flex items-center justify-center">
+          <MessageSquare className="w-6 h-6 text-[var(--chidi-accent)]" />
         </div>
       ),
     },

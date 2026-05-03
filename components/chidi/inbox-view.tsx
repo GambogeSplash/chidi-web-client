@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   CheckCircle2,
@@ -65,6 +65,23 @@ import { CustomerCharacter } from "./customer-character"
 import { EmptyArt } from "./empty-art"
 import { EmptyState } from "./empty-state"
 import { PullToRefresh } from "./pull-to-refresh"
+import {
+  Popover as SnoozePopover,
+  PopoverContent as SnoozePopoverContent,
+  PopoverTrigger as SnoozePopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  SNOOZE_PRESETS,
+  formatSnoozeUntil,
+  getActiveSnoozes,
+  snoozeConversation,
+  subscribe as subscribeSnoozes,
+  sweepExpired,
+  unsnoozeConversation,
+  type SnoozePresetId,
+  type SnoozeStore,
+} from "@/lib/chidi/snoozed"
+import { addNotification } from "@/lib/chidi/notifications"
 
 interface InboxViewProps {
   onViewCustomerOrders?: (customerName: string) => void
@@ -82,7 +99,11 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
   // bulk-action toolbar appears when count > 0. Selection clears on filter
   // change so it never leaks into the wrong context.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
-  
+  // Snoozed conversations — local-only; subscribed below. Kept here so the
+  // status filter chip + per-row badge can read it without an extra query.
+  const [snoozes, setSnoozes] = useState<SnoozeStore>({})
+  const [snoozePickerOpen, setSnoozePickerOpen] = useState(false)
+
   // Connection dialog state
   const [showChannelPicker, setShowChannelPicker] = useState(false)
   const [showWhatsAppConnectDialog, setShowWhatsAppConnectDialog] = useState(false)
@@ -91,9 +112,14 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
   const [connectError, setConnectError] = useState<string | null>(null)
   const [connectionSuccess, setConnectionSuccess] = useState(false)
 
-  // React Query hooks
+  // React Query hooks. "SNOOZED" is a UI-only pseudo status — never sent
+  // upstream because the snooze store lives in localStorage. Always fetch the
+  // real set and filter client-side.
   const { data: connections, isLoading: checkingConnection } = useConnections()
-  const status = statusFilter !== "all" ? statusFilter as ConversationStatus : undefined
+  const status =
+    statusFilter !== "all" && statusFilter !== "SNOOZED"
+      ? (statusFilter as ConversationStatus)
+      : undefined
   const channel = channelFilter !== "all" ? channelFilter as ChannelType : undefined
   
   const hasAnyConnection = connections && connections.total > 0
@@ -107,6 +133,68 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
   
   const connectTelegram = useConnectTelegram()
   const resolveConversation = useResolveConversation()
+
+  // Snooze: subscribe to the local store + sweep expired snoozes every 30s.
+  // When a snooze expires we (a) refetch the conversation list (the thread
+  // reappears at the top by recency) and (b) dispatch
+  // `chidi:snooze-returned`. The notifications producer listens for that and
+  // writes a "back in your {channel} inbox" notification — single source of
+  // truth so we never double-fire.
+  useEffect(() => {
+    setSnoozes(getActiveSnoozes())
+    const unsub = subscribeSnoozes(setSnoozes)
+
+    const tick = () => {
+      const expired = sweepExpired()
+      if (!expired.length) return
+      queryClient.invalidateQueries({ queryKey: messagingKeys.conversations(status, channel) })
+      for (const e of expired) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("chidi:snooze-returned", {
+              detail: {
+                conversationId: e.conversationId,
+                customerName: e.customerName,
+                channel: e.channel,
+              },
+            }),
+          )
+        }
+      }
+    }
+
+    tick()
+    let id: ReturnType<typeof setInterval> | null = null
+    const start = () => {
+      if (id != null) return
+      id = setInterval(tick, 30_000)
+    }
+    const stop = () => {
+      if (id == null) return
+      clearInterval(id)
+      id = null
+    }
+    if (typeof document !== "undefined" && document.visibilityState === "visible") start()
+    const onVis = () => {
+      if (typeof document === "undefined") return
+      if (document.visibilityState === "visible") {
+        tick()
+        start()
+      } else {
+        stop()
+      }
+    }
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVis)
+    }
+    return () => {
+      stop()
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVis)
+      }
+      unsub()
+    }
+  }, [queryClient, status, channel])
 
   // Bulk action handlers — fan out to per-conversation mutations.
   const handleBulkResolve = async () => {
@@ -124,12 +212,49 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
     }
   }
 
-  const handleBulkSnooze = () => {
-    const count = selectedIds.size
+  const applyBulkSnooze = (until: Date, label: string) => {
+    const ids = Array.from(selectedIds)
+    if (!ids.length) return
+    const conversationsById = new Map(conversations.map((c) => [c.id, c] as const))
+    for (const id of ids) {
+      const conv = conversationsById.get(id)
+      snoozeConversation(id, until, {
+        label,
+        channel: conv?.channel_type,
+        customerName: conv?.customer_name ?? undefined,
+      })
+    }
+    const count = ids.length
     toast(`${count} ${count === 1 ? "conversation" : "conversations"} snoozed`, {
-      description: "I'll quiet them for 24 hours.",
+      description: `I'll quiet ${count === 1 ? "it" : "them"} until ${formatSnoozeUntil(until)}.`,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          for (const id of ids) unsnoozeConversation(id)
+          toast("Snooze undone")
+        },
+      },
+    })
+    addNotification("chidi_action_taken", {
+      title: `Snoozed ${count} ${count === 1 ? "thread" : "threads"} until ${formatSnoozeUntil(until)}`,
     })
     setSelectedIds(new Set())
+    setSnoozePickerOpen(false)
+  }
+
+  const handleSnoozePreset = (presetId: SnoozePresetId) => {
+    if (presetId === "custom") {
+      const raw = typeof window !== "undefined" ? window.prompt("Snooze for how many hours?", "8") : null
+      const hours = raw ? Number(raw) : NaN
+      if (!isFinite(hours) || hours <= 0) return
+      applyBulkSnooze(new Date(Date.now() + hours * 3_600_000), `${hours}h`)
+      return
+    }
+    const preset = SNOOZE_PRESETS.find((p) => p.id === presetId)
+    if (!preset) return
+    const until = preset.resolve()
+    if (!until) return
+    applyBulkSnooze(until, preset.label)
   }
 
   const clearSelection = () => setSelectedIds(new Set())
@@ -211,7 +336,21 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
     return date.toLocaleDateString()
   }
 
+  const showingSnoozed = statusFilter === "SNOOZED"
+  const snoozedCount = useMemo(
+    () => conversations.filter((c) => snoozes[c.id]).length,
+    [conversations, snoozes],
+  )
+
   const filteredConversations = conversations.filter(conv => {
+    // Snoozed view shows ONLY snoozed; default view hides snoozed conversations
+    // so they don't compete for attention with live work.
+    const snoozed = !!snoozes[conv.id]
+    if (showingSnoozed) {
+      if (!snoozed) return false
+    } else if (snoozed) {
+      return false
+    }
     if (!searchQuery) return true
     const customerId = formatCustomerId(conv.customer_id, conv.channel_type).toLowerCase()
     const name = (conv.customer_name || "").toLowerCase()
@@ -544,6 +683,35 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
               className="pl-9 h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)]"
             />
           </div>
+          {/* Snoozed chip — sits next to the status dropdown so the count is
+              always visible and one tap toggles the snoozed-only view. */}
+          <button
+            type="button"
+            onClick={() => setStatusFilter(statusFilter === "SNOOZED" ? "all" : "SNOOZED")}
+            aria-pressed={statusFilter === "SNOOZED"}
+            className={cn(
+              "h-9 inline-flex items-center gap-1.5 px-3 rounded-md border text-[12px] font-medium transition-colors",
+              statusFilter === "SNOOZED"
+                ? "bg-[var(--chidi-text-primary)] text-white border-[var(--chidi-text-primary)]"
+                : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:text-[var(--chidi-text-primary)]",
+            )}
+            title="Snoozed conversations"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Snoozed
+            {snoozedCount > 0 && (
+              <span
+                className={cn(
+                  "ml-0.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] tabular-nums font-semibold",
+                  statusFilter === "SNOOZED"
+                    ? "bg-white/25 text-white"
+                    : "bg-[var(--chidi-text-primary)]/10 text-[var(--chidi-text-primary)]",
+                )}
+              >
+                {snoozedCount}
+              </span>
+            )}
+          </button>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[120px] h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]">
               <SelectValue placeholder="Filter" />
@@ -553,6 +721,7 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
               <SelectItem value="ACTIVE">Active</SelectItem>
               <SelectItem value="NEEDS_HUMAN">Needs attention</SelectItem>
               <SelectItem value="RESOLVED">Resolved</SelectItem>
+              <SelectItem value="SNOOZED">Snoozed</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -639,13 +808,48 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Resolve
                   </button>
-                  <button
-                    onClick={handleBulkSnooze}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-[var(--chidi-text-secondary)] hover:bg-[var(--card)] transition-colors"
-                  >
-                    <Clock className="w-3.5 h-3.5" />
-                    Snooze 24h
-                  </button>
+                  <SnoozePopover open={snoozePickerOpen} onOpenChange={setSnoozePickerOpen}>
+                    <SnoozePopoverTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setSnoozePickerOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-[var(--chidi-text-secondary)] hover:bg-[var(--card)] transition-colors"
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        Snooze
+                      </button>
+                    </SnoozePopoverTrigger>
+                    <SnoozePopoverContent
+                      align="end"
+                      sideOffset={6}
+                      className="w-60 p-1 bg-white border-[var(--chidi-border-default)] shadow-lg rounded-xl"
+                    >
+                      <p className="px-2.5 pt-2 pb-1.5 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium">
+                        Quiet for
+                      </p>
+                      <ul className="space-y-0.5">
+                        {SNOOZE_PRESETS.map((p) => {
+                          const u = p.id !== "custom" ? p.resolve() : null
+                          return (
+                            <li key={p.id}>
+                              <button
+                                type="button"
+                                onClick={() => handleSnoozePreset(p.id)}
+                                className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-[12.5px] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] text-left"
+                              >
+                                <span>{p.label}</span>
+                                {u && (
+                                  <span className="text-[10px] tabular-nums text-[var(--chidi-text-muted)]">
+                                    {formatSnoozeUntil(u)}
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </SnoozePopoverContent>
+                  </SnoozePopover>
                 </div>
               </div>
             )}
@@ -654,6 +858,7 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
               const isNeedsHuman = conversation.status === "NEEDS_HUMAN"
               const isResolved = conversation.status === "RESOLVED"
               const isUnread = conversation.unread_count > 0
+              const snoozeEntry = snoozes[conversation.id]
               const channelInfo = conversation.channel_type
                 ? getChannelInfo(conversation.channel_type)
                 : null
@@ -774,7 +979,15 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
                           </p>
 
                           <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {isNeedsHuman ? (
+                            {snoozeEntry ? (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-text-primary)]/8 text-[var(--chidi-text-secondary)] font-medium font-chidi-voice whitespace-nowrap"
+                                title={`Quiet until ${formatSnoozeUntil(snoozeEntry.until)}`}
+                              >
+                                <Clock className="w-2.5 h-2.5" />
+                                {formatSnoozeUntil(snoozeEntry.until)}
+                              </span>
+                            ) : isNeedsHuman ? (
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] font-medium font-chidi-voice whitespace-nowrap">
                                 Needs you
                               </span>

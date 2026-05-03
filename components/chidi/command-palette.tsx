@@ -44,7 +44,7 @@ const EASTER_EGGS: EasterEgg[] = [
         { title: "Why did the trader bring a ladder to the market?", description: "Because she heard the prices were going up." },
         { title: "What did the customer ask the SKU?", description: "Are you in stock today, or just stocking around?" },
         { title: "How does Chidi like its coffee?", description: "Compiled, never raw." },
-        { title: "Why don't WhatsApp messages get lonely?", description: "They've always got blue ticks." },
+        { title: "Why don't chat messages get lonely?", description: "They've always got blue ticks." },
       ]
       return { ...jokes[Math.floor(Math.random() * jokes.length)], icon: <Smile className="w-4 h-4 text-[var(--chidi-win)]" /> }
     },
@@ -69,7 +69,7 @@ const EASTER_EGGS: EasterEgg[] = [
     match: (q) => /\b(what'?s broken|debug|something wrong|not working|status)\b/.test(q),
     reply: () => ({
       title: "I'm watching the wires.",
-      description: "WhatsApp connection: ✓. Order tracking: ✓. AI replies: ✓. If something seems off, refresh and ping me again.",
+      description: "Channels connected: ✓. Order tracking: ✓. AI replies: ✓. If something seems off, refresh and ping me again.",
       icon: <Bug className="w-4 h-4 text-[var(--chidi-success)]" />,
     }),
   },
@@ -96,7 +96,7 @@ const EASTER_EGGS: EasterEgg[] = [
     match: (q) => /\b(who are you|what are you|tell me about yourself)\b/.test(q),
     reply: () => ({
       title: "I'm Chidi.",
-      description: "Your assistant for selling on WhatsApp. I reply to your customers, track every order, and learn your business. Built in Lagos, for Lagos and beyond.",
+      description: "Your assistant for selling through chat — Telegram and WhatsApp. I reply to your customers, track every order, and learn your business. Built in Lagos, for Lagos and beyond.",
       icon: <ChidiMark size={16} variant="win" />,
     }),
   },

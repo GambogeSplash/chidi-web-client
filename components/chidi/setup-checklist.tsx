@@ -70,7 +70,7 @@ export function SetupChecklist({
   const items: ChecklistItem[] = [
     {
       id: "channel",
-      title: "Connect WhatsApp",
+      title: "Connect a channel",
       icon: MessageCircle,
       isComplete: hasConnections,
       action: () => {

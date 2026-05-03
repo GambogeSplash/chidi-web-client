@@ -89,7 +89,7 @@ export function AuthLeftTheatre() {
       {/* Phone-frame inspired chrome — paper-textured, not literal phone */}
       <div className="relative bg-white rounded-[28px] p-3 shadow-2xl border border-[var(--chidi-border-subtle)] chidi-paper">
         <div className="relative z-[2]">
-          {/* WhatsApp-feel header bar */}
+          {/* Chat-feel header bar — generic dark teal reads as either WhatsApp or Telegram */}
           <div className="flex items-center gap-2.5 px-3 py-2.5 mb-2 bg-[#075E54] text-white rounded-t-2xl -mx-3 -mt-3">
             <CustomerCharacter
               name={beat.customerName}

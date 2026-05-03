@@ -337,7 +337,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
 
           <ChidiSays
             title={greeting}
-            subtitle="I'll handle your WhatsApp, track every order, and learn your business. Two minutes to set me up."
+            subtitle="I'll handle your Telegram and WhatsApp, track every order, and learn your business. Two minutes to set me up."
           />
 
           {/* Step preview — what's coming, in plain language */}
@@ -345,7 +345,7 @@ export function Onboarding({ user, onComplete }: OnboardingProps) {
             {[
               { n: 1, label: "Tell me about your business", time: "30 seconds" },
               { n: 2, label: "Pick what you sell so I know your inventory shape", time: "30 seconds" },
-              { n: 3, label: "Connect WhatsApp so I can start helping", time: "1 minute" },
+              { n: 3, label: "Connect Telegram or WhatsApp so I can start helping", time: "1 minute" },
             ].map((s, idx) => (
               <li
                 key={s.n}

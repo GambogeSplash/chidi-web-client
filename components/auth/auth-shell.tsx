@@ -68,7 +68,7 @@ export function AuthShell({
                 priority
               />
               <p className="text-base font-serif text-[var(--chidi-text-primary)] tracking-tight">
-                Your AI business assistant for WhatsApp & Telegram
+                Your AI business assistant for Telegram & WhatsApp
               </p>
             </div>
           )}

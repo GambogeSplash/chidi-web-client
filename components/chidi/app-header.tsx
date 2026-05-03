@@ -83,15 +83,16 @@ export function AppHeader({
         </button>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          {onMarkAsRead && onMarkAllAsRead && onDismiss && (
-            <NotificationDropdown
-              notifications={notifications}
-              onMarkAsRead={onMarkAsRead}
-              onMarkAllAsRead={onMarkAllAsRead}
-              onDismiss={onDismiss}
-              onNotificationClick={onNotificationClick}
-            />
-          )}
+          {/* NotificationDropdown is now self-contained — it reads from
+              lib/chidi/notifications. Legacy props on AppHeader are kept for
+              callsite compatibility but no longer threaded through. */}
+          <NotificationDropdown />
+          {/* Mark legacy props as intentionally consumed so TS / lint stay quiet. */}
+          {void notifications}
+          {void onMarkAsRead}
+          {void onMarkAllAsRead}
+          {void onDismiss}
+          {void onNotificationClick}
         </div>
       </div>
     </header>
