@@ -21,7 +21,8 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { PhoneOff, Volume2, VolumeX, BookOpen, ArrowRight, X } from "lucide-react"
-import { ChidiMark, type ChidiMarkState } from "./chidi-mark"
+import { type ChidiMarkState } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { CallChidiWaveform, type CallWaveformState } from "./call-chidi-waveform"
 import { CallChidiBubble } from "./call-chidi-bubble"
 import { useChidiSpeech } from "@/lib/chidi/use-chidi-speech"
@@ -387,7 +388,7 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
                     "radial-gradient(closest-side, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 72%)",
                 }}
               />
-              <ChidiMark
+              <ArcFace
                 size={170}
                 state={mouthState}
                 speakingPulse={speech.boundary}

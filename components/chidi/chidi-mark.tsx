@@ -265,7 +265,7 @@ function Mouth({ state, visemeIdx }: { state?: ChidiMarkState; visemeIdx: number
  * boundaries on top of the free-running clock. Honors prefers-reduced-motion
  * by holding the index at 0 (closed mouth maps to the "A" shape — looks calm).
  */
-function useAnimatedViseme(active: boolean, pulse?: number) {
+export function useAnimatedViseme(active: boolean, pulse?: number) {
   const [idx, setIdx] = useState(0)
   const reducedRef = useRef(false)
   const intervalRef = useRef<number | null>(null)
