@@ -6,7 +6,7 @@
  * Never use one in the other's slot — businesses are rectangles, people are circles.
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import { cn } from "@/lib/utils"
 
 interface BusinessAvatarProps {
@@ -123,12 +123,27 @@ export function BusinessAvatar({
     monogramOverride !== undefined ? monogramOverride : name
   const monogram = (monogramSource || "").trim().charAt(0).toUpperCase()
 
+  // When a parent (e.g. BusinessAvatarPicker) hands us its own width/height
+  // via className, skip SIZE_MAP's box class — otherwise Tailwind emits both
+  // `width: 3.5rem` and `width: 100%` on the same span and the avatar
+  // collapses to ~56px inside a much larger tile (looks "blank"). Same for
+  // the radius — let the parent own the corner shape in that case.
+  const parentControlsBox = /\bw-(?:full|\d|\[)/.test(className ?? "")
+  const parentControlsRadius = /\brounded(?:-|$)/.test(className ?? "")
+
+  // Stable per-instance id so each <linearGradient> has a unique scope.
+  // Without this, multiple BusinessAvatars on the page that happened to share
+  // a composition.id (or even just the same id-namespace) would all reference
+  // a single gradient definition — and only the FIRST one would paint.
+  const uid = useId()
+  const gradientId = `bg-${uid.replace(/[:]/g, "")}-${composition.id}`
+
   return (
     <span
       className={cn(
         "relative flex-shrink-0 overflow-hidden",
-        box,
-        radius,
+        !parentControlsBox && box,
+        !parentControlsRadius && radius,
         className,
       )}
       aria-hidden="true"
@@ -140,7 +155,7 @@ export function BusinessAvatar({
       >
         <defs>
           <linearGradient
-            id={`bg-${composition.id}`}
+            id={gradientId}
             gradientTransform={`rotate(${composition.gradientAngle} 0.5 0.5)`}
             x1="0"
             y1="0"
@@ -153,7 +168,7 @@ export function BusinessAvatar({
         </defs>
 
         {/* Gradient background */}
-        <rect width="100" height="100" fill={`url(#bg-${composition.id})`} />
+        <rect width="100" height="100" fill={`url(#${gradientId})`} />
 
         {/* 4×4 mirrored grid */}
         {composition.cells.map((cell, i) => (

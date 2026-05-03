@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Shuffle, Check } from "lucide-react"
+import { useMemo } from "react"
+import { Check } from "lucide-react"
 import { BusinessAvatar } from "./business-avatar"
 import { cn } from "@/lib/utils"
 
@@ -17,22 +17,15 @@ interface BusinessAvatarPickerProps {
 }
 
 /**
- * BusinessAvatarPicker — choose / re-roll the business workspace avatar.
+ * BusinessAvatarPicker — choose the business workspace avatar.
  *
- * The BusinessAvatar component is fully generative from any seed string.
- * The default seed is the business name (so it's stable + recognizable).
+ * Four tiles total: 1 default (derived from business name) + 3 alternative
+ * variants. Same monogram letter on every tile so the merchant reads them as
+ * "same shop, different mark", not four random shops. Picking the default
+ * again calls onSelect(null) to clear the stored preference.
  *
- * Layout:
- *   - Big "now showing" preview at the top so the user always SEES which
- *     mark they're sitting on (this was the user complaint — they couldn't
- *     see what they were switching to).
- *   - Grid of 8 alternative variants (same monogram letter as the business
- *     name so the variants read as "same shop, different mark", not
- *     "random gibberish").
- *   - Shuffle re-rolls the grid for a fresh batch of 8 alternatives.
- *
- * Selecting a variant calls onSelect(seed); selecting the default again
- * calls onSelect(null) to clear the preference.
+ * Why only 4: more options = more decision fatigue. Three alternates is enough
+ * for "I don't like the default → here's a small ranked menu of options".
  */
 export function BusinessAvatarPicker({
   businessName,
@@ -40,38 +33,23 @@ export function BusinessAvatarPicker({
   onSelect,
   className,
 }: BusinessAvatarPickerProps) {
-  // Round-trip counter — clicking Shuffle bumps it, recomputing the variants
-  const [shuffleCount, setShuffleCount] = useState(0)
-
-  // 8 alternative seeds derived from the business name + a salt bumped
-  // each time Shuffle is pressed. Variant indices are stable within a
-  // shuffle round so the user can confidently pick #4.
+  // Three stable alternate seeds derived from the business name. Same name
+  // always produces the same three alternates — no shuffle, no surprise.
   const variants = useMemo(() => {
-    return Array.from({ length: 8 }).map((_, i) => ({
-      seed: `${businessName}::v${shuffleCount}::${i}`,
+    return Array.from({ length: 3 }).map((_, i) => ({
+      seed: `${businessName}::look::${i + 1}`,
     }))
-  }, [businessName, shuffleCount])
+  }, [businessName])
 
   const isDefault = !selectedSeed
-  const handleShuffle = () => setShuffleCount((c) => c + 1)
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--chidi-text-muted)]">
-          Pick a look
-        </p>
-        <button
-          type="button"
-          onClick={handleShuffle}
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors motion-safe:active:scale-[0.97]"
-        >
-          <Shuffle className="w-3 h-3" />
-          Shuffle
-        </button>
-      </div>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--chidi-text-muted)]">
+        Pick a look
+      </p>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {/* Default — derived from business name */}
         <SelectableAvatar
           seed={businessName}
@@ -106,7 +84,7 @@ function SelectableAvatar({
   label?: string
   /** Force every variant to render with the same monogram letter so the
       user reads them as "same shop, different mark" rather than seeing a
-      different letter per tile (which would feel like 12 different shops). */
+      different letter per tile (which would feel like 4 different shops). */
   monogram: string
   onClick: () => void
 }) {
@@ -127,7 +105,7 @@ function SelectableAvatar({
         name={seed}
         monogramOverride={monogram}
         size="lg"
-        className="w-full h-full"
+        className="w-full h-full rounded-xl"
       />
       {selected && (
         <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-[var(--chidi-text-primary)] flex items-center justify-center shadow-sm">
