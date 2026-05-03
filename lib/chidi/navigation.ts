@@ -11,6 +11,7 @@ import {
   Users,
   BarChart3,
   BookOpen,
+  LayoutDashboard,
   type LucideIcon,
 } from "lucide-react"
 import type { TabId } from "@/components/chidi/bottom-navigation"
@@ -65,5 +66,15 @@ export const LIBRARY_ENTRIES: LibraryEntry[] = [
     icon: BookOpen,
     href: (slug) => `/dashboard/${slug}/notebook`,
     shortcut: "N",
+  },
+  // Easels — kanban view of orders by stage. Sits below Playbook in the
+  // Library section. The route is its own page (mirrors Notebook chrome) so
+  // the merchant can deep-link / pop it open without losing in-tab state.
+  {
+    id: "board",
+    label: "Board",
+    icon: LayoutDashboard,
+    href: (slug) => `/dashboard/${slug}/board`,
+    shortcut: "B",
   },
 ]

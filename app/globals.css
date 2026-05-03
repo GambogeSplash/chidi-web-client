@@ -1397,3 +1397,27 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .chidi-call-bg-v2 { animation: none; }
 }
+
+/* ========================================================================
+   Little Chidi (Arc-style peek overlay) — open/close motion only.
+   Origin is set inline (bottom-right). Reduced-motion users skip both.
+   Added 2026-05-03 for the Little Chidi feature.
+   ======================================================================== */
+
+@keyframes chidiLittleIn {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes chidiLittleOut {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.96) translateY(8px); }
+}
+
+.little-chidi-in  { animation: chidiLittleIn 220ms cubic-bezier(0.22, 1, 0.36, 1); }
+.little-chidi-out { animation: chidiLittleOut 160ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .little-chidi-in,
+  .little-chidi-out { animation: none; }
+}
