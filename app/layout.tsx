@@ -21,7 +21,7 @@ const instrumentSerif = Instrument_Serif({
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://chidi.app"
 const SITE_DESCRIPTION =
-  "AI assistant for WhatsApp commerce. I reply to your customers, track every order, and flag the ones that need you. Built in Lagos, for the people who sell on WhatsApp."
+  "AI assistant for chat commerce — Telegram and WhatsApp. I reply to your customers, track every order, and flag the ones that need you. Built in Lagos, for the people who sell through chat."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -36,6 +36,8 @@ export const metadata: Metadata = {
   creator: "Chidi",
   publisher: "Chidi",
   keywords: [
+    "chat commerce",
+    "Telegram commerce",
     "WhatsApp commerce",
     "AI assistant",
     "Lagos",
@@ -81,7 +83,7 @@ export const metadata: Metadata = {
         url: "/icon-512.png",
         width: 512,
         height: 512,
-        alt: "Chidi — AI assistant for WhatsApp commerce",
+        alt: "Chidi — AI assistant for chat commerce (Telegram + WhatsApp)",
       },
     ],
   },
