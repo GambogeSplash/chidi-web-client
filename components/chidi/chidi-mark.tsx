@@ -1,11 +1,29 @@
 "use client"
 
+import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
+
+/** Optional speaking-state for the mascot. Default: static smile (back-compat). */
+export type ChidiMarkState = "idle" | "listening" | "thinking" | "speaking"
 
 interface ChidiMarkProps {
   className?: string
   size?: number
   variant?: "default" | "win" | "muted"
+  /**
+   * When set to "speaking" the mouth cycles through 4 viseme shapes at ~7Hz
+   * to fake lip-sync. Other states show a static mouth (smile / thinking-o).
+   * Honors prefers-reduced-motion → collapses to static smile.
+   * Optional. Omitting it keeps the original static-smile rendering for every
+   * existing call site (Morning Brief avatar, Notebook header, etc.).
+   */
+  state?: ChidiMarkState
+  /**
+   * External pulse counter. Each increment advances the speaking viseme by one
+   * step. Useful for syncing mouth motion with TTS `onboundary` events instead
+   * of a free-running RAF clock. Ignored when `state !== "speaking"`.
+   */
+  speakingPulse?: number
 }
 
 /**
@@ -20,7 +38,7 @@ interface ChidiMarkProps {
  * AI-draft suggest button, the AI bubble in chat. Everywhere Chidi *is*,
  * we use this mark.
  */
-export function ChidiMark({ className, size = 16, variant }: ChidiMarkProps) {
+export function ChidiMark({ className, size = 16, variant, state, speakingPulse }: ChidiMarkProps) {
   const explicitFill =
     variant === "win"
       ? "var(--chidi-win)"
@@ -58,6 +76,12 @@ export function ChidiMark({ className, size = 16, variant }: ChidiMarkProps) {
   // Subtle "alive" animations only at large render sizes (≥32px). At small
   // sizes (tab badges, message bubbles) the motion would be distracting.
   const alive = size >= 32
+
+  // ---- Viseme cycle: drives the animated mouth when state === "speaking" ---
+  // 4 shapes — closed/M, small-O, wide-A, narrow-E — cycled at ~7Hz to read as
+  // animated chatter. We bias the random-ish cycle toward open shapes so the
+  // mouth feels active rather than skittish.
+  const visemeIdx = useAnimatedViseme(state === "speaking", speakingPulse)
 
   return (
     <svg
@@ -125,21 +149,163 @@ export function ChidiMark({ className, size = 16, variant }: ChidiMarkProps) {
         <circle cx="14.95" cy="11.15" r="0.36" fill="var(--background, #F7F5F3)" />
       </g>
 
-      {/* Smile — soft asymmetric curve, slightly lifted on the right */}
-      <path
-        d="M9.6 14.8 Q 12 16.6, 14.6 14.4"
-        stroke="var(--background, #F7F5F3)"
-        strokeWidth="0.9"
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.92"
-      />
+      {/* Mouth — state-aware:
+            - default / idle / listening    → soft smile curve (back-compat)
+            - thinking                      → small static "o"
+            - speaking                      → cycles 4 visemes, 7Hz
+          Honors prefers-reduced-motion via the visemeIdx hook. */}
+      <Mouth state={state} visemeIdx={visemeIdx} />
 
       {/* Tiny bottom-right blush — a single dot that visually anchors the
           notch and signs the character with one last warm detail. */}
       <circle cx="16.4" cy="16.6" r="0.55" fill="var(--background, #F7F5F3)" opacity="0.18" />
     </svg>
   )
+}
+
+// =============================================================================
+// Mouth — internal helper. Renders one of 6 mouth shapes:
+//   smile (default), thinking-o, viseme-M (closed), viseme-O (round),
+//   viseme-A (wide-tall), viseme-E (narrow-flat)
+// =============================================================================
+function Mouth({ state, visemeIdx }: { state?: ChidiMarkState; visemeIdx: number }) {
+  const stroke = "var(--background, #F7F5F3)"
+  const fill = "var(--background, #F7F5F3)"
+
+  // Speaking: pick one of 4 visemes by index
+  if (state === "speaking") {
+    // Bias toward open mouths so it reads as "talking" not "twitching"
+    const visemes: Array<"M" | "O" | "A" | "E"> = ["A", "O", "E", "A", "O", "M", "A", "E"]
+    const v = visemes[visemeIdx % visemes.length]
+
+    if (v === "M") {
+      // Closed — short flat line
+      return (
+        <path
+          d="M10.4 15.2 L 13.6 15.2"
+          stroke={stroke}
+          strokeWidth="0.9"
+          strokeLinecap="round"
+          fill="none"
+          opacity="0.92"
+        />
+      )
+    }
+    if (v === "E") {
+      // Narrow-flat — slim ellipse
+      return (
+        <ellipse
+          cx="12"
+          cy="15.3"
+          rx="1.6"
+          ry="0.5"
+          fill={fill}
+          opacity="0.92"
+        />
+      )
+    }
+    if (v === "O") {
+      // Round-O
+      return (
+        <ellipse
+          cx="12"
+          cy="15.3"
+          rx="1.0"
+          ry="1.05"
+          fill={fill}
+          opacity="0.92"
+        />
+      )
+    }
+    // "A" — wide & tall (loudest viseme)
+    return (
+      <ellipse
+        cx="12"
+        cy="15.4"
+        rx="1.55"
+        ry="1.35"
+        fill={fill}
+        opacity="0.92"
+      />
+    )
+  }
+
+  if (state === "thinking") {
+    // Pursed "o" — deliberation
+    return (
+      <ellipse
+        cx="12"
+        cy="15.3"
+        rx="0.55"
+        ry="0.55"
+        fill={fill}
+        opacity="0.92"
+      />
+    )
+  }
+
+  // Default / idle / listening — original smile (back-compat for every existing
+  // call site that doesn't pass `state`).
+  return (
+    <path
+      d="M9.6 14.8 Q 12 16.6, 14.6 14.4"
+      stroke={stroke}
+      strokeWidth="0.9"
+      strokeLinecap="round"
+      fill="none"
+      opacity="0.92"
+    />
+  )
+}
+
+/**
+ * useAnimatedViseme — returns an integer that advances at ~7Hz while `active`
+ * is true. If a `pulse` value is supplied (e.g., from TTS `onboundary` events)
+ * the index also advances on every pulse change, so the mouth tracks word
+ * boundaries on top of the free-running clock. Honors prefers-reduced-motion
+ * by holding the index at 0 (closed mouth maps to the "A" shape — looks calm).
+ */
+function useAnimatedViseme(active: boolean, pulse?: number) {
+  const [idx, setIdx] = useState(0)
+  const reducedRef = useRef(false)
+  const intervalRef = useRef<number | null>(null)
+
+  // Pulse-driven advance (decoupled from the RAF clock)
+  useEffect(() => {
+    if (!active) return
+    if (pulse == null) return
+    setIdx((n) => (n + 1) % 1000)
+  }, [active, pulse])
+
+  // Free-running advance — keeps the mouth alive between boundary events
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
+    reducedRef.current = mq.matches
+
+    if (!active || reducedRef.current) {
+      if (intervalRef.current != null) {
+        window.clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      return
+    }
+
+    // ~7Hz — fast enough to feel like chatter, slow enough not to strobe
+    intervalRef.current = window.setInterval(() => {
+      // Random small jump (1-3) so the cycle doesn't look like a clean loop
+      setIdx((n) => (n + 1 + Math.floor(Math.random() * 3)) % 1000)
+    }, 140)
+
+    return () => {
+      if (intervalRef.current != null) {
+        window.clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+  }, [active])
+
+  return idx
 }
 
 /**

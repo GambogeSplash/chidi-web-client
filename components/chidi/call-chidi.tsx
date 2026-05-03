@@ -1,11 +1,30 @@
 "use client"
 
+// =============================================================================
+// Call Chidi v2 — visual + audio overhaul (2026-05-03)
+//
+// Palette: "Hyper-Lagos Neon" — magenta + cyan + electric green + gold-orange
+// against a deep electric-violet base. Replaces the v1 Lagos sunset
+// (terracotta/ochre/wine), which read as muddy. The new palette keeps a warm
+// callback (gold-orange) but trades dull desaturated browns for vibrant
+// signal colors that match the Arc-style reference the user originally shared.
+//
+// Motion: 5 absolutely-positioned radial blobs orbit on independent slow
+// elliptical paths (14-22s each, blur 80px). Reads as a living mesh gradient,
+// not a sleeping background.
+//
+// Audio: real Web Speech Synthesis (browser-native, zero deps). Voice picks
+// en-NG → en-ZA → en-GB → en. Word-boundary events drive the animated mouth
+// + the waveform pulse so the surface responds to actual speech rhythm.
+// =============================================================================
+
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { PhoneOff, Volume2, VolumeX, BookOpen, ArrowRight, X } from "lucide-react"
-import { ChidiMark } from "./chidi-mark"
+import { ChidiMark, type ChidiMarkState } from "./chidi-mark"
 import { CallChidiWaveform, type CallWaveformState } from "./call-chidi-waveform"
 import { CallChidiBubble } from "./call-chidi-bubble"
+import { useChidiSpeech } from "@/lib/chidi/use-chidi-speech"
 import { cn } from "@/lib/utils"
 
 interface CallChidiProps {
@@ -124,6 +143,18 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
   const timeoutsRef = useRef<number[]>([])
   const tickRef = useRef<number | null>(null)
 
+  // ---- Real TTS (Web Speech Synthesis) -------------------------------------
+  // Word-boundary events drive both the mouth viseme cycle and the waveform
+  // pulse spike. When `speakerOn` is false we skip speak() entirely (the
+  // setTimeout script still advances visuals so the demo plays muted).
+  const speech = useChidiSpeech()
+  const speakerOnRef = useRef(speakerOn)
+  useEffect(() => {
+    speakerOnRef.current = speakerOn
+    if (!speakerOn) speech.cancel()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speakerOn])
+
   // ---- Lifecycle: start / reset script when opened --------------------------
   useEffect(() => {
     if (!open) {
@@ -133,6 +164,7 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
       if (tickRef.current != null) window.clearInterval(tickRef.current)
       tickRef.current = null
       startedAtRef.current = null
+      speech.cancel()
       // Reset for next open
       setBubbles([])
       setElapsed(0)
@@ -154,6 +186,15 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
         if (step.bubble) {
           setBubbles((prev) => [...prev, step.bubble!])
           if (step.expandable) setLatestExpandable(step.bubble!)
+
+          // If this is a Chidi line and the speaker isn't muted, fire TTS.
+          // The script timing is still authoritative for advancing the demo —
+          // we don't gate the next step on `onEnd`. The TTS just rides on
+          // top, driving the mouth viseme cycle and the waveform pulse.
+          const isAi = step.bubble.variant !== "user-pill"
+          if (isAi && step.state === "speaking" && speakerOnRef.current) {
+            speech.speak(step.bubble.text)
+          }
         }
       }, 250 + step.at)
       timeoutsRef.current.push(id)
@@ -171,7 +212,12 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
       timeoutsRef.current = []
       if (tickRef.current != null) window.clearInterval(tickRef.current)
       tickRef.current = null
+      speech.cancel()
     }
+    // `speech` is a stable hook return-value — its identity changes per render
+    // but the methods inside it are wrapped in useCallback. Excluding from the
+    // deps to keep the script-init effect bound only to `open`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   // ---- Escape closes --------------------------------------------------------
@@ -213,6 +259,17 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
     return "idle"
   }, [callState])
 
+  // ---- Map call state → ChidiMark mouth state ------------------------------
+  // Uses the live TTS state when the speaker's on so the mouth opens exactly
+  // when audio is playing rather than just when the script step says so.
+  const mouthState: ChidiMarkState = useMemo(() => {
+    if (callState === "speaking" && (speech.state === "speaking" || !speech.supported)) return "speaking"
+    if (callState === "speaking") return "speaking"
+    if (callState === "listening") return "listening"
+    if (callState === "thinking") return "thinking"
+    return "idle"
+  }, [callState, speech.state, speech.supported])
+
   // ---- Action handlers ------------------------------------------------------
   const handleAction = useCallback((key: BubbleEntry["actionKey"]) => {
     if (key === "open-orders" && slug) {
@@ -238,17 +295,26 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
       aria-modal="true"
       aria-label="Call Chidi"
     >
-      {/* Background — Lagos sunset gradient */}
-      <div className="absolute inset-0 chidi-call-bg" />
+      {/* Background — Hyper-Lagos Neon: 5 vivid blobs orbiting on a deep
+          electric-violet base. Replaces the v1 muddy sunset gradient.
+          See globals.css → ".chidi-call-bg-v2" section for palette + motion. */}
+      <div className="absolute inset-0 chidi-call-bg-v2" aria-hidden="true">
+        <div className="chidi-call-blob chidi-call-blob-1" />
+        <div className="chidi-call-blob chidi-call-blob-2" />
+        <div className="chidi-call-blob chidi-call-blob-3" />
+        <div className="chidi-call-blob chidi-call-blob-4" />
+        <div className="chidi-call-blob chidi-call-blob-5" />
+      </div>
 
-      {/* Subtle grain / vignette for depth */}
+      {/* Subtle vignette for focal depth — slight bright bloom under the
+          mascot, slight darkening at the bottom edge so the controls read. */}
       <div
         aria-hidden="true"
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(60% 60% at 50% 35%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0) 60%)," +
-            "radial-gradient(80% 80% at 50% 100%, rgba(0,0,0,0.32) 0%, rgba(0,0,0,0) 70%)",
+            "radial-gradient(60% 60% at 50% 35%, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0) 60%)," +
+            "radial-gradient(80% 80% at 50% 100%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0) 70%)",
         }}
       />
 
@@ -321,7 +387,12 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
                     "radial-gradient(closest-side, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 72%)",
                 }}
               />
-              <ChidiMark size={170} className="relative drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)]" />
+              <ChidiMark
+                size={170}
+                state={mouthState}
+                speakingPulse={speech.boundary}
+                className="relative drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+              />
             </div>
 
             {/* Bubbles stack — newest at the bottom, plain stack flows naturally */}
@@ -351,7 +422,7 @@ export function CallChidi({ open, onClose }: CallChidiProps) {
 
         {/* Bottom — waveform + 3 controls */}
         <div className="flex flex-col items-center gap-5 w-full">
-          <CallChidiWaveform state={waveformState} />
+          <CallChidiWaveform state={waveformState} pulse={speech.boundary} />
 
           <div className="flex items-center justify-center gap-6">
             {/* Speaker toggle */}

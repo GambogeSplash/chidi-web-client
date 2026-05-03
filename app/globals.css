@@ -1256,3 +1256,113 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .chidi-call-overlay-in { animation: none; }
 }
+
+/* === Call Chidi v2 — vibrant animated blob mesh ============================
+   Section added 2026-05-03 in response to "the dull color we have going on"
+   feedback. Replaces the static-feeling sunset gradient with 5 absolutely-
+   positioned blurred radial blobs orbiting on independent slow elliptical
+   paths. Background base is deep electric violet so the blobs read as bright
+   lights through fog rather than pastel washes.
+
+   Palette — "Hyper-Lagos Neon" (Option B):
+     #00C853  vivid green (Chidi brand-adjacent — anchors the identity)
+     #E91E63  hot magenta (energy)
+     #00B8D4  electric cyan (cool counterweight)
+     #FFB300  gold-orange (warmth callback to the rejected sunset)
+     #6200EA  deep violet base (depth + saturation)
+
+   Honors prefers-reduced-motion → blobs hold their starting positions.
+   ========================================================================= */
+.chidi-call-bg-v2 {
+  background:
+    radial-gradient(120% 120% at 50% 50%, #1A0033 0%, #0A001A 70%, #000000 100%);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.chidi-call-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.85;
+  will-change: transform;
+  pointer-events: none;
+}
+.chidi-call-blob-1 {
+  width: 55%;
+  aspect-ratio: 1 / 1;
+  top: -10%;
+  left: -10%;
+  background: radial-gradient(circle, #E91E63 0%, rgba(233, 30, 99, 0) 70%);
+  animation: chidiBlobOrbit1 16s ease-in-out infinite;
+}
+.chidi-call-blob-2 {
+  width: 60%;
+  aspect-ratio: 1 / 1;
+  top: 10%;
+  right: -15%;
+  background: radial-gradient(circle, #00B8D4 0%, rgba(0, 184, 212, 0) 70%);
+  animation: chidiBlobOrbit2 19s ease-in-out infinite;
+}
+.chidi-call-blob-3 {
+  width: 65%;
+  aspect-ratio: 1 / 1;
+  bottom: -15%;
+  left: 5%;
+  background: radial-gradient(circle, #00C853 0%, rgba(0, 200, 83, 0) 70%);
+  animation: chidiBlobOrbit3 22s ease-in-out infinite;
+}
+.chidi-call-blob-4 {
+  width: 50%;
+  aspect-ratio: 1 / 1;
+  bottom: 5%;
+  right: -10%;
+  background: radial-gradient(circle, #FFB300 0%, rgba(255, 179, 0, 0) 70%);
+  animation: chidiBlobOrbit4 14s ease-in-out infinite;
+}
+.chidi-call-blob-5 {
+  width: 45%;
+  aspect-ratio: 1 / 1;
+  top: 35%;
+  left: 25%;
+  background: radial-gradient(circle, #6200EA 0%, rgba(98, 0, 234, 0) 70%);
+  animation: chidiBlobOrbit5 18s ease-in-out infinite;
+  opacity: 0.6;
+}
+
+@keyframes chidiBlobOrbit1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(35vw, 20vh) scale(1.15); }
+  50%      { transform: translate(50vw, 55vh) scale(0.95); }
+  75%      { transform: translate(20vw, 40vh) scale(1.1); }
+}
+@keyframes chidiBlobOrbit2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(-40vw, 30vh) scale(1.2); }
+  66%      { transform: translate(-25vw, 65vh) scale(0.9); }
+}
+@keyframes chidiBlobOrbit3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(30vw, -25vh) scale(0.95); }
+  50%      { transform: translate(55vw, -10vh) scale(1.15); }
+  75%      { transform: translate(15vw, -35vh) scale(1.05); }
+}
+@keyframes chidiBlobOrbit4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%      { transform: translate(-45vw, -30vh) scale(1.2); }
+  70%      { transform: translate(-20vw, -50vh) scale(0.9); }
+}
+@keyframes chidiBlobOrbit5 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  20%      { transform: translate(20vw, -15vh) scale(1.1); }
+  50%      { transform: translate(-15vw, 20vh) scale(0.95); }
+  80%      { transform: translate(15vw, 15vh) scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chidi-call-blob-1,
+  .chidi-call-blob-2,
+  .chidi-call-blob-3,
+  .chidi-call-blob-4,
+  .chidi-call-blob-5 { animation: none; }
+}

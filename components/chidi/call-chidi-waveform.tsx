@@ -10,6 +10,12 @@ interface CallChidiWaveformProps {
   className?: string
   /** Bar count — Arc reference uses ~14 dots in a pill */
   bars?: number
+  /**
+   * External pulse counter — each increment triggers a quick amplitude bump
+   * that decays over ~180ms. Wire this to TTS `onboundary` events so the
+   * waveform reads as actually responding to speech rather than a free sine.
+   */
+  pulse?: number
 }
 
 /**
@@ -26,11 +32,24 @@ export function CallChidiWaveform({
   state,
   className,
   bars = 14,
+  pulse,
 }: CallChidiWaveformProps) {
   const [levels, setLevels] = useState<number[]>(() => Array(bars).fill(0.1))
   const rafRef = useRef<number | null>(null)
   const startRef = useRef<number>(0)
   const reducedMotion = useRef<boolean>(false)
+  // Pulse spike — set to 1 on a boundary event, decays toward 0 in the RAF tick
+  const pulseRef = useRef<number>(0)
+  const lastPulseRef = useRef<number | undefined>(pulse)
+
+  // Whenever the external pulse counter ticks, kick the spike to ~1
+  useEffect(() => {
+    if (pulse == null) return
+    if (pulse !== lastPulseRef.current) {
+      lastPulseRef.current = pulse
+      pulseRef.current = 1
+    }
+  }, [pulse])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -62,13 +81,18 @@ export function CallChidiWaveform({
 
     const tick = (t: number) => {
       const dt = (t - startRef.current) * speed
+      // Decay the pulse spike (~180ms half-life). Renders as a quick "kick"
+      // on every TTS word boundary, layered on top of the sine envelope.
+      pulseRef.current = Math.max(0, pulseRef.current - 0.06)
+      const spike = pulseRef.current * 0.35
+
       const next = Array.from({ length: bars }, (_, i) => {
         // Stack two sines + a quiet random for organic feel.
         const phase = i * 0.6
         const a = Math.sin(dt + phase) * 0.5 + 0.5
         const b = Math.sin(dt * 1.7 + phase * 1.3) * 0.5 + 0.5
         const noise = (Math.random() - 0.5) * 0.18
-        const v = (a * 0.55 + b * 0.45) * baseAmp + noise
+        const v = (a * 0.55 + b * 0.45) * baseAmp + noise + spike
         // Center bars feel "louder" — apply a gentle bell curve weighting
         const mid = (bars - 1) / 2
         const distance = Math.abs(i - mid) / mid
