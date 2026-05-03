@@ -54,39 +54,12 @@ export function BusinessAvatarPicker({
 
   const isDefault = !selectedSeed
   const handleShuffle = () => setShuffleCount((c) => c + 1)
-  const previewSeed = selectedSeed ?? businessName
 
   return (
-    <div className={cn("space-y-4", className)}>
-      {/* Big live preview — what the merchant is actually committing to.
-          Doubles as the persistent answer to "which one am I on?" */}
-      <div className="flex items-center gap-4 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/60 p-3">
-        <BusinessAvatar name={previewSeed} size="xl" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--chidi-text-muted)]">
-            {isDefault ? "Default mark" : `Variant ${selectedSeedIndex(selectedSeed, variants) ?? "—"}`}
-          </p>
-          <p className="text-[14px] font-semibold text-[var(--chidi-text-primary)] truncate font-chidi-voice mt-0.5">
-            {businessName}
-          </p>
-          <p className="text-[11px] text-[var(--chidi-text-muted)] mt-0.5">
-            Shows in your sidebar, on receipts, and in customer chats.
-          </p>
-        </div>
-        {!isDefault && (
-          <button
-            type="button"
-            onClick={() => onSelect(null)}
-            className="text-[11px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] underline underline-offset-2 flex-shrink-0"
-          >
-            Reset
-          </button>
-        )}
-      </div>
-
+    <div className={cn("space-y-3", className)}>
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--chidi-text-muted)]">
-          Pick a different look
+          Pick a look
         </p>
         <button
           type="button"
@@ -98,7 +71,7 @@ export function BusinessAvatarPicker({
         </button>
       </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
         {/* Default — derived from business name */}
         <SelectableAvatar
           seed={businessName}
@@ -119,15 +92,6 @@ export function BusinessAvatarPicker({
       </div>
     </div>
   )
-}
-
-function selectedSeedIndex(
-  seed: string | null | undefined,
-  variants: { seed: string }[],
-): number | null {
-  if (!seed) return null
-  const i = variants.findIndex((v) => v.seed === seed)
-  return i >= 0 ? i + 1 : null
 }
 
 function SelectableAvatar({

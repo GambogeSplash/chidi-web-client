@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus, Phone } from "lucide-react"
-import { ChidiAvatar } from "./chidi-mark"
+import { ChidiAvatar, ChidiMark } from "./chidi-mark"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -270,14 +270,7 @@ export function CopilotView({
   // Empty state (new chat) — proactive briefing seeded from real business state
   if (messages.length === 0 && !isLoading) {
     return (
-      <CopilotEmptyState
-        onPromptClick={handlePromptChipClick}
-        onShowHistory={() => setShowHistory(true)}
-        showCopilotHint={showCopilotHint}
-        dismissCopilotHint={dismissCopilotHint}
-        expandedCategory={expandedCategory}
-        setExpandedCategory={setExpandedCategory}
-      >
+      <CopilotEmptyState onShowHistory={() => setShowHistory(true)}>
         {/* Input - fixed at bottom */}
         <div className="flex-shrink-0 p-4 pb-4 bg-[var(--chidi-surface)] border-t border-[var(--chidi-border-subtle)]">
           <form onSubmit={handleSubmit} className="max-w-lg mx-auto">
@@ -494,87 +487,14 @@ export function CopilotView({
 // =============================================================================
 
 interface CopilotEmptyStateProps {
-  onPromptClick: (prompt: string) => void
   onShowHistory: () => void
-  showCopilotHint: boolean
-  dismissCopilotHint: () => void
-  expandedCategory: string | null
-  setExpandedCategory: (id: string | null) => void
   children: React.ReactNode
 }
 
 function CopilotEmptyState({
-  onPromptClick,
   onShowHistory,
-  showCopilotHint,
-  dismissCopilotHint,
-  expandedCategory,
-  setExpandedCategory,
   children,
 }: CopilotEmptyStateProps) {
-  const sales = useSalesOverview("7d")
-  const pending = useOrders("PENDING_PAYMENT")
-  const needsHuman = useMessagingConversations("NEEDS_HUMAN", undefined)
-
-  const pendingCount = pending.data?.orders.length ?? 0
-  const needsHumanCount = needsHuman.data?.needs_human_count ?? 0
-  const revenueWeek = sales.data?.revenue.current
-  const percentChange = sales.data?.revenue.percent_change
-
-  // Build proactive prompts derived from real state. These are the questions
-  // a thoughtful assistant would offer to ask, not generic topics.
-  const proactivePrompts = useMemo(() => {
-    const items: { id: string; emoji: string; text: string; ask: string; tone: "win" | "warn" | "neutral" }[] = []
-
-    if (needsHumanCount > 0) {
-      items.push({
-        id: "needs-human",
-        emoji: "👋",
-        text: `${needsHumanCount} customer${needsHumanCount === 1 ? "" : "s"} ${needsHumanCount === 1 ? "is" : "are"} waiting for you. Want me to summarise what they need?`,
-        ask: `Summarise the conversations that need my attention.`,
-        tone: "warn",
-      })
-    }
-    if (pendingCount > 0) {
-      items.push({
-        id: "pending-payments",
-        emoji: "💳",
-        text: `${pendingCount} order${pendingCount === 1 ? "" : "s"} pending payment. Should I draft polite chase messages?`,
-        ask: `Draft chase messages for the pending payments.`,
-        tone: "warn",
-      })
-    }
-    if (typeof revenueWeek === "number" && revenueWeek > 0) {
-      items.push({
-        id: "revenue",
-        emoji: "📈",
-        text:
-          percentChange != null && percentChange < -5
-            ? `You're at ${formatCurrency(revenueWeek, "NGN", { compact: true })} this week — that's down ${Math.abs(Math.round(percentChange))}%. Want to dig into why?`
-            : percentChange != null && percentChange > 5
-            ? `You're at ${formatCurrency(revenueWeek, "NGN", { compact: true })} this week — up ${Math.round(percentChange)}%. Want to know what's driving it?`
-            : `You're at ${formatCurrency(revenueWeek, "NGN", { compact: true })} this week. Want a breakdown?`,
-        ask: `Walk me through what's driving sales this week.`,
-        tone: percentChange != null && percentChange < -5 ? "warn" : "win",
-      })
-    }
-    items.push({
-      id: "low-stock",
-      emoji: "📦",
-      text: "Some items might be running low. Want a restock list?",
-      ask: "What should I restock soon?",
-      tone: "neutral",
-    })
-    items.push({
-      id: "rhythm",
-      emoji: "🕒",
-      text: "I've been watching your business rhythm. Want a 60-second briefing?",
-      ask: "Give me a 60-second briefing on my business right now.",
-      tone: "neutral",
-    })
-    return items
-  }, [needsHumanCount, pendingCount, revenueWeek, percentChange])
-
   return (
     <div className="flex-1 flex flex-col bg-[var(--chidi-surface)] min-h-0 overflow-hidden relative">
       <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
@@ -599,50 +519,16 @@ function CopilotEmptyState({
         </Button>
       </div>
 
-      {/* Briefing area */}
-      <div className="flex-1 overflow-y-auto px-5 sm:px-8 pt-12 pb-6">
-        <div className="max-w-xl mx-auto">
-          {/* Greeting */}
-          <div className="flex items-start gap-3 mb-6">
-            <ChidiAvatar size="md" tone="default" />
-            <div>
-              <h2 className="ty-page-title text-[var(--chidi-text-primary)] chidi-brief-card">
-                Here's what's on my mind.
-              </h2>
-              <p className="ty-body-voice text-[var(--chidi-text-secondary)] mt-1 leading-relaxed chidi-brief-card" style={{ animationDelay: "100ms" }}>
-                Pick one to start, or ask me anything.
-              </p>
-            </div>
-          </div>
-
-          {/* Proactive prompts */}
-          <ul className="space-y-2 mb-8">
-            {proactivePrompts.map((p, idx) => (
-              <li key={p.id} className="chidi-brief-card" style={{ animationDelay: `${200 + idx * 60}ms` }}>
-                <button
-                  onClick={() => onPromptClick(p.ask)}
-                  className={cn(
-                    "w-full text-left p-4 rounded-xl bg-white border border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)] hover:shadow-card transition-all duration-200",
-                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)] focus-visible:ring-offset-2"
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-xl flex-shrink-0 mt-0.5" aria-hidden>
-                      {p.emoji}
-                    </span>
-                    <p className="text-sm sm:text-[15px] font-chidi-voice text-[var(--chidi-text-primary)] leading-relaxed">
-                      {p.text}
-                    </p>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          {/* "Or ask about" categories removed (2026-05-03) — the expandable
-              category list duplicated what proactive prompts already do, but
-              with generic copy instead of real-data context. The empty state
-              is now focused on the live signals + the input bar. */}
+      {/* Quiet empty state — the mark IS the surface. Merchant types into
+          the input bar at the bottom. The previous greeting + 5 proactive
+          prompt cards repeated work other tabs (Inbox unread, Insights
+          decisions, Inventory low-stock) already surface. */}
+      <div className="flex-1 flex items-center justify-center px-6 pb-6">
+        <div className="flex flex-col items-center text-center">
+          <ChidiMark size={88} className="text-[var(--chidi-text-primary)] mb-5 chidi-brief-card" />
+          <p className="ty-body-voice text-[var(--chidi-text-secondary)] chidi-brief-card" style={{ animationDelay: "120ms" }}>
+            Ask me anything about your shop.
+          </p>
         </div>
       </div>
 
