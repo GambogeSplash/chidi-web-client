@@ -435,31 +435,39 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           </button>
 
           {/* Desktop: inline dropdowns */}
+          {/* Filter — shows All products + every category. Stock-status
+              filtering (low / out) lives on the per-row stock pills, not
+              here, per merchant feedback. */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 className={cn(
                   "hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-md border text-[12px] font-chidi-voice active:scale-[0.97] flex-shrink-0",
-                  stockFilter !== "all"
+                  selectedCategory !== "all"
                     ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] border-[var(--chidi-text-primary)]"
                     : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:bg-white",
                 )}
               >
                 <Filter className="w-3.5 h-3.5" />
-                <span>{FILTER_LABEL[stockFilter]}</span>
+                <span className="capitalize">{selectedCategory === "all" ? "All products" : selectedCategory}</span>
                 <ChevronDown className="w-3 h-3 opacity-70" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
-              {(Object.keys(FILTER_LABEL) as StockFilter[]).map((k) => (
-                <DropdownMenuItem
-                  key={k}
-                  onClick={() => setStockFilter(k)}
-                  className={cn(stockFilter === k && "bg-[var(--chidi-surface)] font-medium")}
-                >
-                  {FILTER_LABEL[k]}
-                </DropdownMenuItem>
-              ))}
+            <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)] min-w-[200px]">
+              {categories.map((category) => {
+                const count = category === "all" ? products.length : (categoryCounts[category] ?? 0)
+                const isActive = selectedCategory === category
+                return (
+                  <DropdownMenuItem
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={cn("flex items-center justify-between gap-3", isActive && "bg-[var(--chidi-surface)] font-medium")}
+                  >
+                    <span className="capitalize">{category === "all" ? "All products" : category}</span>
+                    <span className="tabular-nums text-[10px] text-[var(--chidi-text-muted)]">{count}</span>
+                  </DropdownMenuItem>
+                )
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -511,48 +519,6 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           </div>
         )}
 
-        {/* Categories — collapsed into a single dropdown next to the search.
-            The horizontal chip strip was visually noisy and competed with the
-            stock-status filters. The trigger label updates to show the active
-            category so the merchant always knows what they're looking at. */}
-        {categories.length > 1 && (
-          <div className="mt-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-chidi-voice bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] hover:bg-white border border-[var(--chidi-border-subtle)] transition-colors active:scale-[0.97]"
-                >
-                  <span className="capitalize text-[var(--chidi-text-primary)]">
-                    {selectedCategory === "all" ? "All products" : selectedCategory}
-                  </span>
-                  <span className="tabular-nums text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-border-subtle)]/60">
-                    {selectedCategory === "all" ? products.length : (categoryCounts[selectedCategory] ?? 0)}
-                  </span>
-                  <ChevronDown className="w-3 h-3 text-[var(--chidi-text-muted)]" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-white border-[var(--chidi-border-default)] min-w-[200px]">
-                {categories.map((category) => {
-                  const count = category === "all" ? products.length : (categoryCounts[category] ?? 0)
-                  const isActive = selectedCategory === category
-                  return (
-                    <DropdownMenuItem
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className="flex items-center justify-between gap-3"
-                    >
-                      <span className={cn("capitalize", isActive && "font-medium text-[var(--chidi-text-primary)]")}>
-                        {category === "all" ? "All products" : category}
-                      </span>
-                      <span className="tabular-nums text-[10px] text-[var(--chidi-text-muted)]">{count}</span>
-                    </DropdownMenuItem>
-                  )
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
       </div>
 
       {/* Bulk actions toolbar — slides in from top when items are selected */}
