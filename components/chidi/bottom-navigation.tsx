@@ -112,7 +112,10 @@ export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: Bot
                 {isChidi ? (
                   <ArcFace
                     size={20}
-                    className={cn("mb-0.5 transition-all", isActive ? "text-[var(--chidi-win)]" : "text-current")}
+                    className={cn(
+                      "mb-0.5 transition-all",
+                      isActive ? "text-[var(--chidi-win)]" : "text-[var(--chidi-text-muted)]",
+                    )}
                   />
                 ) : Icon ? (
                   <Icon

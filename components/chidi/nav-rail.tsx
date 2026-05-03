@@ -180,9 +180,16 @@ export function NavRail({
                   )}
                 >
                   {isChidi ? (
+                    // Explicit color to match Lucide icon vibe in the rail —
+                    // text-current was rendering white in some browsers because
+                    // ArcFace fills shapes (not just strokes) and the inheritance
+                    // chain wasn't resolving to the surrounding text color.
                     <ArcFace
                       size={18}
-                      className={cn("flex-shrink-0", isActive ? "text-[var(--chidi-win)]" : "text-current")}
+                      className={cn(
+                        "flex-shrink-0",
+                        isActive ? "text-[var(--chidi-win)]" : "text-[var(--chidi-text-secondary)]",
+                      )}
                     />
                   ) : Icon ? (
                     <Icon
