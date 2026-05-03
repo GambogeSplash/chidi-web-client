@@ -110,7 +110,7 @@ export default function TestimonialsSection() {
             <div className="flex-1 px-6 py-6 overflow-hidden flex flex-col justify-start items-start gap-6 pb-0 pt-0">
               <Quote className="w-6 h-6 text-[var(--chidi-win)]" />
               <blockquote
-                className="self-stretch justify-start flex flex-col text-[var(--chidi-text-primary)] text-2xl md:text-[32px] font-medium leading-10 md:leading-[42px] font-serif h-[200px] md:h-[210px] overflow-hidden line-clamp-5 transition-all duration-700 ease-in-out tracking-tight"
+                className="self-stretch justify-start flex flex-col text-[var(--chidi-text-primary)] text-2xl md:text-[32px] font-normal leading-[1.25] font-serif h-[200px] md:h-[210px] overflow-hidden line-clamp-5 transition-all duration-700 ease-in-out tracking-[-0.01em]"
                 style={{
                   filter: transitioning ? 'blur(4px)' : 'blur(0px)',
                   transition: 'filter 0.7s ease-in-out',
@@ -119,21 +119,21 @@ export default function TestimonialsSection() {
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
               <div
-                className="self-stretch flex flex-col justify-start items-start gap-1 transition-all duration-700 ease-in-out"
+                className="self-stretch flex flex-col justify-start items-start gap-0.5 transition-all duration-700 ease-in-out"
                 style={{
                   filter: transitioning ? 'blur(4px)' : 'blur(0px)',
                   transition: 'filter 0.7s ease-in-out',
                 }}
               >
-                <div className="self-stretch justify-center flex flex-col text-[var(--chidi-text-primary)]/90 text-lg font-medium leading-[26px] font-sans">
+                <div className="self-stretch text-[var(--chidi-text-primary)] text-sm font-semibold leading-[1.4] font-sans">
                   {t.name}
                 </div>
-                <div className="self-stretch justify-center flex flex-col text-[var(--chidi-text-secondary)] text-base font-medium leading-[26px] font-sans">
+                <div className="self-stretch text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.4] font-sans">
                   {t.company}
                 </div>
                 <div className="mt-2 inline-flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-win)]" />
-                  <span className="text-[12px] text-[var(--chidi-text-secondary)] font-chidi-voice tabular-nums">
+                  <span className="text-[11px] text-[var(--chidi-text-secondary)] font-medium uppercase tracking-[0.12em] tabular-nums font-sans">
                     {t.stat}
                   </span>
                 </div>

@@ -1,7 +1,23 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+import { GripVertical } from "lucide-react"
 import {
   ArrowLeft,
   PlayCircle,
@@ -24,6 +40,10 @@ import { NavRail } from "@/components/chidi/nav-rail"
 import { ChidiPage } from "@/components/chidi/page-shell"
 import { ChidiMark } from "@/components/chidi/chidi-mark"
 import { cn } from "@/lib/utils"
+import { useCountUp } from "@/lib/chidi/use-count-up"
+import { useRailCollapsed } from "@/lib/chidi/use-rail-collapsed"
+import { requestApproval } from "@/components/chidi/approval-guardrail"
+import { toast } from "sonner"
 import {
   PLAYS,
   PLAY_CATEGORY_LABEL,
@@ -51,13 +71,81 @@ export default function PlaybookPage() {
 
   const [activeCat, setActiveCat] = useState<PlayCategory | "all">("all")
   const [openPlayId, setOpenPlayId] = useState<string | null>(null)
+  const railCollapsed = useRailCollapsed()
+
+  // Drag-to-reorder priority. Initial order is the authored PLAYS sequence;
+  // the merchant can drag to prioritize. Order persists in localStorage so
+  // the playbook stays in their preferred shape across sessions.
+  const [playOrder, setPlayOrder] = useState<string[]>(() => PLAYS.map((p) => p.id))
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = localStorage.getItem("chidi_playbook_order_v1")
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as string[]
+        // Defensively merge: drop ids no longer in PLAYS, append new ones
+        const known = new Set(PLAYS.map((p) => p.id))
+        const validSaved = parsed.filter((id) => known.has(id))
+        const newIds = PLAYS.map((p) => p.id).filter((id) => !validSaved.includes(id))
+        setPlayOrder([...validSaved, ...newIds])
+      } catch {
+        // ignore corrupt JSON, keep authored order
+      }
+    }
+  }, [])
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setPlayOrder((items) => {
+      const oldIdx = items.indexOf(active.id as string)
+      const newIdx = items.indexOf(over.id as string)
+      if (oldIdx < 0 || newIdx < 0) return items
+      const next = arrayMove(items, oldIdx, newIdx)
+      if (typeof window !== "undefined") {
+        localStorage.setItem("chidi_playbook_order_v1", JSON.stringify(next))
+      }
+      return next
+    })
+  }
+
+  const orderedPlays = useMemo(() => {
+    const byId = new Map(PLAYS.map((p) => [p.id, p]))
+    return playOrder.map((id) => byId.get(id)!).filter(Boolean)
+  }, [playOrder])
 
   const visible = useMemo(
-    () => (activeCat === "all" ? PLAYS : PLAYS.filter((p) => p.category === activeCat)),
-    [activeCat],
+    () => (activeCat === "all" ? orderedPlays : orderedPlays.filter((p) => p.category === activeCat)),
+    [activeCat, orderedPlays],
   )
 
   const featured = useMemo(() => PLAYS.find((p) => p.featured) ?? PLAYS[0], [])
+
+  // Run a play through the approval guardrail. Sensitive moves (refund,
+  // mass-message, payouts) all funnel through this so the merchant sees
+  // exactly what's about to happen and approves it first.
+  const handleRunPlay = (play: PlaybookPlay) => {
+    requestApproval({
+      play: play.title,
+      summary:
+        play.sample_message ||
+        `Run "${play.title}" — Chidi will execute the ${play.steps.length}-step move on your behalf.`,
+      diff: [
+        { label: "Play", from: "idle", to: "running" },
+        { label: "Steps", from: "—", to: `${play.steps.length} actions queued` },
+        { label: "Expected outcome", from: "—", to: `${play.stats.win_rate_pct}% win rate` },
+      ],
+      severity: "normal",
+      onApprove: () => {
+        toast.success("Play started", { description: `Chidi is running "${play.title}" now.` })
+      },
+      onDeny: () => {
+        toast("Play not run", { description: "I'll wait." })
+      },
+    })
+  }
 
   const totals = useMemo(() => {
     const active = PLAYS.filter((p) => p.state === "active").length
@@ -72,7 +160,12 @@ export default function PlaybookPage() {
   }, [])
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--background)] lg:pl-[224px]">
+    <div
+      className={cn(
+        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200",
+        railCollapsed ? "lg:pl-[64px]" : "lg:pl-[224px]",
+      )}
+    >
       <NavRail
         activeTab="inbox"
         onTabChange={(tab) => router.push(`/dashboard/${slug}?tab=${tab}`)}
@@ -96,15 +189,15 @@ export default function PlaybookPage() {
         }
       >
         {/* Featured play hero — full-bleed image with overlay */}
-        <FeaturedPlayHero play={featured} onRun={() => setOpenPlayId(featured.id)} />
+        <FeaturedPlayHero play={featured} onRun={() => handleRunPlay(featured)} />
 
         {/* KPI strip */}
         <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5 mb-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <KpiCell label="Plays running" value={`${totals.active}`} sub={`of ${PLAYS.length} total`} />
-            <KpiCell label="Recovered (30d)" value={formatNGN(totals.recoveredLast30d)} sub="across all plays" />
-            <KpiCell label="Plays run" value={`${totals.totalRuns}`} sub="all-time" />
-            <KpiCell label="Win rate" value={`${totals.winRate}%`} sub={`${totals.totalWon} wins`} />
+            <KpiCell label="Plays running" countTarget={totals.active} format="int" sub={`of ${PLAYS.length} total`} />
+            <KpiCell label="Recovered (30d)" countTarget={totals.recoveredLast30d} format="ngn" sub="across all plays" />
+            <KpiCell label="Plays run" countTarget={totals.totalRuns} format="int" sub="all-time" />
+            <KpiCell label="Win rate" countTarget={totals.winRate} format="pct" sub={`${totals.totalWon} wins`} />
           </div>
         </div>
 
@@ -131,17 +224,36 @@ export default function PlaybookPage() {
           })}
         </div>
 
-        {/* Plays list */}
-        <div className="space-y-3">
-          {visible.map((play) => (
-            <PlayCard
-              key={play.id}
-              play={play}
-              expanded={openPlayId === play.id}
-              onToggle={() => setOpenPlayId((id) => (id === play.id ? null : play.id))}
-            />
-          ))}
-        </div>
+        {/* Plays list — drag-to-reorder is enabled only when viewing All
+            (reordering inside a category filter would surprise the merchant
+            because the global order is what changes). */}
+        {activeCat === "all" ? (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={visible.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {visible.map((play) => (
+                  <SortablePlayCard
+                    key={play.id}
+                    play={play}
+                    expanded={openPlayId === play.id}
+                    onToggle={() => setOpenPlayId((id) => (id === play.id ? null : play.id))}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <div className="space-y-3">
+            {visible.map((play) => (
+              <PlayCard
+                key={play.id}
+                play={play}
+                expanded={openPlayId === play.id}
+                onToggle={() => setOpenPlayId((id) => (id === play.id ? null : play.id))}
+              />
+            ))}
+          </div>
+        )}
 
         <p className="text-[11px] text-[var(--chidi-text-muted)] text-center pt-6">
           Plays are mine to run, yours to direct. Tell me to pause one, tweak one, or write a new one.
@@ -226,14 +338,31 @@ function Stat({ label, value }: { label: string; value: string }) {
 // KPI strip cell
 // ============================================================================
 
-function KpiCell({ label, value, sub }: { label: string; value: string; sub: string }) {
+function KpiCell({
+  label,
+  countTarget,
+  format,
+  sub,
+}: {
+  label: string
+  countTarget: number
+  format: "int" | "ngn" | "pct"
+  sub: string
+}) {
+  const tweened = useCountUp(countTarget, 950)
+  const display =
+    format === "ngn"
+      ? formatNGN(Math.round(tweened))
+      : format === "pct"
+        ? `${Math.round(tweened)}%`
+        : Math.round(tweened).toLocaleString("en-NG")
   return (
     <div>
       <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium mb-1">
         {label}
       </p>
       <p className="text-[18px] font-semibold tabular-nums text-[var(--chidi-text-primary)] leading-none">
-        {value}
+        {display}
       </p>
       <p className="text-[11px] text-[var(--chidi-text-muted)] mt-1">{sub}</p>
     </div>
@@ -723,4 +852,48 @@ function formatRunDate(iso: string) {
   if (days === 1) return "Yesterday"
   if (days < 7) return `${days}d ago`
   return d.toLocaleDateString("en-NG", { month: "short", day: "numeric" })
+}
+
+// ============================================================================
+// SortablePlayCard — wraps PlayCard with @dnd-kit useSortable so plays can
+// be drag-reordered to set merchant priority. Drag handle on the left, full
+// row stays clickable. CSS transform for buttery 60fps drag.
+// ============================================================================
+
+function SortablePlayCard({
+  play,
+  expanded,
+  onToggle,
+}: {
+  play: PlaybookPlay
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: play.id,
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.65 : 1,
+    zIndex: isDragging ? 20 : "auto",
+  }
+  return (
+    <div ref={setNodeRef} style={style} className="relative group/sort">
+      {/* Drag handle — appears on hover, large invisible touch target */}
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label="Reorder play"
+        className={cn(
+          "absolute left-1 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-md text-[var(--chidi-text-muted)]",
+          "opacity-0 group-hover/sort:opacity-100 hover:bg-[var(--chidi-surface)] active:cursor-grabbing cursor-grab transition-opacity",
+          isDragging && "opacity-100",
+        )}
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+      <PlayCard play={play} expanded={expanded} onToggle={onToggle} />
+    </div>
+  )
 }

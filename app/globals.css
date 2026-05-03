@@ -66,9 +66,13 @@
      - Inter at 400 = system chrome (labels, controls, dense data)
      - Inter at 500 = Chidi's everyday voice (toasts, briefings, customer memory)
      - Instrument Serif = Chidi's voice in elevated moments (greetings, headlines, quotes)
+
+     --font-inter and --font-instrument-serif are set by next/font/google on
+     <html> (via inter.variable / instrumentSerif.variable in app/layout.tsx).
+     We MUST NOT redefine them here in :root — doing so overrode the
+     next/font-loaded font with a literal "Inter" string, which the browser
+     can't find locally, dropping the page back to the system sans fallback.
   */
-  --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-instrument-serif: "Instrument Serif", ui-serif, Georgia, serif;
   --font-chidi-voice: var(--font-inter);
 
   /* Win color — used ONLY when something good happens for the merchant
@@ -76,6 +80,36 @@
   --chidi-win: #E8A33D;
   --chidi-win-soft: rgba(232, 163, 61, 0.12);
   --chidi-win-foreground: #2A1F0F;
+
+  /* === Opacity scale (Skiff-style) =========================================
+     24-stop opacity ramp for color modulation. Lifted from Skiff's design
+     system — instead of maintaining separate light/dark variants for every
+     token, modulate ONE color with these alphas. Drop in as
+     `rgba(0,0,0,var(--alpha-32))` or `color-mix(...)`.
+
+     REFERENCE STOPS (use these by default):
+       --alpha-08  border / divider weight
+       --alpha-16  hover surface
+       --alpha-32  pressed surface, secondary text on color bg
+       --alpha-56  primary text on color bg
+       --alpha-88  near-opaque overlay
+  */
+  --alpha-02: 0.02;
+  --alpha-04: 0.04;
+  --alpha-06: 0.06;
+  --alpha-08: 0.08;   /* REFERENCE — borders / dividers */
+  --alpha-12: 0.12;
+  --alpha-16: 0.16;   /* REFERENCE — hover surfaces */
+  --alpha-20: 0.20;
+  --alpha-24: 0.24;
+  --alpha-32: 0.32;   /* REFERENCE — pressed / secondary on color */
+  --alpha-40: 0.40;
+  --alpha-48: 0.48;
+  --alpha-56: 0.56;   /* REFERENCE — primary on color */
+  --alpha-64: 0.64;
+  --alpha-72: 0.72;
+  --alpha-80: 0.80;
+  --alpha-88: 0.88;   /* REFERENCE — near-opaque overlay */
 }
 
 .dark {
@@ -513,12 +547,16 @@
   font-weight: 400;
 }
 
+/* Page title — Inter semi-bold at 20px. Used on every dashboard surface
+   (Inbox, Orders, Inventory, Insights, Ask Chidi, Playbook, Settings) so
+   the hierarchy reads as ONE app instead of several. Lifted from the
+   Insights page which had this treatment hardcoded. Single source. */
 .ty-page-title {
-  font-family: var(--font-instrument-serif);
-  font-size: 1.375rem;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  font-weight: 400;
+  font-family: var(--font-inter);
+  font-size: 1.25rem; /* 20px */
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  font-weight: 600;
 }
 
 .ty-section {
@@ -927,6 +965,150 @@ select:focus-visible {
 }
 [class*="animate-[progressBar"] {
   transform-origin: left;
+}
+
+/* Live-demo section — typing caret blink + "Live" badge ping */
+@keyframes liveDemoCaret {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes liveDemoPing {
+  0%, 100% { transform: translate(0, 0); box-shadow: 0 4px 14px -4px rgba(245, 184, 86, 0.55); }
+  50%      { transform: translate(0, -2px); box-shadow: 0 8px 20px -6px rgba(245, 184, 86, 0.7); }
+}
+
+/* Hero-carousel overlay chip — slides up + fades in when its card becomes active */
+@keyframes overlayChipIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* === Polish-pass primitives (2026-05-03) =====================================
+   Six low-level utilities every surface can lean on. Built once, reused
+   everywhere so the app feels like one product instead of N pages.
+*/
+
+/* 1) Skeleton shimmer — content-shaped placeholders sweep with a left-to-right
+   highlight while data loads. Replaces blunt <Loader2 spin/> spinners. */
+@keyframes chidiSkeletonShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.chidi-skeleton {
+  background-color: var(--chidi-surface);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: chidiSkeletonShimmer 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chidi-skeleton { animation: none; opacity: 0.7; }
+}
+
+/* 2) List-item enter — staggered slide+fade as rows mount or new ones arrive.
+   Apply with style={{ animationDelay: `${index * 28}ms` }} to cascade. */
+@keyframes chidiListIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chidi-list-in {
+  animation: chidiListIn 240ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* 3) New-row flash — 1-shot warm highlight when a row is freshly inserted
+   (e.g. a brand-new conversation hits the inbox). */
+@keyframes chidiNewRowFlash {
+  0%   { background-color: rgba(245, 184, 86, 0.25); }
+  100% { background-color: transparent; }
+}
+.chidi-new-row {
+  animation: chidiNewRowFlash 1800ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 4) Mascot breathe — subtle scale "alive" pulse for big-format ChidiMark
+   renders (Morning Brief, hero blocks). 4s cycle, barely perceptible. */
+@keyframes chidiMascotBreathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.025); }
+}
+.chidi-mascot-breathe {
+  animation: chidiMascotBreathe 4s ease-in-out infinite;
+  transform-origin: center center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chidi-mascot-breathe { animation: none; }
+}
+
+/* 5) Mascot blink — eyes briefly squeeze every few seconds. Applied to <g>
+   wrappers around eyes inside the SVG. */
+@keyframes chidiMascotBlink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%, 97%      { transform: scaleY(0.05); }
+}
+.chidi-mascot-blink {
+  animation: chidiMascotBlink 5.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chidi-mascot-blink { animation: none; }
+}
+
+/* 6) Cmd+K result row stagger — when the palette filters, items animate in
+   sequence (60ms apart) rather than all-at-once. Apply with
+   style={{ animationDelay: `${i * 60}ms` }}. */
+@keyframes chidiPaletteRowIn {
+  from { opacity: 0; transform: translateX(-3px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.chidi-palette-row {
+  animation: chidiPaletteRowIn 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* Auto-stagger up to 12 siblings with the same class — no per-item index
+   needed. Past 12 items they all enter together (still smoother than nothing). */
+.chidi-palette-row:nth-child(1)  { animation-delay: 0ms;   }
+.chidi-palette-row:nth-child(2)  { animation-delay: 30ms;  }
+.chidi-palette-row:nth-child(3)  { animation-delay: 60ms;  }
+.chidi-palette-row:nth-child(4)  { animation-delay: 90ms;  }
+.chidi-palette-row:nth-child(5)  { animation-delay: 120ms; }
+.chidi-palette-row:nth-child(6)  { animation-delay: 150ms; }
+.chidi-palette-row:nth-child(7)  { animation-delay: 180ms; }
+.chidi-palette-row:nth-child(8)  { animation-delay: 210ms; }
+.chidi-palette-row:nth-child(9)  { animation-delay: 240ms; }
+.chidi-palette-row:nth-child(10) { animation-delay: 270ms; }
+.chidi-palette-row:nth-child(11) { animation-delay: 300ms; }
+.chidi-palette-row:nth-child(12) { animation-delay: 330ms; }
+
+/* 7) Hover-reveal image — for inventory rows. The wrapper with the
+   `chidi-row-with-hover-image` class shows a tooltip-style enlarged image
+   on hover via the `[data-hover-image]` element inside it. Pure CSS, no JS. */
+.chidi-row-with-hover-image [data-hover-image] {
+  opacity: 0;
+  transform: scale(0.92) translateY(4px);
+  transition: opacity 160ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.chidi-row-with-hover-image:hover [data-hover-image],
+.chidi-row-with-hover-image:focus-within [data-hover-image] {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* 8) Tab-swap polish — replace the current chidi-tab-in (which only fades up)
+   with directional slide-fade so swapping inbox→orders feels like motion,
+   not a jump cut. Slightly longer (260ms) and uses translateX. */
+@keyframes chidiTabSwapIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.chidi-tab-swap-in {
+  animation: chidiTabSwapIn 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 /* === Universal active states ===============================================

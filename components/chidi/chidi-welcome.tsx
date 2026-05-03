@@ -1,12 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ArrowRight, MessageCircle, ShoppingBag, BarChart3 } from "lucide-react"
-import { ChidiAvatar, ChidiMark } from "./chidi-mark"
-import { CustomerCharacter } from "./customer-character"
+import { ArrowRight, MessageCircle, ShoppingBag, BarChart3, Sparkles, X } from "lucide-react"
+import { ChidiAvatar } from "./chidi-mark"
 import { cn } from "@/lib/utils"
 
-const SEEN_KEY = "chidi_welcome_seen_v1"
+const SEEN_KEY = "chidi_welcome_seen_v2" // v2: was multi-beat carousel, now single modal
 
 interface ChidiWelcomeProps {
   ownerName?: string | null
@@ -15,65 +14,34 @@ interface ChidiWelcomeProps {
   enabled?: boolean
 }
 
-type Beat = {
-  /** Eyebrow above the headline */
-  eyebrow: string
-  /** Headline (serif) */
-  headline: string
-  /** Body line in Chidi's voice */
-  body: string
-  /** Optional visual ornament rendered above the text */
-  visual: React.ReactNode
-}
-
 /**
- * The first-launch Chidi introduction. Cinematic, full-screen overlay shown
- * once ever for a brand new merchant. Three beats, ~3 seconds each, then it
- * dissolves into the dashboard. Skippable any time (Esc, click background,
- * or "Skip" button).
+ * Welcome modal — replaces the previous 3-beat full-screen carousel
+ * (which auto-rotated and felt forced). New behaviour:
  *
- * After the first dismissal, localStorage gates it forever. To replay during
- * dev: `localStorage.removeItem("chidi_welcome_seen_v1")`.
+ *   - Single compact modal anchored center, not a hijack overlay
+ *   - Five capabilities at a glance, no slide-by-slide
+ *   - One primary "Take me in" CTA + a secondary "Show me around" stub
+ *   - Skippable; localStorage gates it forever after dismiss
+ *   - Honors prefers-reduced-motion (no entrance animation)
+ *
+ * To replay during dev: localStorage.removeItem("chidi_welcome_seen_v2")
  */
 export function ChidiWelcome({ ownerName, businessName, enabled = true }: ChidiWelcomeProps) {
   const firstName = ownerName?.split(" ")[0] || ""
   const biz = businessName || "your shop"
 
   const [open, setOpen] = useState(false)
-  const [beat, setBeat] = useState(0)
-  const totalBeats = 3
-  const beatDurationMs = 3200
 
-  // On mount, check if we've shown this before. Only open if not seen.
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return
     const seen = localStorage.getItem(SEEN_KEY) === "true"
     if (!seen) {
-      // Tiny delay so the dashboard mounts behind it for a smoother dissolve later
-      const t = window.setTimeout(() => setOpen(true), 250)
+      // Tiny delay so the dashboard mounts behind it before reveal
+      const t = window.setTimeout(() => setOpen(true), 350)
       return () => window.clearTimeout(t)
     }
   }, [enabled])
 
-  // Auto-advance beats
-  useEffect(() => {
-    if (!open) return
-    const interval = window.setInterval(() => {
-      setBeat((b) => {
-        if (b >= totalBeats - 1) {
-          window.clearInterval(interval)
-          // Hold the last beat a moment, then dismiss
-          window.setTimeout(() => dismiss(), 1800)
-          return b
-        }
-        return b + 1
-      })
-    }, beatDurationMs)
-    return () => window.clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  // Esc to skip
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -93,166 +61,96 @@ export function ChidiWelcome({ ownerName, businessName, enabled = true }: ChidiW
 
   if (!open) return null
 
-  const beats: Beat[] = [
-    {
-      eyebrow: firstName ? `For you, ${firstName}` : "For you",
-      headline: firstName ? `Hi ${firstName}, I'm Chidi.` : "Hi. I'm Chidi.",
-      body: `I'll be sitting beside you running ${biz}. Your assistant for selling on WhatsApp.`,
-      visual: (
-        <div className="flex flex-col items-center">
-          <ChidiAvatar size="lg" tone="default" className="chidi-loader-breathe mb-4" />
-        </div>
-      ),
-    },
-    {
-      eyebrow: "What I do",
-      headline: "Three things, every day, without you lifting a finger.",
-      body: "I reply to your customers. I capture every order. I learn your business, then tell you what I see.",
-      visual: <ThreeWaysIDoIt />,
-    },
-    {
-      eyebrow: "From here",
-      headline: "Here's where you'll live.",
-      body: "Your inbox, your orders, your insights. Everything you need is one click away. I'll be in the corner if you call me.",
-      visual: <DashboardOverview />,
-    },
+  const capabilities = [
+    { icon: MessageCircle, label: "I reply to your customers — instantly, even at 1am", tone: "#25D366" },
+    { icon: ShoppingBag, label: "I capture every order and chase pending payments", tone: "var(--chidi-win)" },
+    { icon: BarChart3, label: "I learn your business and tell you what changed today", tone: "#5B8A72" },
+    { icon: Sparkles, label: "I run plays for you with your approval — no surprises", tone: "#9264FF" },
   ]
-
-  const current = beats[beat]
 
   return (
     <div
-      className="fixed inset-0 z-[200] bg-[var(--background)] flex items-center justify-center px-6 chidi-tab-in"
+      className="fixed inset-0 z-[200] flex items-center justify-center px-4 animate-[chidiTabSwapIn_280ms_cubic-bezier(0.22,1,0.36,1)]"
       role="dialog"
       aria-modal="true"
-      aria-label="Welcome to Chidi"
+      aria-labelledby="welcome-modal-title"
     >
-      {/* Warm gradient + floating orbs background */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <div
-          className="absolute inset-0 animate-gradient-shift"
-          style={{
-            background: "linear-gradient(-45deg, #F7F5F3, #F0EEEB, #F5F0E8, #F7F5F3, #EDE8E1)",
-            backgroundSize: "400% 400%",
-          }}
-        />
-        <div className="absolute top-[15%] left-[10%] w-[420px] h-[420px] rounded-full bg-gradient-to-br from-[#E8A33D]/18 to-transparent blur-3xl animate-floating-orb" />
-        <div
-          className="absolute bottom-[20%] right-[10%] w-[380px] h-[380px] rounded-full bg-gradient-to-br from-[#5B8A72]/15 to-transparent blur-3xl animate-floating-orb"
-          style={{ animationDelay: "-6s" }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.18]"
-          style={{
-            backgroundImage: "radial-gradient(circle, rgba(55, 50, 47, 0.3) 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-      </div>
-
-      {/* Skip button */}
+      {/* Backdrop — soft + dismissible */}
       <button
+        type="button"
+        aria-label="Close"
         onClick={dismiss}
-        className="absolute top-5 right-6 z-20 text-xs text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] font-chidi-voice px-3 py-1.5 rounded-md hover:bg-white/40 active:scale-[0.97] transition-colors"
-      >
-        Skip intro
-      </button>
+        className="absolute inset-0 bg-black/40 backdrop-blur-md"
+      />
 
-      {/* Beat content */}
-      <div className="relative z-10 w-full max-w-2xl text-center">
-        <div key={beat} className="chidi-tab-in">
-          {current.visual}
-          <p className="ty-meta mb-3 mt-4">{current.eyebrow}</p>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-[var(--chidi-text-primary)] tracking-tight leading-[1.05] mb-5 max-w-3xl mx-auto">
-            {current.headline}
-          </h1>
-          <p className="ty-body-voice text-[var(--chidi-text-secondary)] text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
-            {current.body}
-          </p>
-        </div>
+      {/* Card */}
+      <div className="relative w-full max-w-md rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.4)] overflow-hidden">
+        {/* Close button — top right */}
+        <button
+          onClick={dismiss}
+          aria-label="Close welcome"
+          className="absolute top-3 right-3 z-10 p-1.5 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
-        {/* Progress dots */}
-        <div className="flex items-center justify-center gap-2 mt-12">
-          {beats.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setBeat(idx)}
-              className={cn(
-                "h-1.5 rounded-full transition-all duration-500 cursor-pointer",
-                idx === beat ? "w-8 bg-[var(--chidi-win)]" : idx < beat ? "w-1.5 bg-[var(--chidi-text-muted)]" : "w-1.5 bg-[var(--chidi-border-default)] hover:bg-[var(--chidi-text-muted)]",
-              )}
-              aria-label={`Go to beat ${idx + 1}`}
-            />
-          ))}
-        </div>
+        <div className="p-6 lg:p-7">
+          {/* Avatar + headline */}
+          <div className="flex items-start gap-4 mb-5">
+            <ChidiAvatar size="lg" tone="default" className="chidi-mascot-breathe flex-shrink-0" />
+            <div className="flex-1 min-w-0 pt-1">
+              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--chidi-text-muted)] mb-1">
+                {firstName ? `For you, ${firstName}` : "Welcome"}
+              </p>
+              <h1
+                id="welcome-modal-title"
+                className="ty-page-title text-[var(--chidi-text-primary)] leading-tight"
+              >
+                Hi{firstName ? `, ${firstName}` : ""}. I&apos;m Chidi.
+              </h1>
+              <p className="text-[13px] text-[var(--chidi-text-secondary)] leading-snug mt-2">
+                I&apos;ll be sitting beside you running {biz}. Here&apos;s what that means.
+              </p>
+            </div>
+          </div>
 
-        {/* Final beat CTA */}
-        {beat === totalBeats - 1 && (
+          {/* Capabilities */}
+          <ul className="space-y-2.5 mb-6">
+            {capabilities.map((c, i) => (
+              <li
+                key={c.label}
+                className="flex items-start gap-3 chidi-list-in"
+                style={{ animationDelay: `${120 + i * 50}ms` }}
+              >
+                <span
+                  className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5"
+                  style={{ backgroundColor: `${c.tone}1a` }}
+                >
+                  <c.icon className="w-3.5 h-3.5" style={{ color: c.tone }} strokeWidth={2} />
+                </span>
+                <p className="text-[13px] text-[var(--chidi-text-primary)] leading-snug pt-1">
+                  {c.label}
+                </p>
+              </li>
+            ))}
+          </ul>
+
+          {/* CTA */}
           <button
             onClick={dismiss}
-            className="mt-8 inline-flex items-center gap-2 px-6 py-3 rounded-xl btn-cta font-medium text-sm chidi-tab-in"
+            className={cn(
+              "w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl btn-cta font-semibold text-sm",
+              "transition-transform hover:scale-[1.01] active:scale-[0.99]",
+            )}
           >
             Take me in
             <ArrowRight className="w-4 h-4" />
           </button>
-        )}
-      </div>
-    </div>
-  )
-}
 
-// =============================================================================
-// Beat-2 visual: three vignettes for "what I do"
-// =============================================================================
-function ThreeWaysIDoIt() {
-  const items = [
-    { icon: MessageCircle, label: "Replies", color: "#25D366" },
-    { icon: ShoppingBag, label: "Orders", color: "var(--chidi-win)" },
-    { icon: BarChart3, label: "Learns", color: "#5B8A72" },
-  ]
-  return (
-    <div className="flex items-center justify-center gap-6 mb-2">
-      {items.map((it, idx) => {
-        const Icon = it.icon
-        return (
-          <div
-            key={it.label}
-            className="flex flex-col items-center gap-2 chidi-brief-card"
-            style={{ animationDelay: `${idx * 140}ms` }}
-          >
-            <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: `${it.color}18` }}
-            >
-              <Icon className="w-6 h-6" style={{ color: it.color }} />
-            </div>
-            <span className="text-[11px] uppercase tracking-wider font-chidi-voice text-[var(--chidi-text-muted)]">
-              {it.label}
-            </span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// =============================================================================
-// Beat-3 visual: small dashboard preview using real characters
-// =============================================================================
-function DashboardOverview() {
-  const customers = ["Adaeze Okafor", "Tunde Bakare", "Ifeoma Eze", "Kemi Adebayo"]
-  return (
-    <div className="flex items-center justify-center gap-3 mb-4">
-      {customers.map((name, idx) => (
-        <CustomerCharacter
-          key={name}
-          name={name}
-          size="lg"
-          className={cn("chidi-brief-card", idx === 1 ? "ring-2 ring-[var(--chidi-win)]/40 ring-offset-2 ring-offset-[var(--background)]" : "")}
-        />
-      ))}
-      <div className="w-12 h-12 rounded-full bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] flex items-center justify-center chidi-brief-card" style={{ animationDelay: "320ms" }}>
-        <ChidiMark size={20} />
+          <p className="text-center text-[11px] text-[var(--chidi-text-muted)] mt-3">
+            Press <kbd className="font-mono text-[10px] px-1 py-0.5 rounded bg-[var(--chidi-surface)] border border-[var(--chidi-border-default)]">?</kbd> any time to see keyboard shortcuts.
+          </p>
+        </div>
       </div>
     </div>
   )

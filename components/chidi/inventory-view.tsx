@@ -611,11 +611,25 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                       className="w-4 h-4 rounded border-[var(--chidi-border-default)] accent-[var(--chidi-win)] cursor-pointer"
                       aria-label={`Select ${product.name}`}
                     />
-                    <div className="flex-shrink-0 w-10 h-10 rounded-md overflow-hidden bg-[var(--chidi-surface)] flex items-center justify-center">
-                      {product.image ? (
-                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+                    <div className="relative flex-shrink-0 chidi-row-with-hover-image">
+                      <div className="w-10 h-10 rounded-md overflow-hidden bg-[var(--chidi-surface)] flex items-center justify-center">
+                        {product.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+                        )}
+                      </div>
+                      {/* Hover-pop preview — 1.5x lifted thumbnail with shadow.
+                          Pure CSS, see .chidi-row-with-hover-image in globals.css */}
+                      {product.image && (
+                        <div
+                          data-hover-image
+                          className="absolute left-12 top-1/2 -translate-y-1/2 z-30 w-32 h-32 rounded-xl overflow-hidden shadow-[0_18px_40px_-10px_rgba(0,0,0,0.35)] border border-[var(--chidi-border-default)]"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={product.image} alt="" className="w-full h-full object-cover" />
+                        </div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -809,7 +823,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                     </h3>
 
                     <div className="flex items-baseline justify-between mb-1.5">
-                      <p className="font-serif text-base text-[var(--chidi-text-primary)] tabular-nums">
+                      <p className="text-[15px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
                         {product.displayPrice}
                       </p>
                       <div className="flex items-center gap-1.5">

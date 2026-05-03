@@ -16,7 +16,7 @@ export default function FooterSection() {
           <div className="self-stretch flex justify-start items-center gap-3">
             <Image src="/logo.png" alt="Chidi" width={80} height={32} className="h-8 w-auto" />
           </div>
-          <p className="text-[var(--chidi-text-primary)]/90 text-sm font-medium leading-[18px] font-sans">
+          <p className="text-[var(--chidi-text-primary)]/90 text-sm font-medium leading-[1.5] font-sans max-w-[200px]">
             Run your entire business through chat
           </p>
 
@@ -66,7 +66,7 @@ export default function FooterSection() {
 
         <div className="self-stretch p-4 sm:p-6 md:p-8 flex flex-col sm:flex-row flex-wrap justify-start sm:justify-between items-start gap-6 md:gap-8">
           <div className="flex flex-col justify-start items-start gap-3 flex-1 min-w-[120px]">
-            <div className="self-stretch text-[var(--chidi-text-muted)] text-sm font-medium leading-5 font-sans">
+            <div className="self-stretch text-[var(--chidi-text-muted)] text-[11px] font-medium uppercase tracking-[0.16em] leading-[1.4] font-sans">
               Product
             </div>
             <div className="flex flex-col justify-end items-start gap-2">
@@ -92,7 +92,7 @@ export default function FooterSection() {
           </div>
 
           <div className="flex flex-col justify-start items-start gap-3 flex-1 min-w-[120px]">
-            <div className="text-[var(--chidi-text-muted)] text-sm font-medium leading-5 font-sans">
+            <div className="text-[var(--chidi-text-muted)] text-[11px] font-medium uppercase tracking-[0.16em] leading-[1.4] font-sans">
               Account
             </div>
             <div className="flex flex-col justify-center items-start gap-2">
@@ -112,7 +112,7 @@ export default function FooterSection() {
           </div>
 
           <div className="flex flex-col justify-start items-start gap-3 flex-1 min-w-[120px]">
-            <div className="text-[var(--chidi-text-muted)] text-sm font-medium leading-5 font-sans">
+            <div className="text-[var(--chidi-text-muted)] text-[11px] font-medium uppercase tracking-[0.16em] leading-[1.4] font-sans">
               Resources
             </div>
             <div className="flex flex-col justify-center items-start gap-2">

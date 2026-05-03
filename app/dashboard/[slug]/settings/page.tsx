@@ -19,6 +19,7 @@ import { NavRail } from '@/components/chidi/nav-rail'
 import { ChidiMark } from '@/components/chidi/chidi-mark'
 import { ChidiPreferences } from '@/components/chidi/chidi-preferences'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
+import { useRailCollapsed } from '@/lib/chidi/use-rail-collapsed'
 import { cn } from '@/lib/utils'
 
 interface SettingsSection {
@@ -52,6 +53,7 @@ export default function SettingsPage() {
   const section = searchParams.get('section')
 
   const [activeId, setActiveId] = useState<string>('chidi')
+  const railCollapsed = useRailCollapsed()
 
   const handleClose = () => {
     router.push(`/dashboard/${slug}`)
@@ -75,7 +77,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--background)] lg:pl-[224px]">
+    <div
+      className={cn(
+        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200",
+        railCollapsed ? "lg:pl-[64px]" : "lg:pl-[224px]",
+      )}
+    >
       {/* Desktop rail */}
       <NavRail
         activeTab="inbox"

@@ -431,7 +431,7 @@ function SmartOrderCard({
           amount={order.total}
           currency={order.currency}
           showDualHover={false}
-          className="font-serif text-lg text-[var(--chidi-text-primary)] tabular-nums"
+          className="text-[16px] font-semibold tabular-nums text-[var(--chidi-text-primary)]"
         />
       </div>
     </ChidiCard>

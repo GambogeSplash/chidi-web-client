@@ -15,7 +15,7 @@ function Badge({ icon, text }: { icon: ReactNode; text: string }) {
       <div className="w-[14px] h-[14px] relative overflow-hidden flex items-center justify-center">
         {icon}
       </div>
-      <div className="text-center flex justify-center flex-col text-[var(--chidi-text-primary)] text-xs font-medium leading-3 font-sans">
+      <div className="text-center flex justify-center flex-col text-[var(--chidi-text-primary)] text-[11px] font-medium uppercase tracking-[0.18em] leading-[1.4] font-sans">
         {text}
       </div>
     </div>
@@ -43,7 +43,7 @@ export function BentoFeatures() {
           <h2 className="w-full max-w-[598.06px] text-center flex justify-center flex-col text-[var(--chidi-text-primary)] text-xl sm:text-2xl md:text-3xl lg:text-5xl font-semibold leading-tight md:leading-[60px] font-sans tracking-tight">
             Everything your business needs
           </h2>
-          <p className="self-stretch text-center text-[var(--chidi-text-secondary)] text-sm sm:text-base font-normal leading-6 sm:leading-7 font-sans">
+          <p className="self-stretch text-center text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
             From conversations to conversions, Chidi handles it all
             <br />
             so you can focus on what matters most.
@@ -62,10 +62,10 @@ export function BentoFeatures() {
             className="border-b border-r-0 md:border-r border-[var(--chidi-border-default)] p-4 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-start items-start gap-4 sm:gap-6"
           >
             <div className="flex flex-col gap-2">
-              <h3 className="text-[var(--chidi-text-primary)] text-lg sm:text-xl font-semibold leading-tight font-sans">
+              <h3 className="text-[var(--chidi-text-primary)] text-[18px] md:text-[20px] font-semibold leading-[1.3] tracking-[-0.005em] font-sans">
                 Every customer, remembered
               </h3>
-              <p className="text-[var(--chidi-text-secondary)] text-sm md:text-base font-normal leading-relaxed font-sans">
+              <p className="text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
                 Every chat, order, and detail lives in one timeline per customer. Pick up exactly
                 where you left off, even months later.
               </p>
@@ -86,10 +86,10 @@ export function BentoFeatures() {
             className="border-b border-[var(--chidi-border-default)] p-4 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-start items-start gap-4 sm:gap-6"
           >
             <div className="flex flex-col gap-2">
-              <h3 className="text-[var(--chidi-text-primary)] font-semibold leading-tight font-sans text-lg sm:text-xl">
+              <h3 className="text-[var(--chidi-text-primary)] text-[18px] md:text-[20px] font-semibold leading-[1.3] tracking-[-0.005em] font-sans">
                 Replies that feel human, at machine speed
               </h3>
-              <p className="text-[var(--chidi-text-secondary)] text-sm md:text-base font-normal leading-relaxed font-sans">
+              <p className="text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
                 Chidi answers product questions, qualifies leads, and books orders the moment
                 they come in, so customers don&apos;t wait and you don&apos;t lose sales to slow
                 responses.
@@ -111,10 +111,10 @@ export function BentoFeatures() {
             className="border-r-0 md:border-r border-[var(--chidi-border-default)] p-4 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-start items-start gap-4 sm:gap-6 bg-transparent"
           >
             <div className="flex flex-col gap-2">
-              <h3 className="text-[var(--chidi-text-primary)] text-lg sm:text-xl font-semibold leading-tight font-sans">
+              <h3 className="text-[var(--chidi-text-primary)] text-[18px] md:text-[20px] font-semibold leading-[1.3] tracking-[-0.005em] font-sans">
                 Built for every channel. Telegram first.
               </h3>
-              <p className="text-[var(--chidi-text-secondary)] text-sm md:text-base font-normal leading-relaxed font-sans">
+              <p className="text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
                 Spin up your AI-powered Telegram channel today. WhatsApp Business and Instagram
                 coming very soon, same Chidi, more reach. Your customers, inventory, and orders
                 follow you across all of them.
@@ -134,10 +134,10 @@ export function BentoFeatures() {
             className="p-4 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-start items-start gap-4 sm:gap-6"
           >
             <div className="flex flex-col gap-2">
-              <h3 className="text-[var(--chidi-text-primary)] text-lg sm:text-xl font-semibold leading-tight font-sans">
+              <h3 className="text-[var(--chidi-text-primary)] text-[18px] md:text-[20px] font-semibold leading-[1.3] tracking-[-0.005em] font-sans">
                 Know what&apos;s working
               </h3>
-              <p className="text-[var(--chidi-text-secondary)] text-sm md:text-base font-normal leading-relaxed font-sans">
+              <p className="text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
                 Sales, customers, products, and inventory, all tracked in real time as orders flow
                 through Chidi. See what&apos;s selling, what&apos;s running low, and who&apos;s
                 coming back.

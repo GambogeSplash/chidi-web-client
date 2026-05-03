@@ -641,8 +641,10 @@ const routes: MockRouter[] = [
     out_of_stock: PRODUCTS.filter((p) => p.stock === 0).length,
   })},
 
-  // Conversations
-  { method: "GET", path: /^\/conversations(\?|$)/, respond: (m, _b, q) => {
+  // Conversations — handle both /api/messaging/conversations (real API_BASE)
+  // and bare /conversations so the mock layer matches whatever path the
+  // caller composes. Same applies to Connections below.
+  { method: "GET", path: /^\/(?:api\/messaging\/)?conversations(\?|$)/, respond: (m, _b, q) => {
     let conversations = [...CONVERSATIONS]
     if (q?.status) conversations = conversations.filter((c) => c.status === q.status)
     if (q?.channel) conversations = conversations.filter((c) => c.channel_type === q.channel)
@@ -652,8 +654,8 @@ const routes: MockRouter[] = [
       needs_human_count: NEEDS_HUMAN_COUNT,
     }
   }},
-  { method: "GET", path: /^\/conversations\/([^/]+)$/, respond: (m) => CONVERSATIONS.find((c) => c.id === m[1]) },
-  { method: "GET", path: /^\/conversations\/([^/]+)\/messages/, respond: (m) => {
+  { method: "GET", path: /^\/(?:api\/messaging\/)?conversations\/([^/]+)$/, respond: (m) => CONVERSATIONS.find((c) => c.id === m[1]) },
+  { method: "GET", path: /^\/(?:api\/messaging\/)?conversations\/([^/]+)\/messages/, respond: (m) => {
     const conv = CONVERSATIONS.find((c) => c.id === m[1])
     if (!conv) return { messages: [] }
     // Build a 4-message thread
@@ -667,9 +669,9 @@ const routes: MockRouter[] = [
     }
   }},
 
-  // Connections (channels)
-  { method: "GET", path: /^\/connections(\?|$)/, respond: () => CONNECTIONS },
-  { method: "GET", path: /^\/connections\/[^/]+\/status/, respond: () => ({ connected: true, status: "CONNECTED" }) },
+  // Connections (channels) — same dual-path treatment as conversations.
+  { method: "GET", path: /^\/(?:api\/messaging\/)?connections(\?|$)/, respond: () => CONNECTIONS },
+  { method: "GET", path: /^\/(?:api\/messaging\/)?connections\/[^/]+\/status/, respond: () => ({ connected: true, status: "CONNECTED" }) },
 
   // Orders
   { method: "GET", path: /^\/api\/orders(\?|$)/, respond: (m, _b, q) => {

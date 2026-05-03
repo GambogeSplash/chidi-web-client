@@ -32,11 +32,11 @@ export default function CTASection() {
         </div>
 
         <Reveal className="w-full max-w-[586px] px-6 py-5 md:py-8 overflow-hidden rounded-lg flex flex-col justify-start items-center gap-6 relative z-20">
-          <div className="self-stretch flex flex-col justify-start items-center gap-3">
+          <div className="self-stretch flex flex-col justify-start items-center gap-4">
             <h2 className="self-stretch text-center text-[var(--chidi-text-primary)] text-3xl md:text-5xl font-semibold leading-tight md:leading-[56px] font-sans tracking-tight">
               Start running your business the smart way
             </h2>
-            <p className="self-stretch text-center text-[var(--chidi-text-secondary)] text-base leading-7 font-sans font-medium">
+            <p className="self-stretch text-center text-[var(--chidi-text-secondary)] text-sm leading-[1.55] font-sans font-normal max-w-md">
               Join businesses simplifying their sales with Chidi.
               <br />
               No spreadsheets. No switching apps. No chaos.

@@ -26,6 +26,7 @@ import {
 } from "@/lib/chidi/insights-decisions"
 import { useSalesOverview, useChannelMix } from "@/lib/hooks/use-analytics"
 import { formatCurrency } from "@/lib/api/analytics"
+import { useCountUp } from "@/lib/chidi/use-count-up"
 
 /**
  * Insights — decision-first. Each card poses ONE decision the merchant should
@@ -79,7 +80,7 @@ export function InsightsView() {
           <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium mb-1.5">
             Insights
           </p>
-          <h1 className="text-[20px] font-semibold text-[var(--chidi-text-primary)] leading-tight">
+          <h1 className="ty-page-title text-[var(--chidi-text-primary)]">
             Decisions waiting for you.
           </h1>
           <p className="text-[13px] text-[var(--chidi-text-secondary)] mt-1.5 leading-snug max-w-md">
@@ -88,37 +89,9 @@ export function InsightsView() {
           </p>
         </header>
 
-        {/* Snapshot — one row of business pulse */}
-        <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5 mb-5">
-          <div className="grid grid-cols-3 gap-4">
-            {(() => {
-              const revPct = overview?.revenue.percent_change ?? 0
-              const ordPct = overview?.orders.percent_change ?? 0
-              return (
-                <>
-                  <SnapshotMetric
-                    label="Revenue (30d)"
-                    value={overview ? formatCurrency(overview.revenue.current) : "—"}
-                    direction={revPct > 0 ? "up" : revPct < 0 ? "down" : "flat"}
-                    delta={overview ? `${revPct > 0 ? "+" : ""}${revPct.toFixed(0)}% vs prior` : undefined}
-                  />
-                  <SnapshotMetric
-                    label="Orders (30d)"
-                    value={overview ? `${overview.orders.current}` : "—"}
-                    direction={ordPct > 0 ? "up" : ordPct < 0 ? "down" : "flat"}
-                    delta={overview ? `${ordPct > 0 ? "+" : ""}${ordPct.toFixed(0)}% vs prior` : undefined}
-                  />
-                </>
-              )
-            })()}
-            <SnapshotMetric
-              label="Top channel"
-              value={channelMix ? channelMix.channels[0]?.channel.toString().toLowerCase().replace(/^\w/, (c) => c.toUpperCase()) ?? "—" : "—"}
-              direction="flat"
-              delta={channelMix?.channels[0] ? `${Math.round(channelMix.channels[0].revenue_percentage)}% of revenue` : undefined}
-            />
-          </div>
-        </div>
+        {/* Snapshot — one row of business pulse. Numbers tween from 0 → target
+            on mount via useCountUp so the page feels alive at first load. */}
+        <SnapshotStrip overview={overview} channelMix={channelMix} />
 
         {/* Filter chips */}
         <div className="flex items-center gap-2 mb-5 overflow-x-auto -mx-1 px-1">
@@ -636,5 +609,80 @@ function PriceVolume({ points }: { points: Array<{ price: number; units: number;
         <text x={w - 4} y={h - 3} textAnchor="end" className="text-[9px]" fill="var(--chidi-text-muted)">price →</text>
       </svg>
     </ChartFrame>
+  )
+}
+
+// ============================================================================
+// SnapshotStrip — pulse-of-business KPIs that count up on mount
+// ============================================================================
+
+function SnapshotStrip({
+  overview,
+  channelMix,
+}: {
+  overview: ReturnType<typeof useSalesOverview>["data"]
+  channelMix: ReturnType<typeof useChannelMix>["data"]
+}) {
+  const revPct = overview?.revenue.percent_change ?? 0
+  const ordPct = overview?.orders.percent_change ?? 0
+  const topChannel = channelMix?.channels[0]
+  const topChannelLabel = topChannel
+    ? topChannel.channel.toString().toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
+    : "—"
+  const topChannelPct = topChannel ? Math.round(topChannel.revenue_percentage) : 0
+
+  return (
+    <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5 mb-5">
+      <div className="grid grid-cols-3 gap-4">
+        <CountUpMetric
+          label="Revenue (30d)"
+          value={overview?.revenue.current ?? 0}
+          format="currency"
+          ready={!!overview}
+          direction={revPct > 0 ? "up" : revPct < 0 ? "down" : "flat"}
+          delta={overview ? `${revPct > 0 ? "+" : ""}${revPct.toFixed(0)}% vs prior` : undefined}
+        />
+        <CountUpMetric
+          label="Orders (30d)"
+          value={overview?.orders.current ?? 0}
+          format="int"
+          ready={!!overview}
+          direction={ordPct > 0 ? "up" : ordPct < 0 ? "down" : "flat"}
+          delta={overview ? `${ordPct > 0 ? "+" : ""}${ordPct.toFixed(0)}% vs prior` : undefined}
+        />
+        <SnapshotMetric
+          label="Top channel"
+          value={topChannelLabel}
+          direction="flat"
+          delta={topChannel ? `${topChannelPct}% of revenue` : undefined}
+        />
+      </div>
+    </div>
+  )
+}
+
+function CountUpMetric({
+  label,
+  value,
+  format,
+  ready,
+  direction,
+  delta,
+}: {
+  label: string
+  value: number
+  format: "currency" | "int"
+  ready: boolean
+  direction: "up" | "down" | "flat"
+  delta?: string
+}) {
+  const tweened = useCountUp(ready ? value : 0, 950)
+  const display = !ready
+    ? "—"
+    : format === "currency"
+      ? formatCurrency(tweened)
+      : Math.round(tweened).toLocaleString("en-NG")
+  return (
+    <SnapshotMetric label={label} value={display} direction={direction} delta={delta} />
   )
 }

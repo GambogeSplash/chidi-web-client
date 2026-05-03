@@ -3,6 +3,7 @@
 import { LandingHeader } from '@/components/landing/header'
 import { HeroCarousel } from '@/components/landing/hero-carousel'
 import { BentoFeatures } from '@/components/landing/bento-features'
+import { LiveDemo } from '@/components/landing/live-demo'
 import DocumentationSection from '@/components/landing/documentation-section'
 import TestimonialsSection from '@/components/landing/testimonials-section'
 import FAQSection from '@/components/landing/faq-section'
@@ -42,6 +43,8 @@ export default function LandingPage() {
             <HeroCarousel />
 
             <BentoFeatures />
+
+            <LiveDemo />
 
             <DocumentationSection />
 

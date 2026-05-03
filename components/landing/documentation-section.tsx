@@ -71,14 +71,14 @@ export default function DocumentationSection() {
         <Reveal className="w-full max-w-[586px] px-6 py-5 overflow-hidden rounded-lg flex flex-col justify-start items-center gap-4">
           <div className="px-[14px] py-[6px] bg-[var(--card)] shadow-[0px_0px_0px_4px_rgba(55,50,47,0.05)] overflow-hidden rounded-[90px] flex items-center gap-[8px] border border-[var(--chidi-border-default)]">
             <ChidiMark size={14} variant="default" />
-            <span className="text-[var(--chidi-text-primary)] text-xs font-medium leading-3 font-sans">
+            <span className="text-[var(--chidi-text-primary)] text-[11px] font-medium uppercase tracking-[0.18em] leading-[1.4] font-sans">
               Competitive advantages
             </span>
           </div>
           <h2 className="self-stretch text-center text-[var(--chidi-text-primary)] text-3xl md:text-5xl font-semibold leading-tight md:leading-[60px] font-sans tracking-tight">
             Built for your market
           </h2>
-          <p className="self-stretch text-center text-[var(--chidi-text-secondary)] text-base font-normal leading-7 font-sans">
+          <p className="self-stretch text-center text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
             Features designed specifically for social sellers in emerging markets.
           </p>
         </Reveal>
@@ -109,10 +109,10 @@ export default function DocumentationSection() {
                     />
                   </div>
                   <div className="px-6 py-5 w-full flex flex-col gap-2">
-                    <div className="self-stretch flex justify-center flex-col text-[var(--chidi-text-primary)] text-sm font-semibold leading-6 font-sans">
+                    <div className="self-stretch flex justify-center flex-col text-[var(--chidi-text-primary)] text-sm font-semibold leading-[1.4] tracking-[-0.005em] font-sans">
                       {card.title}
                     </div>
-                    <div className="self-stretch text-[var(--chidi-text-secondary)] text-[13px] font-normal leading-[22px] font-sans whitespace-pre-line">
+                    <div className="self-stretch text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans whitespace-pre-line">
                       {card.description}
                     </div>
                   </div>

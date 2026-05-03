@@ -427,7 +427,7 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
                 <CurrencyAmount
                   amount={selectedOrder.total}
                   currency={selectedOrder.currency}
-                  className="font-serif text-2xl text-[var(--chidi-text-primary)] tabular-nums"
+                  className="text-[20px] font-semibold tabular-nums text-[var(--chidi-text-primary)]"
                 />
               </div>
             </div>

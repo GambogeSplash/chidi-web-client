@@ -32,15 +32,33 @@ export function ChidiMark({ className, size = 16, variant }: ChidiMarkProps) {
 
   const fill = explicitFill || "currentColor"
 
-  // Mascot v3 — a tilted teardrop "head" with a forward-leaning crest tuft,
-  // one expressive eye, soft inner shading for depth, and a small chin tick
-  // that gives the silhouette character at any size. Reads as a curious
-  // forward-facing being, not a flat icon.
+  // Mascot v4 — squircle character. Direction reset on 2026-05-03 because
+  // v3 (teardrop + crest tuft) read as "an onion." We needed something that
+  // wasn't biological at all.
   //
-  // Why teardrop + crest: the silhouette is recognizable in 14px (no eyebrows
-  // or mouth needed at that scale — the crest + asymmetry alone read as
-  // "Chidi"). At 32px+ the inner shading and eye add personality.
+  // Construction (6 layered passes — high-craft fidelity at 32px+ but the
+  // silhouette still reads at 14px as "rounded square with two eye dots"):
+  //   1. Drop shadow — offset-down + blur for floating dimension
+  //   2. Body squircle — soft-rounded square with subtle 3° clockwise tilt
+  //      ("alive" gesture); fill via vertical body-tone gradient
+  //   3. Top-left inner highlight — radial gradient for glassy depth
+  //   4. Bottom-right corner notch — the signature mark; a small chip
+  //      removed from the squircle so the silhouette has personality
+  //   5. Two eyes — ovoid sclera + iris dot + tiny white pupil highlight
+  //   6. Smile — short rounded curve below the eyes
+  //
+  // No tuft, no crest, no stem — nothing on top of the head. The character's
+  // identity now lives in the squircle silhouette + the corner notch.
   const id = `chidi-mark-${size}`
+  // The squircle path uses superellipse-ish bezier curves to get the
+  // soft-square look that's neither circle nor rounded-rect.
+  const squirclePath =
+    "M 4 11 C 4 6, 6 4, 11 4 L 13 4 C 18 4, 20 6, 20 11 L 20 13 C 20 16.4, 18.6 18.6, 16 19.6 L 16.6 21.6 L 14.4 19.95 C 13.95 20, 13.5 20, 13 20 L 11 20 C 6 20, 4 18, 4 13 Z"
+
+  // Subtle "alive" animations only at large render sizes (≥32px). At small
+  // sizes (tab badges, message bubbles) the motion would be distracting.
+  const alive = size >= 32
+
   return (
     <svg
       width={size}
@@ -48,66 +66,78 @@ export function ChidiMark({ className, size = 16, variant }: ChidiMarkProps) {
       viewBox="0 0 24 24"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={cn("flex-shrink-0", className)}
+      className={cn("flex-shrink-0", alive && "chidi-mascot-breathe", className)}
       aria-hidden="true"
     >
       <defs>
-        {/* Soft inner-shadow gradient — gives the form a hint of dimension
-            without breaking the flat-illustration vocabulary of the app. */}
-        <radialGradient id={`${id}-shade`} cx="0.62" cy="0.32" r="0.85">
-          <stop offset="0%" stopColor="white" stopOpacity="0.18" />
-          <stop offset="55%" stopColor="white" stopOpacity="0" />
-          <stop offset="100%" stopColor="black" stopOpacity="0.18" />
+        {/* Radial highlight — glassy top-left bloom + soft bottom-right shadow */}
+        <radialGradient id={`${id}-shine`} cx="32%" cy="28%" r="72%">
+          <stop offset="0%" stopColor="white" stopOpacity="0.28" />
+          <stop offset="45%" stopColor="white" stopOpacity="0.04" />
+          <stop offset="100%" stopColor="black" stopOpacity="0.22" />
         </radialGradient>
+
+        {/* Subtle body tone — top a hair lighter, bottom a hair darker */}
+        <linearGradient id={`${id}-tone`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={fill} stopOpacity="1" />
+          <stop offset="100%" stopColor={fill} stopOpacity="0.94" />
+        </linearGradient>
+
+        {/* Drop-shadow filter — offset blur under the body */}
+        <filter id={`${id}-drop`} x="-20%" y="-10%" width="140%" height="130%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="0.45" />
+          <feOffset dy="0.6" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.28" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
       </defs>
 
-      {/* Forward-leaning crest tuft — Chidi's defining silhouette gesture */}
-      <path
-        d="M14.4 2.2 C 16.2 2.6, 17.0 4.4, 16.0 6.0 C 15.4 5.4, 14.4 4.6, 13.2 4.6 C 13.4 3.6, 13.7 2.8, 14.4 2.2 Z"
-        fill={fill}
-      />
+      {/* === Body (squircle with bottom-right corner-notch signature) ===
+          The 3° tilt is applied to the entire body group so the eyes + smile
+          ride with it — gives the character an "alive, tilted" stance. */}
+      <g transform="rotate(-3 12 12)" filter={`url(#${id}-drop)`}>
+        {/* Layer 1: solid fill */}
+        <path d={squirclePath} fill={`url(#${id}-tone)`} />
+        {/* Layer 2: glassy radial overlay */}
+        <path d={squirclePath} fill={`url(#${id}-shine)`} />
+      </g>
 
-      {/* Main head — asymmetric teardrop, weight on the bottom-left */}
-      <path
-        d="M12.3 4.2 C 17.7 4.0, 21.6 8.0, 21.4 13.4 C 21.2 18.6, 17.2 22.4, 11.8 22.5 C 6.4 22.6, 2.8 18.8, 3.2 13.5 C 3.6 8.4, 7.2 4.4, 12.3 4.2 Z"
-        fill={fill}
-      />
+      {/* === Face (rendered without tilt so it reads stable + un-canted) === */}
 
-      {/* Inner shading overlay for depth */}
-      <path
-        d="M12.3 4.2 C 17.7 4.0, 21.6 8.0, 21.4 13.4 C 21.2 18.6, 17.2 22.4, 11.8 22.5 C 6.4 22.6, 2.8 18.8, 3.2 13.5 C 3.6 8.4, 7.2 4.4, 12.3 4.2 Z"
-        fill={`url(#${id}-shade)`}
-      />
+      {/* Left eye: white sclera + warm iris (using fill color) + tiny white pupil.
+          Wrapped in <g> with blink class so eyes squeeze every ~5s at large
+          sizes. The chidi-mascot-blink class is a no-op when alive=false. */}
+      <g className={alive ? "chidi-mascot-blink" : undefined}>
+        <ellipse cx="9.2" cy="11.4" rx="1.45" ry="1.95" fill="var(--background, #F7F5F3)" />
+        <ellipse cx="9.4" cy="11.6" rx="0.78" ry="1.05" fill={fill} opacity="0.55" />
+        <circle cx="9.65" cy="11.05" r="0.32" fill="var(--background, #F7F5F3)" />
+      </g>
 
-      {/* Single forward eye — sits where attention lives, gives direction */}
-      <ellipse
-        cx="14.6"
-        cy="12.4"
-        rx="1.55"
-        ry="1.85"
-        fill="var(--background, #F7F5F3)"
-      />
-      <circle cx="15.0" cy="12.0" r="0.55" fill={fill} opacity="0.65" />
+      {/* Right eye — slightly larger to add asymmetric character */}
+      <g className={alive ? "chidi-mascot-blink" : undefined}>
+        <ellipse cx="14.4" cy="11.5" rx="1.6" ry="2.1" fill="var(--background, #F7F5F3)" />
+        <ellipse cx="14.65" cy="11.7" rx="0.86" ry="1.15" fill={fill} opacity="0.55" />
+        <circle cx="14.95" cy="11.15" r="0.36" fill="var(--background, #F7F5F3)" />
+      </g>
 
-      {/* Soft cheek mark — a tiny crescent that warms the silhouette */}
+      {/* Smile — soft asymmetric curve, slightly lifted on the right */}
       <path
-        d="M8.6 14.8 Q 10.4 16.4, 12.6 15.6"
+        d="M9.6 14.8 Q 12 16.6, 14.6 14.4"
         stroke="var(--background, #F7F5F3)"
-        strokeWidth="0.85"
+        strokeWidth="0.9"
         strokeLinecap="round"
         fill="none"
-        opacity="0.78"
+        opacity="0.92"
       />
 
-      {/* Chin tick — breaks the bottom curve, adds character at every scale */}
-      <path
-        d="M11.4 21.6 Q 12.2 22.6, 13.0 21.6"
-        stroke="var(--background, #F7F5F3)"
-        strokeWidth="0.6"
-        strokeLinecap="round"
-        fill="none"
-        opacity="0.5"
-      />
+      {/* Tiny bottom-right blush — a single dot that visually anchors the
+          notch and signs the character with one last warm detail. */}
+      <circle cx="16.4" cy="16.6" r="0.55" fill="var(--background, #F7F5F3)" opacity="0.18" />
     </svg>
   )
 }

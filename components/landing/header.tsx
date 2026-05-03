@@ -1,19 +1,23 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Menu, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 
 /**
- * Sticky header for the landing page. Brand mark on the left, sparse nav, one
- * CTA on the right. On mobile collapses to a hamburger menu.
+ * Sticky header for the landing page. Brand mark on the left, three anchor
+ * links (Features, Stories, FAQ), and a single primary CTA on the right.
  *
- * The CTA points at the in-app `/auth?tab=signup` route since this app handles
- * authentication itself (the original waitlist linked to my.chidi.app).
+ * Why no "Sign in" or "Resources" in the header:
+ *  - "Sign in" used to live next to "Try Chidi now" but they pointed at the
+ *    same /auth screen and read as a duplicate ask. The footer carries the
+ *    Sign-in link instead, in the Account column.
+ *  - "Resources" (Privacy / Terms) belongs in the footer, not the top nav.
+ *    Most visitors don't need it; surfacing it stole real estate from the
+ *    three anchor jumps that actually help people scan the page.
  */
 export function LandingHeader() {
-  const [resourcesOpen, setResourcesOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
@@ -54,50 +58,11 @@ export function LandingHeader() {
               >
                 FAQ
               </a>
-
-              <div
-                className="relative"
-                onMouseEnter={() => setResourcesOpen(true)}
-                onMouseLeave={() => setResourcesOpen(false)}
-              >
-                <button
-                  className="text-[var(--chidi-text-primary)] hover:text-[var(--chidi-text-primary)]/80 text-sm font-medium flex items-center gap-1 transition-colors"
-                  aria-haspopup="true"
-                  aria-expanded={resourcesOpen}
-                >
-                  Resources
-                  <ChevronDown className="w-3 h-3" />
-                </button>
-                {resourcesOpen && (
-                  <div className="absolute top-full left-0 pt-2 w-48 z-50">
-                    <div className="bg-[var(--card)] rounded-lg shadow-lg border border-[var(--chidi-border-default)] py-2">
-                      <a
-                        href="/privacy"
-                        className="block px-4 py-2 text-sm text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors"
-                      >
-                        Privacy Policy
-                      </a>
-                      <a
-                        href="/terms"
-                        className="block px-4 py-2 text-sm text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors"
-                      >
-                        Terms of Service
-                      </a>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Desktop CTAs */}
-          <div className="hidden md:flex items-center gap-3">
-            <Link
-              href="/auth?tab=signin"
-              className="text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] text-sm font-medium transition-colors"
-            >
-              Sign in
-            </Link>
+          {/* Desktop CTA — single primary action only */}
+          <div className="hidden md:flex items-center">
             <Link
               href="/auth?tab=signup"
               className="h-9 px-4 sm:px-6 btn-cta rounded-full font-medium text-sm inline-flex items-center justify-center transition-all hover:scale-[1.02]"
@@ -130,38 +95,18 @@ export function LandingHeader() {
                 FAQ
               </a>
 
-              <div>
-                <div className="text-[var(--chidi-text-primary)] font-medium text-sm mb-2">
-                  Resources
-                </div>
-                <div className="flex flex-col space-y-2 pl-4">
-                  <a
-                    href="/privacy"
-                    className="text-[var(--chidi-text-secondary)] text-sm hover:text-[var(--chidi-text-primary)]"
-                  >
-                    Privacy Policy
-                  </a>
-                  <a
-                    href="/terms"
-                    className="text-[var(--chidi-text-secondary)] text-sm hover:text-[var(--chidi-text-primary)]"
-                  >
-                    Terms of Service
-                  </a>
-                </div>
-              </div>
-
               <div className="flex flex-col gap-2 pt-2">
-                <Link
-                  href="/auth?tab=signin"
-                  className="w-full h-10 border border-[var(--chidi-border-default)] text-[var(--chidi-text-primary)] rounded-full font-medium text-sm inline-flex items-center justify-center"
-                >
-                  Sign in
-                </Link>
                 <Link
                   href="/auth?tab=signup"
                   className="w-full h-10 btn-cta rounded-full font-medium text-sm inline-flex items-center justify-center"
                 >
                   Try Chidi now
+                </Link>
+                <Link
+                  href="/auth?tab=signin"
+                  className="w-full text-center text-[var(--chidi-text-secondary)] text-sm font-medium pt-1"
+                >
+                  Already with us? Sign in
                 </Link>
               </div>
             </div>

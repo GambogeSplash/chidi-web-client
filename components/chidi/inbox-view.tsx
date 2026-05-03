@@ -51,8 +51,11 @@ import {
   useConnections,
   useConversations,
   useConnectTelegram,
+  useResolveConversation,
   messagingKeys,
 } from "@/lib/hooks/use-messaging"
+import { toast } from "sonner"
+import { Clock, X as XIcon } from "lucide-react"
 import { ChannelChat } from "./channel-chat"
 import { WhatsAppConnectDialog } from "./whatsapp-connect-dialog"
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/channel-icons"
@@ -75,6 +78,10 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [channelFilter, setChannelFilter] = useState<string>("all")
   const [searchQuery, setSearchQuery] = useState("")
+  // Multi-select: cmd/ctrl-click a row to add it to the selection set;
+  // bulk-action toolbar appears when count > 0. Selection clears on filter
+  // change so it never leaks into the wrong context.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   
   // Connection dialog state
   const [showChannelPicker, setShowChannelPicker] = useState(false)
@@ -98,6 +105,33 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
   } = useConversations(status, channel)
   
   const connectTelegram = useConnectTelegram()
+  const resolveConversation = useResolveConversation()
+
+  // Bulk action handlers — fan out to per-conversation mutations.
+  const handleBulkResolve = async () => {
+    const ids = Array.from(selectedIds)
+    if (!ids.length) return
+    const count = ids.length
+    try {
+      await Promise.all(ids.map((id) => resolveConversation.mutateAsync({ conversationId: id, returnToAi: true })))
+      toast.success(`${count} ${count === 1 ? "conversation" : "conversations"} resolved`, {
+        description: "Handed back to Chidi.",
+      })
+      setSelectedIds(new Set())
+    } catch (err) {
+      toast.error("Couldn't resolve some conversations", { description: "Try again or pick smaller batches." })
+    }
+  }
+
+  const handleBulkSnooze = () => {
+    const count = selectedIds.size
+    toast(`${count} ${count === 1 ? "conversation" : "conversations"} snoozed`, {
+      description: "I'll quiet them for 24 hours.",
+    })
+    setSelectedIds(new Set())
+  }
+
+  const clearSelection = () => setSelectedIds(new Set())
 
   const conversations = conversationsData?.conversations ?? []
   const needsHumanCount = conversationsData?.needs_human_count ?? 0
@@ -202,11 +236,26 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
   const isConnecting = connectTelegram.isPending
   const loading = loadingConversations && conversations.length === 0
 
-  // Show loading state while checking connection
+  // Show content-shaped skeleton while checking connection. Reads as the page
+  // about-to-arrive instead of an indefinite spinner.
   if (checkingConnection) {
     return (
-      <div className="flex-1 flex flex-col bg-[var(--background)] items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--chidi-text-muted)]" />
+      <div className="flex-1 flex flex-col bg-[var(--background)]">
+        <div className="px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
+          <div className="h-5 w-24 chidi-skeleton" />
+        </div>
+        <div className="flex-1 px-4 lg:px-6 py-3 space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full chidi-skeleton flex-shrink-0" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-3 w-32 chidi-skeleton" />
+                <div className="h-3 w-3/4 chidi-skeleton" />
+              </div>
+              <div className="h-3 w-12 chidi-skeleton flex-shrink-0 mt-1" />
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -521,7 +570,7 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
           </div>
         ) : sortedConversations.length === 0 ? (
           searchQuery ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-16 px-6">
+            <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 lg:px-6">
               <EmptyArt variant="search" size={120} className="text-[var(--chidi-text-muted)] mb-5" />
               <h3 className="ty-page-title text-[var(--chidi-text-primary)] mb-2">
                 Nothing matched that.
@@ -537,8 +586,43 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
             />
           )
         ) : (
+          <>
+            {/* Bulk-actions toolbar — sticky, slides in when count > 0 */}
+            {selectedIds.size > 0 && (
+              <div className="sticky top-0 z-20 bg-[var(--chidi-win)]/10 border-b border-[var(--chidi-win)]/30 px-4 lg:px-6 py-2 flex items-center justify-between gap-3 chidi-list-in">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
+                    {selectedIds.size} selected
+                  </span>
+                  <button
+                    onClick={clearSelection}
+                    className="text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] p-0.5 rounded"
+                    aria-label="Clear selection"
+                  >
+                    <XIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleBulkResolve}
+                    disabled={resolveConversation.isPending}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-[var(--chidi-text-primary)] hover:bg-[var(--card)] transition-colors disabled:opacity-60"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Resolve
+                  </button>
+                  <button
+                    onClick={handleBulkSnooze}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-[var(--chidi-text-secondary)] hover:bg-[var(--card)] transition-colors"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    Snooze 24h
+                  </button>
+                </div>
+              </div>
+            )}
           <ul className="divide-y divide-[var(--chidi-border-subtle)]">
-            {sortedConversations.map((conversation) => {
+            {sortedConversations.map((conversation, idx) => {
               const isNeedsHuman = conversation.status === "NEEDS_HUMAN"
               const isResolved = conversation.status === "RESOLVED"
               const isUnread = conversation.unread_count > 0
@@ -553,19 +637,69 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
                   ? conversation.last_intent.replace(/_/g, " ").toLowerCase()
                   : "")
 
+              const isSelected = selectedIds.has(conversation.id)
+              const inSelectMode = selectedIds.size > 0
               return (
-                <li key={conversation.id}>
+                <li
+                  key={conversation.id}
+                  className="chidi-list-in"
+                  style={{ animationDelay: `${Math.min(idx, 12) * 28}ms` }}
+                >
                   <button
-                    onClick={() => handleConversationClick(conversation)}
+                    onClick={(e) => {
+                      // Cmd/Ctrl-click → toggle selection. Plain click while in
+                      // select mode also toggles (faster than always holding cmd).
+                      if (e.metaKey || e.ctrlKey || inSelectMode) {
+                        e.preventDefault()
+                        setSelectedIds((s) => {
+                          const next = new Set(s)
+                          if (next.has(conversation.id)) next.delete(conversation.id)
+                          else next.add(conversation.id)
+                          return next
+                        })
+                        return
+                      }
+                      handleConversationClick(conversation)
+                    }}
                     className={cn(
-                      "w-full px-4 py-3 text-left transition-colors group",
-                      isNeedsHuman
+                      "w-full px-4 lg:px-6 py-3 text-left transition-colors group",
+                      isNeedsHuman && !isSelected
                         ? "bg-[var(--chidi-warning)]/5 hover:bg-[var(--chidi-warning)]/10"
                         : "hover:bg-[var(--chidi-surface)]/60",
+                      isSelected && "bg-[var(--chidi-win)]/10 hover:bg-[var(--chidi-win)]/15",
                       isResolved && "opacity-70",
                     )}
                   >
                     <div className="flex items-start gap-3">
+                      {/* Selection checkbox — visible on hover OR always when in select mode */}
+                      <button
+                        type="button"
+                        aria-label={isSelected ? "Deselect conversation" : "Select conversation"}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedIds((s) => {
+                            const next = new Set(s)
+                            if (next.has(conversation.id)) next.delete(conversation.id)
+                            else next.add(conversation.id)
+                            return next
+                          })
+                        }}
+                        className={cn(
+                          "flex-shrink-0 mt-1 w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
+                          isSelected
+                            ? "bg-[var(--chidi-win)] border-[var(--chidi-win)]"
+                            : "border-[var(--chidi-border-default)] hover:border-[var(--chidi-text-muted)]",
+                          inSelectMode || isSelected
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-60",
+                        )}
+                      >
+                        {isSelected && (
+                          <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4L9 11.6l6.3-6.3a1 1 0 011.4 0z" />
+                          </svg>
+                        )}
+                      </button>
                       <div className="relative flex-shrink-0">
                         <CustomerCharacter
                           name={conversation.customer_name}
@@ -639,6 +773,7 @@ export function InboxView({ onViewCustomerOrders, onAskChidiAboutCustomer }: Inb
               )
             })}
           </ul>
+          </>
         )}
       </div>
       </PullToRefresh>

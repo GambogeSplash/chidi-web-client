@@ -1,8 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Printer } from "lucide-react"
+import { Printer, Download, Loader2 } from "lucide-react"
 import { ChidiMark } from "./chidi-mark"
 import { formatCurrency } from "@/lib/utils/currency"
 import type { Order } from "@/lib/api/orders"
@@ -36,8 +37,49 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
   const orderNo = order.id.slice(-8).toUpperCase()
   const date = new Date(order.created_at)
 
+  const [downloading, setDownloading] = useState(false)
+
   const handlePrint = () => {
     window.print()
+  }
+
+  // Generate a real PDF from the rendered receipt DOM. jsPDF + html2canvas
+  // are dynamically imported so they aren't in the initial bundle (the
+  // libraries are heavy; only loaded when the merchant actually downloads).
+  const handleDownloadPDF = async () => {
+    if (typeof window === "undefined") return
+    setDownloading(true)
+    try {
+      const node = document.getElementById("chidi-receipt-print")
+      if (!node) return
+
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ])
+
+      const canvas = await html2canvas(node, {
+        backgroundColor: "#FBF6EE",
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      })
+
+      // Receipt is tall and narrow — use a custom-sized PDF that matches.
+      const widthMm = 80 // standard thermal receipt width
+      const heightMm = (canvas.height / canvas.width) * widthMm
+      const pdf = new jsPDF({
+        unit: "mm",
+        format: [widthMm, heightMm],
+        orientation: heightMm > widthMm ? "portrait" : "landscape",
+      })
+      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, widthMm, heightMm, undefined, "FAST")
+      pdf.save(`receipt-${orderNo}.pdf`)
+    } catch (err) {
+      console.error("PDF download failed", err)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
@@ -61,20 +103,26 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
           }}
         >
           <div className="relative z-[2] px-7 py-12 space-y-3">
-            {/* Header — merchant name centered, all caps, small caps feel */}
-            <div className="text-center space-y-1">
+            {/* Header — keeps the asterisk-bracketed eyebrow (paper-receipt
+                vocabulary) but the merchant name is now Inter semibold so it
+                visually matches every other page title in the app. The receipt
+                feels like a Chidi document, not an alien artifact. */}
+            <div className="text-center space-y-1.5">
               <p className="text-[10px] tracking-[0.3em] text-[var(--chidi-text-muted)]">
                 * RECEIPT *
               </p>
               <h2
-                className="font-serif text-xl tracking-tight leading-tight"
+                className="text-[20px] font-semibold tracking-[-0.005em] leading-tight font-sans"
                 style={{ color: "#2D1810" }}
               >
                 {businessName}
               </h2>
-              <p className="text-[10px] tracking-wider text-[var(--chidi-text-muted)] uppercase">
-                Powered by Chidi
-              </p>
+              <div className="inline-flex items-center justify-center gap-1.5 mt-1">
+                <ChidiMark size={10} variant="muted" />
+                <p className="text-[10px] tracking-[0.16em] text-[var(--chidi-text-muted)] uppercase font-medium">
+                  Powered by Chidi
+                </p>
+              </div>
             </div>
 
             <DashedDivider />
@@ -126,7 +174,9 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
 
             <DashedDivider />
 
-            {/* Subtotal + total */}
+            {/* Subtotal + total — TOTAL switched to Inter semibold so it
+                matches the price treatment on Orders + Inventory + Insights.
+                The receipt now uses one consistent "amount" font across the app. */}
             <div className="space-y-1.5 text-[11px]">
               <div className="flex items-baseline justify-between text-[var(--chidi-text-secondary)]">
                 <span>SUBTOTAL</span>
@@ -135,7 +185,7 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
               <div className="flex items-baseline justify-between pt-2">
                 <span className="text-[12px] tracking-[0.2em] font-medium">TOTAL</span>
                 <span
-                  className="font-serif text-xl tabular-nums tracking-tight"
+                  className="text-[22px] font-semibold tabular-nums tracking-[-0.01em] font-sans"
                   style={{ color: "#2D1810" }}
                 >
                   {formatCurrency(order.total, order.currency)}
@@ -170,10 +220,10 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
 
             <StarDivider />
 
-            {/* Thanks line */}
-            <p className="text-center text-[11px] leading-snug px-2 text-[var(--chidi-text-secondary)]">
+            {/* Thanks line — Inter sans matches the rest of the app's voice */}
+            <p className="text-center text-[11px] leading-[1.55] px-2 text-[var(--chidi-text-secondary)] font-sans">
               Thank you for shopping with{" "}
-              <span className="font-serif text-[var(--chidi-text-primary)]">{businessName}</span>.
+              <span className="font-semibold text-[var(--chidi-text-primary)]">{businessName}</span>.
               <br />
               Come again soon.
             </p>
@@ -198,18 +248,34 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
 
         {/* Action bar — outside the receipt itself */}
         <div className="flex items-center justify-between gap-2 mt-3 print:hidden">
-          <p className="text-[11px] text-white/85 font-chidi-voice">
+          <p className="text-[11px] text-white/85 font-sans">
             This is what your customer sees.
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            className="bg-white/95 hover:bg-white text-[var(--chidi-text-primary)] border-white/30"
-          >
-            <Printer className="w-3.5 h-3.5 mr-1.5" />
-            Print / save PDF
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              className="bg-white/95 hover:bg-white text-[var(--chidi-text-primary)] border-white/30"
+            >
+              {downloading ? (
+                <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+              )}
+              {downloading ? "Building" : "Download PDF"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="bg-white/95 hover:bg-white text-[var(--chidi-text-primary)] border-white/30"
+            >
+              <Printer className="w-3.5 h-3.5 mr-1.5" />
+              Print
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -25,6 +25,13 @@ interface CardData {
   image: string
   alt: string
   tint: string
+  /** Live overlay chip — what Chidi is doing for that capability right now */
+  overlay: {
+    icon: '💬' | '✓' | '📦' | '📈'
+    label: string
+    sub?: string
+    accent: string
+  }
 }
 
 const CARDS: CardData[] = [
@@ -32,25 +39,43 @@ const CARDS: CardData[] = [
     title: 'Smart conversations',
     description: 'Your AI shop assistant answers customer questions instantly, around the clock.',
     image:
-      'https://images.pexels.com/photos/4549408/pexels-photo-4549408.jpeg?auto=compress&cs=tinysrgb&w=1200&h=600&fit=crop',
-    alt: 'A woman replying to messages on her phone',
-    tint: 'from-[#37322F]/55 via-[#37322F]/25 to-transparent',
+      'https://images.pexels.com/photos/34523114/pexels-photo-34523114.jpeg?auto=compress&cs=tinysrgb&w=1200&h=600&fit=crop',
+    alt: 'Lagos merchant replying to customers from her stall',
+    tint: 'from-[#37322F]/60 via-[#37322F]/25 to-transparent',
+    overlay: {
+      icon: '💬',
+      label: 'Replied to Tunde',
+      sub: '"Yes, in stock. ₦18,000."',
+      accent: '#25D366',
+    },
   },
   {
     title: 'Orders & payments',
     description: "Turn chats into trackable orders. Know who paid and who hasn't.",
     image:
       'https://images.pexels.com/photos/8302335/pexels-photo-8302335.jpeg?auto=compress&cs=tinysrgb&w=1200&h=600&fit=crop',
-    alt: 'A merchant packaging an order',
-    tint: 'from-[#5B8A72]/45 via-[#5B8A72]/15 to-transparent',
+    alt: 'A merchant packaging an order for shipping',
+    tint: 'from-[#1F4023]/55 via-[#1F4023]/20 to-transparent',
+    overlay: {
+      icon: '✓',
+      label: '₦18,000 received',
+      sub: 'Order #ORD-1042 · Tunde Bakare',
+      accent: 'var(--chidi-win)',
+    },
   },
   {
     title: 'Inventory & insights',
     description: 'Track products, sizes, stock levels. See what is selling in real time.',
     image:
-      'https://images.pexels.com/photos/4173251/pexels-photo-4173251.jpeg?auto=compress&cs=tinysrgb&w=1200&h=600&fit=crop',
-    alt: 'A small business dashboard',
-    tint: 'from-[#C4956A]/45 via-[#C4956A]/15 to-transparent',
+      'https://images.pexels.com/photos/8655018/pexels-photo-8655018.jpeg?auto=compress&cs=tinysrgb&w=1200&h=600&fit=crop',
+    alt: 'Stack of colorful African wax print fabric',
+    tint: 'from-[#C4956A]/55 via-[#C4956A]/20 to-transparent',
+    overlay: {
+      icon: '📈',
+      label: 'Wax print up 34%',
+      sub: '82 yards sold last 30 days',
+      accent: '#C4956A',
+    },
   },
 ]
 
@@ -86,10 +111,10 @@ function FeatureCard({
         />
       </div>
       <div className="px-6 py-5 flex flex-col gap-2">
-        <div className="self-stretch flex justify-center flex-col text-[var(--chidi-text-primary)] text-sm font-semibold leading-6 font-sans">
+        <div className="self-stretch flex justify-center flex-col text-[var(--chidi-text-primary)] text-sm font-semibold leading-[1.4] tracking-[-0.005em] font-sans">
           {title}
         </div>
-        <div className="self-stretch text-[var(--chidi-text-secondary)] text-[13px] font-normal leading-[22px] font-sans">
+        <div className="self-stretch text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
           {description}
         </div>
       </div>
@@ -141,19 +166,19 @@ export function HeroCarousel() {
   return (
     <div
       ref={containerRef}
-      className="self-stretch pt-[9px] overflow-hidden border-b border-[var(--chidi-border-subtle)] flex flex-col justify-center items-center gap-4 sm:gap-6 md:gap-8 lg:gap-[66px] relative z-10"
+      className="self-stretch pt-[9px] overflow-hidden border-b border-[var(--chidi-border-default)] flex flex-col justify-center items-center gap-4 sm:gap-6 md:gap-8 lg:gap-[66px] relative z-10"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
       <div className="pt-16 sm:pt-20 md:pt-24 lg:pt-[160px] pb-8 sm:pb-12 md:pb-16 flex flex-col justify-start items-center px-2 sm:px-4 md:px-8 lg:px-0 w-full">
         <div className="w-full max-w-[937px] flex flex-col justify-center items-center gap-3 sm:gap-4 md:gap-5 lg:gap-6">
           <div className="self-stretch rounded-[3px] flex flex-col justify-center items-center gap-4 sm:gap-5 md:gap-6 lg:gap-8">
-            <h1 className="w-full max-w-[748.71px] text-center text-[var(--chidi-text-primary)] text-4xl sm:text-5xl md:text-6xl lg:text-[80px] font-normal leading-[1.1] sm:leading-[1.15] md:leading-[1.2] lg:leading-24 font-serif px-2 sm:px-4 md:px-0">
+            <h1 className="w-full max-w-[748.71px] text-center text-[var(--chidi-text-primary)] text-4xl sm:text-5xl md:text-6xl lg:text-[80px] font-normal leading-[1.15] sm:leading-[1.1] md:leading-[1.05] lg:leading-[1.02] tracking-[-0.025em] font-serif px-2 sm:px-4 md:px-0">
               Run your entire business
               <br />
               through chat
             </h1>
-            <p className="w-full max-w-[506.08px] text-center text-[var(--chidi-text-primary)]/80 text-sm sm:text-base md:text-lg leading-[1.5] sm:leading-[1.55] md:leading-[1.6] lg:leading-7 font-sans px-2 sm:px-4 md:px-0 font-normal">
+            <p className="w-full max-w-[506.08px] text-center text-[var(--chidi-text-primary)]/80 text-sm md:text-base leading-[1.55] font-sans px-2 sm:px-4 md:px-0 font-normal">
               Manage customers, track orders and inventory, and sell on autopilot through your
               Telegram self-service channel. No spreadsheets. No switching apps. No chaos.
             </p>
@@ -175,8 +200,8 @@ export function HeroCarousel() {
               />
             </Link>
           </div>
-          <p className="text-center text-[var(--chidi-text-secondary)]/80 text-xs sm:text-sm font-medium leading-5 font-sans">
-            Launching with Telegram. WhatsApp and Instagram coming very soon.
+          <p className="text-center text-[var(--chidi-text-muted)] text-[11px] font-medium uppercase tracking-[0.18em] leading-[1.4] font-sans">
+            Launching with Telegram · WhatsApp + Instagram coming soon
           </p>
         </div>
 
@@ -200,41 +225,77 @@ export function HeroCarousel() {
             <div className="self-stretch flex-1 flex justify-start items-start">
               <div className="w-full h-full flex items-center justify-center">
                 <div className="relative w-full h-full overflow-hidden">
-                  {CARDS.map((card, idx) => (
-                    <div
-                      key={card.title}
-                      className={`absolute inset-0 transition-all duration-500 ease-in-out ${
-                        activeCard === idx
-                          ? 'opacity-100 scale-100 blur-0'
-                          : 'opacity-0 scale-95 blur-sm'
-                      }`}
-                    >
-                      <div className="relative w-full h-full">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={card.image}
-                          alt={card.alt}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          loading={idx === 0 ? 'eager' : 'lazy'}
-                        />
-                        <div
-                          className={`absolute inset-0 bg-gradient-to-tr ${card.tint} mix-blend-multiply`}
-                        />
-                        {/* Brand-tinted readable label */}
-                        <div className="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10">
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--card)]/90 backdrop-blur-sm shadow-card">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-win)]" />
-                            <span className="text-[11px] uppercase tracking-wider text-[var(--chidi-text-secondary)] font-chidi-voice">
-                              {card.title}
-                            </span>
+                  {CARDS.map((card, idx) => {
+                    const isActive = activeCard === idx
+                    return (
+                      <div
+                        key={card.title}
+                        className={`absolute inset-0 transition-all duration-500 ease-in-out ${
+                          isActive ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-95 blur-sm'
+                        }`}
+                      >
+                        <div className="relative w-full h-full">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={card.image}
+                            alt={card.alt}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            loading={idx === 0 ? 'eager' : 'lazy'}
+                          />
+                          {/* Soft brand tint over the photo */}
+                          <div
+                            className={`absolute inset-0 bg-gradient-to-tr ${card.tint} mix-blend-multiply`}
+                          />
+
+                          {/* Bottom-left: capability label + description */}
+                          <div className="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10">
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--card)]/90 backdrop-blur-sm shadow-card">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-win)]" />
+                              <span className="text-[11px] uppercase tracking-wider text-[var(--chidi-text-secondary)] font-chidi-voice">
+                                {card.title}
+                              </span>
+                            </div>
+                            <p className="hidden sm:block mt-3 text-base sm:text-lg text-white font-serif drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] max-w-[28rem]">
+                              {card.description}
+                            </p>
                           </div>
-                          <p className="hidden sm:block mt-3 text-base sm:text-lg text-white font-serif drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] max-w-[28rem]">
-                            {card.description}
-                          </p>
+
+                          {/* Top-right: live action chip showing what Chidi just did
+                              for this capability. Only animates while card is active. */}
+                          <div
+                            key={`overlay-${idx}-${animationKey}`}
+                            className={`absolute top-4 right-4 sm:top-6 sm:right-6 max-w-[260px] flex items-start gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--card)]/95 backdrop-blur-md shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)] border border-[var(--chidi-border-default)] ${
+                              isActive ? 'animate-[overlayChipIn_600ms_cubic-bezier(0.22,1,0.36,1)_300ms_both]' : 'opacity-0'
+                            }`}
+                          >
+                            <span
+                              className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[12px]"
+                              style={{
+                                backgroundColor: card.overlay.accent,
+                                color: card.overlay.accent === 'var(--chidi-win)' ? 'var(--chidi-win-foreground)' : '#fff',
+                              }}
+                            >
+                              {card.overlay.icon}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-[12px] font-semibold text-[var(--chidi-text-primary)] leading-[1.3] font-sans">
+                                {card.overlay.label}
+                              </p>
+                              {card.overlay.sub && (
+                                <p className="text-[11px] text-[var(--chidi-text-muted)] leading-[1.35] mt-0.5 font-sans truncate">
+                                  {card.overlay.sub}
+                                </p>
+                              )}
+                            </div>
+                            <span
+                              aria-hidden
+                              className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[var(--chidi-win)] animate-pulse mt-1.5"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </div>

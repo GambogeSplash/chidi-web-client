@@ -620,55 +620,10 @@ function CopilotEmptyState({
             ))}
           </ul>
 
-          {/* Secondary topic categories */}
-          <div className="border-t border-[var(--chidi-border-subtle)] pt-5">
-            <p className="text-[11px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-chidi-voice mb-2">
-              Or ask about
-            </p>
-            <div className="flex flex-col gap-0.5">
-              {PROMPT_CATEGORIES.map((category) => {
-                const Icon = category.icon
-                const isExpanded = expandedCategory === category.id
-                return (
-                  <div key={category.id} className="flex flex-col">
-                    <button
-                      onClick={() => setExpandedCategory(isExpanded ? null : category.id)}
-                      className="flex items-center gap-2 px-2 py-2 rounded-lg text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors group font-chidi-voice text-sm"
-                    >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span className="flex-1 text-left">{category.label}</span>
-                      <ChevronDown
-                        className={cn(
-                          "w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-all duration-200",
-                          isExpanded && "rotate-180"
-                        )}
-                      />
-                    </button>
-                    <div
-                      className={cn(
-                        "grid transition-all duration-200 ease-out",
-                        isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                      )}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="flex flex-col gap-0.5 pt-1 ml-6">
-                          {category.prompts.map((prompt) => (
-                            <button
-                              key={prompt}
-                              onClick={() => onPromptClick(prompt)}
-                              className="text-sm font-chidi-voice text-[var(--chidi-text-secondary)] text-left py-1.5 px-2 rounded-lg hover:text-[var(--chidi-text-primary)] hover:bg-white/60 transition-colors"
-                            >
-                              {prompt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          {/* "Or ask about" categories removed (2026-05-03) — the expandable
+              category list duplicated what proactive prompts already do, but
+              with generic copy instead of real-data context. The empty state
+              is now focused on the live signals + the input bar. */}
         </div>
       </div>
 

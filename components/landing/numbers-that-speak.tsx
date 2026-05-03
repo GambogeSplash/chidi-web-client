@@ -211,11 +211,11 @@ const NumbersThatSpeak: React.FC<NumbersThatSpeakProps> = ({
               </div>
               <div
                 style={{
-                  fontFamily: 'var(--font-inter)',
-                  fontWeight: 500,
-                  fontSize: '18.783px',
-                  lineHeight: '20.348px',
-                  letterSpacing: '-0.587px',
+                  fontFamily: 'var(--font-instrument-serif)',
+                  fontWeight: 400,
+                  fontSize: '24px',
+                  lineHeight: '1.05',
+                  letterSpacing: '-0.02em',
                   color: 'var(--nts-text-primary)',
                   fontVariantNumeric: 'tabular-nums',
                 }}

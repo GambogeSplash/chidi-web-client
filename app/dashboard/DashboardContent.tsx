@@ -26,9 +26,10 @@ import { useProducts, useUpdateProduct, productsKeys } from '@/lib/hooks/use-pro
 import { useDashboardSignals } from '@/lib/chidi/use-dashboard-signals'
 import { PRIMARY_TABS } from '@/lib/chidi/navigation'
 import { cn } from '@/lib/utils'
-import { SetupChecklist } from '@/components/chidi/setup-checklist'
 import { NavRail } from '@/components/chidi/nav-rail'
 import { CommandPalette } from '@/components/chidi/command-palette'
+import { ShortcutsOverlay } from '@/components/chidi/shortcuts-overlay'
+import { ApprovalGuardrailProvider } from '@/components/chidi/approval-guardrail'
 import { ChidiWelcome } from '@/components/chidi/chidi-welcome'
 import { ChidiDailyBrief } from '@/components/chidi/chidi-daily-brief'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
@@ -322,19 +323,17 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         />
       </div>
 
-      {/* Setup Checklist — dashboard home only, not pinned across all screens */}
-      <SetupChecklist
-        businessId={user?.businessId || null}
-        businessSlug={businessSlug}
-        products={products}
-        setActiveTab={setActiveTab}
-        onAddProduct={() => setShowAddProductModal(true)}
-        activeTab={activeTab}
-      />
+      {/* SetupChecklist removed (2026-05-03) — it duplicated prompts that
+          already live in (a) the inbox/inventory empty states, (b) the Insights
+          "Decide today" cards, and (c) the Settings SetupStatus. Asking three
+          times read as nag. The single canonical place is now Settings →
+          Chidi tab → SetupStatus. */}
 
-      {/* Main Content Area — keyed wrapper so each tab gets a soft fade-in */}
+      {/* Main Content Area — keyed wrapper triggers chidi-tab-swap-in (260ms
+          slide-fade) every time the active tab changes. Reads as motion
+          across tabs, not jump-cuts. */}
       <main className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden pb-16 lg:pb-0">
-        <div key={activeTab} className="chidi-tab-in flex-1 flex flex-col">
+        <div key={activeTab} className="chidi-tab-swap-in flex-1 flex flex-col">
         {activeTab === "inbox" && (
           <InboxView
             onViewCustomerOrders={() => {
@@ -400,6 +399,14 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         onTabChange={setActiveTab}
         onAddProduct={() => setShowAddProductModal(true)}
       />
+
+      {/* `?` shortcuts overlay — discoverability for keyboard users */}
+      <ShortcutsOverlay />
+
+      {/* Approval guardrail — sensitive Chidi actions ask for the merchant's
+          OK before they fire. Pattern lifted from Stripe Sessions 2026 Agent
+          Toolkit Guardrails. Listens via the requestApproval() event bus. */}
+      <ApprovalGuardrailProvider />
 
       {/* First-launch Chidi introduction — fires once ever per merchant */}
       <ChidiWelcome

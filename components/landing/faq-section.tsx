@@ -87,7 +87,7 @@ export default function FAQSection() {
           <h2 className="w-full flex flex-col justify-center text-[var(--chidi-text-primary)] font-semibold leading-tight md:leading-[44px] font-sans text-4xl tracking-tight">
             Frequently asked questions
           </h2>
-          <p className="w-full text-[var(--chidi-text-secondary)] text-base font-normal leading-7 font-sans">
+          <p className="w-full text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.55] font-sans">
             Everything you need to know about
             <br className="hidden md:block" />
             running your business with Chidi.
@@ -108,7 +108,7 @@ export default function FAQSection() {
                     className="w-full px-5 py-[18px] flex justify-between items-center gap-5 text-left hover:bg-[var(--chidi-surface)]/50 transition-colors duration-200"
                     aria-expanded={isOpen}
                   >
-                    <div className="flex-1 text-[var(--chidi-text-primary)] text-base font-medium leading-6 font-sans">
+                    <div className="flex-1 text-[var(--chidi-text-primary)] text-[15px] font-medium leading-[1.4] font-sans">
                       {item.question}
                     </div>
                     <div className="flex justify-center items-center">
@@ -126,7 +126,7 @@ export default function FAQSection() {
                     }`}
                   >
                     <div className="overflow-hidden">
-                      <div className="px-5 pb-[18px] text-[var(--chidi-text-secondary)] text-sm font-normal leading-6 font-sans">
+                      <div className="px-5 pb-[18px] text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.6] font-sans">
                         {item.answer}
                       </div>
                     </div>

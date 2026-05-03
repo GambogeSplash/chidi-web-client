@@ -35,6 +35,7 @@ import {
   ordersKeys,
 } from '@/lib/hooks/use-orders'
 import { OrderVerificationWidget } from '@/components/chidi/order-verification-widget'
+import { AISuggestStrip } from '@/components/chidi/ai-suggest-strip'
 import { VoiceButton } from '@/components/chidi/voice-button'
 import { CustomerCharacter } from '@/components/chidi/customer-character'
 import { CustomerProfileRail } from '@/components/chidi/customer-profile-rail'
@@ -526,6 +527,19 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
           </div>
         </div>
       )}
+
+      {/* AI-suggest reply chips — three context-derived suggestions sit
+          above the reply input. Tab or click to drop into the input. */}
+      <AISuggestStrip
+        lastMessage={messages[messages.length - 1]?.content}
+        customerName={conversation.customer_name ?? undefined}
+        onPick={(text) => {
+          if (replyInputRef.current) {
+            replyInputRef.current.value = text
+            replyInputRef.current.focus()
+          }
+        }}
+      />
 
       {/* Reply Input */}
       <div className="px-4 py-3 border-t border-[var(--chidi-border-subtle)] bg-white">

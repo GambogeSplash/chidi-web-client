@@ -414,7 +414,7 @@ function PaletteItem({ icon: Icon, iconNode, label, onSelect }: PaletteItemProps
     <Command.Item
       value={label}
       onSelect={onSelect}
-      className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-[13px] font-chidi-voice text-[var(--chidi-text-secondary)] data-[selected=true]:bg-[var(--chidi-surface)] data-[selected=true]:text-[var(--chidi-text-primary)] transition-colors"
+      className="chidi-palette-row flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer text-[13px] font-chidi-voice text-[var(--chidi-text-secondary)] data-[selected=true]:bg-[var(--chidi-surface)] data-[selected=true]:text-[var(--chidi-text-primary)] transition-colors"
     >
       {iconNode ?? (Icon && <Icon className="w-3.5 h-3.5 flex-shrink-0 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />)}
       <span className="flex-1 truncate">{label}</span>
