@@ -34,6 +34,7 @@ import {
   ChevronRight,
   RefreshCw,
   AlertTriangle,
+  Download,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -53,11 +54,16 @@ import {
   useChannelMix,
   useSalesTrend,
   useTopProducts,
+  useCustomers,
 } from "@/lib/hooks/use-analytics"
 import { formatCurrency } from "@/lib/api/analytics"
 import { useCountUp } from "@/lib/chidi/use-count-up"
 import { ChidiCard } from "./page-shell"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import { cohortAnalysis } from "@/lib/chidi/cohort-analysis"
+import { InsightsCohortCard } from "./insights-cohort-card"
+import { InsightsExportSheet } from "./insights-export-sheet"
+import type { InsightsExportPayload } from "@/lib/chidi/insights-export"
 
 // ============================================================================
 // Constants
@@ -155,6 +161,13 @@ export function InsightsView() {
   const { data: channelMix, refetch: refetchChannel } = useChannelMix(period)
   const { data: trend, refetch: refetchTrend } = useSalesTrend(period)
   const { data: topProducts, refetch: refetchTop } = useTopProducts(period, 5)
+  // Cohort needs the customer list. We pull a generous slice (200) and let
+  // cohortAnalysis() do the bucketing in-memory — no extra endpoint needed.
+  const { data: customersData, refetch: refetchCustomers } = useCustomers(
+    undefined,
+    "total_spent",
+    200,
+  )
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -163,10 +176,36 @@ export function InsightsView() {
       refetchChannel(),
       refetchTrend(),
       refetchTop(),
+      refetchCustomers(),
     ])
     setRefreshKey((k) => k + 1)
     setTimeout(() => setRefreshing(false), 700)
   }
+
+  // Cohort report — memoised so the chart doesn't re-bucket on unrelated
+  // re-renders. Recomputes when the customers payload changes (refresh,
+  // period change, etc.).
+  const cohort = useMemo(() => {
+    const customers = customersData?.customers ?? []
+    return cohortAnalysis(customers)
+  }, [customersData])
+
+  // Export sheet open state. Lifted here so the Export button in the page
+  // header can toggle it.
+  const [exportOpen, setExportOpen] = useState(false)
+  const buildExportPayload = useCallback((): InsightsExportPayload => {
+    return {
+      period,
+      generatedAt: new Date().toISOString(),
+      overview: overview ?? null,
+      trend: trend?.data ?? null,
+      channels: channelMix?.channels ?? null,
+      topProducts: topProducts?.top_products ?? null,
+      topCustomers: customersData?.customers ?? null,
+      cohort,
+      currency: "NGN",
+    }
+  }, [period, overview, trend, channelMix, topProducts, customersData, cohort])
 
   // ===== Navigation helpers =================================================
 
@@ -198,6 +237,14 @@ export function InsightsView() {
             <CompareToggle on={compareToPrior} onChange={setCompareToPrior} />
             <PeriodPicker value={period} onChange={setPeriod} />
             <button
+              onClick={() => setExportOpen(true)}
+              aria-label="Export insights"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--chidi-border-default)] bg-[var(--card)] text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors text-[11px] font-medium"
+            >
+              <Download className="w-3.5 h-3.5" strokeWidth={2} />
+              Export
+            </button>
+            <button
               onClick={handleRefresh}
               aria-label="Refresh insights"
               className={cn(
@@ -226,6 +273,11 @@ export function InsightsView() {
           aovDelta={overview?.avg_order_value.percent_change ?? null}
           fulfill={overview?.fulfillment_rate.current ?? 0}
           fulfillDelta={overview?.fulfillment_rate.percent_change ?? null}
+          // Repeat rate joins the strip as the fifth tile — the only KPI here
+          // that's about *people coming back* rather than *money coming in*.
+          repeatRate={cohort.repeatRate}
+          repeatRateDelta={cohort.repeatRateDelta}
+          repeatReady={!!customersData}
         />
 
         {/* === Revenue trend — area chart + Daily/Weekly/Monthly bucket toggle */}
@@ -235,10 +287,11 @@ export function InsightsView() {
           </BentoCard>
         </section>
 
-        {/* === Two-up chart row — Top hours + Day-of-week ===================
-            Equal-width at lg+, stacked on mobile. Gives the eye two answers
-            in the same vertical band. */}
-        <section className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* === Three-up chart row — Top hours + Day-of-week + Cohort =========
+            Equal-width at lg+, stacked on mobile. The cohort card joins the
+            row as the third small card — same height band, same chrome — so
+            "when do they buy" sits next to "who's buying". */}
+        <section className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
           <BentoCard>
             <TopHoursCard data={trend?.data ?? []} />
           </BentoCard>
@@ -250,6 +303,9 @@ export function InsightsView() {
                 duplicates the Customers lens. Day-of-week is the cleanest
                 new signal for ops: which day to staff, when to push promos. */}
             <DayOfWeekCard data={trend?.data ?? []} />
+          </BentoCard>
+          <BentoCard>
+            <InsightsCohortCard report={cohort} />
           </BentoCard>
         </section>
 
@@ -265,6 +321,13 @@ export function InsightsView() {
           />
         </section>
       </div>
+
+      {/* Export drawer — lives at the root so it overlays the whole view. */}
+      <InsightsExportSheet
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        buildPayload={buildExportPayload}
+      />
     </div>
   )
 }
@@ -285,6 +348,9 @@ function InsightsSnapshotStrip({
   aovDelta,
   fulfill,
   fulfillDelta,
+  repeatRate,
+  repeatRateDelta,
+  repeatReady,
 }: {
   refreshKey: number
   ready: boolean
@@ -297,9 +363,13 @@ function InsightsSnapshotStrip({
   aovDelta: number | null
   fulfill: number
   fulfillDelta: number | null
+  repeatRate: number
+  repeatRateDelta: number | null
+  repeatReady: boolean
 }) {
+  // 2-col on mobile, 5-col at lg+ (Repeat rate joins as the fifth tile).
   return (
-    <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
       <InsightsKpiCard
         key={`rev-${refreshKey}`}
         label="Revenue"
@@ -334,6 +404,15 @@ function InsightsSnapshotStrip({
         ready={ready}
         format="pct"
         deltaPct={fulfillDelta}
+        compare={compare}
+      />
+      <InsightsKpiCard
+        key={`rr-${refreshKey}`}
+        label="Repeat rate"
+        value={repeatRate}
+        ready={repeatReady}
+        format="pct"
+        deltaPct={repeatRateDelta}
         compare={compare}
       />
     </section>
