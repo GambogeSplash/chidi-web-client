@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
-import { ChidiAvatar } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import type { MilestoneCard } from "@/lib/chidi/milestones"
 import { markSeen } from "@/lib/chidi/milestones"
 import { playWin } from "@/lib/chidi/sound"
@@ -64,7 +64,7 @@ export function MilestoneModal({ milestone, onClose }: MilestoneModalProps) {
 
             {/* Chidi signature */}
             <div className="mt-6 pt-5 border-t border-[var(--chidi-border-subtle)] flex items-center justify-center gap-2">
-              <ChidiAvatar size="sm" tone="win" />
+              <ArcFace size={20} className="text-[var(--chidi-win)]" />
               <span className="text-xs text-[var(--chidi-text-muted)] font-chidi-voice">
                 — Chidi
               </span>

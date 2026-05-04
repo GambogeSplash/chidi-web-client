@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ChidiAvatar, ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { MessageSquare, Sparkles, ShoppingBag } from "lucide-react"
 
 interface SetupCelebrationProps {
@@ -60,7 +60,7 @@ export function SetupCelebration({
     {
       headline: firstName ? `Welcome aboard, ${firstName}.` : "Welcome aboard.",
       body: `I'm Chidi. I just tucked ${biz} in. Let's get you set up to sell.`,
-      icon: <ChidiAvatar size="lg" tone="default" />,
+      icon: <ArcFace size={40} className="text-[var(--chidi-text-primary)]" />,
     },
     {
       headline: "I'll watch your channels.",

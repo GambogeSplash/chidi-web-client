@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react"
 import { ChidiMark } from "@/components/chidi/chidi-mark"
+import { ArcFace } from "@/components/chidi/arc-face"
 import { authAPI } from "@/lib/api"
 import { isDevBypassActive, setDevBypassSession, buildDevBypassUser } from "@/lib/chidi/dev-bypass"
 import { AuthShell } from "./auth-shell"
@@ -104,7 +105,7 @@ export function EmailVerificationPending({ email, onBackToSignIn }: EmailVerific
       <div className="lg:hidden mb-6">
         <div className="flex items-center justify-center mb-4">
           <div className="w-12 h-12 bg-[var(--chidi-win-soft)] rounded-full flex items-center justify-center">
-            <ChidiMark size={22} variant="win" />
+            <ArcFace size={22} className="text-[var(--chidi-win)]" />
           </div>
         </div>
         <h1 className="ty-page-title text-[var(--chidi-text-primary)] text-center">

@@ -16,7 +16,7 @@ import { type Order } from "@/lib/api/orders"
 import { CustomerCharacter } from "./customer-character"
 import { CurrencyAmount } from "./currency-amount"
 import { ChidiCard, ChidiSection } from "./page-shell"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { PaymentConfirmationWidget } from "./payment-confirmation-widget"
 import {
   Sheet,
@@ -282,7 +282,7 @@ export function OrdersSmart({
       {/* Quiet day */}
       {orders.length === 0 && (
         <div className="text-center py-16">
-          <ChidiMark size={32} variant="muted" className="mx-auto mb-4" />
+          <ArcFace size={32} className="mx-auto mb-4 text-[var(--chidi-text-muted)]" />
           <p className="ty-body-voice text-[var(--chidi-text-secondary)]">
             No orders yet.
           </p>

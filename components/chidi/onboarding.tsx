@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Store, ArrowRight, Check, Globe } from "lucide-react"
-import { ChidiAvatar } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { ChidiLoader } from "./chidi-loader"
 import { SetupCelebration } from "./setup-celebration"
 import type { User } from "@/lib/api"
@@ -59,7 +59,7 @@ function OnboardingHeader({ title, subtitle }: { title: string; subtitle: string
 function ChidiSays({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <div className="flex items-start gap-3 mb-6 chidi-brief-card">
-      <ChidiAvatar size="md" tone="default" />
+      <ArcFace size={28} className="text-[var(--chidi-text-primary)]" />
       <div className="flex-1 min-w-0">
         <p className="ty-page-title text-[var(--chidi-text-primary)]">{title}</p>
         {subtitle && (

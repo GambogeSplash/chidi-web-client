@@ -7,7 +7,7 @@ import { useSalesOverview } from "@/lib/hooks/use-analytics"
 import { useOrders } from "@/lib/hooks/use-orders"
 import { useConversations } from "@/lib/hooks/use-messaging"
 import { formatCurrency } from "@/lib/utils/currency"
-import { ChidiAvatar } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import {
   buildVoiceContext,
   greeting as buildGreeting,
@@ -62,7 +62,7 @@ export function MorningBrief({ ownerName, businessSlug, currency = "NGN", setAct
     >
       <div className="relative z-[2] p-4 sm:p-5">
         <div className="flex items-start gap-3">
-          <ChidiAvatar size="md" tone="default" />
+          <ArcFace size={28} className="text-[var(--chidi-text-primary)]" />
 
           <div className="flex-1 min-w-0">
             <p

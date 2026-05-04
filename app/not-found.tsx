@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Home, Compass } from 'lucide-react'
-import { ChidiAvatar } from '@/components/chidi/chidi-mark'
+import { ArcFace } from '@/components/chidi/arc-face'
 import { EmptyArt } from '@/components/chidi/empty-art'
 
 export default function NotFound() {
@@ -33,7 +33,7 @@ export default function NotFound() {
           />
 
           <div className="flex justify-center mb-4">
-            <ChidiAvatar size="md" tone="default" />
+            <ArcFace size={28} className="text-[var(--chidi-text-primary)]" />
           </div>
 
           <p className="ty-meta text-[var(--chidi-text-muted)] mb-2 tabular-nums">404</p>

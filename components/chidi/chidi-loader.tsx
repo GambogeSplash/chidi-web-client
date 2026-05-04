@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import {
   LOADING_PHRASES_GENERAL,
   LOADING_PHRASES_INBOX,
@@ -77,7 +78,7 @@ export function ChidiLoader({
   return (
     <div className={cn("flex flex-col items-center justify-center text-center", className)}>
       <div className="w-10 h-10 rounded-full bg-[var(--chidi-win-soft)] flex items-center justify-center mb-3 chidi-loader-breathe">
-        <ChidiMark size={20} variant="win" />
+        <ArcFace size={20} className="text-[var(--chidi-win)]" />
       </div>
       <p className={cn("text-[var(--chidi-text-secondary)] font-chidi-voice", dim.text)}>
         {list[index]}

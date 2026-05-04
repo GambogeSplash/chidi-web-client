@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { ArrowRight, ArrowLeft, X, Sparkles } from "lucide-react"
-import { ChidiAvatar, ChidiMark } from "./chidi-mark"
+import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { CustomerCharacter } from "./customer-character"
 import { cn } from "@/lib/utils"
 
@@ -39,7 +40,7 @@ interface CoachmarkBeat {
  *   - Next / Back / Skip controls in the bubble
  *
  * Beats:
- *   1. Intro — centered, ChidiAvatar + greeting
+ *   1. Intro — centered, ArcFace + greeting
  *   2. Inbox — points at the inbox tab in the nav rail
  *   3. Insights — points at insights tab
  *   4. Playbook — points at playbook in library
@@ -73,7 +74,7 @@ export function ChidiWelcome({ ownerName, businessName, enabled = true }: ChidiW
       body: `I'll be sitting beside you running ${biz}. A short tour, then we get to work.`,
       visual: (
         <div className="flex items-center justify-center mb-1">
-          <ChidiAvatar size="lg" tone="default" className="chidi-mascot-breathe" />
+          <ArcFace size={40} className="chidi-mascot-breathe text-[var(--chidi-text-primary)]" />
         </div>
       ),
     },
@@ -116,7 +117,7 @@ export function ChidiWelcome({ ownerName, businessName, enabled = true }: ChidiW
       body: "Press ? for keyboard shortcuts. Cmd+K for the command palette. Otherwise, the dashboard's yours.",
       visual: (
         <div className="flex items-center justify-center gap-2 mb-1">
-          <ChidiAvatar size="md" tone="default" />
+          <ArcFace size={28} className="text-[var(--chidi-text-primary)]" />
           <Sparkles className="w-4 h-4 text-[var(--chidi-win)]" />
         </div>
       ),

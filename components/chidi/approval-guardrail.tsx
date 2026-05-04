@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { CheckCircle2, X, Sparkles } from "lucide-react"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { cn } from "@/lib/utils"
 
 /**
@@ -122,9 +122,11 @@ export function ApprovalGuardrailProvider() {
                 isDestructive ? "bg-[var(--chidi-warning)]/15" : "bg-[var(--chidi-win)]/15",
               )}
             >
-              <ChidiMark
+              <ArcFace
                 size={16}
-                variant={isDestructive ? "muted" : "win"}
+                className={cn(
+                  isDestructive ? "text-[var(--chidi-text-muted)]" : "text-[var(--chidi-win)]",
+                )}
               />
             </div>
             <div className="flex-1 min-w-0">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { RefreshCw } from 'lucide-react'
-import { ChidiAvatar } from '@/components/chidi/chidi-mark'
+import { ArcFace } from '@/components/chidi/arc-face'
 import { errorOwnership, errorRecovery } from '@/lib/chidi/voice'
 
 export default function Error({
@@ -43,7 +43,7 @@ export default function Error({
       <main className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 py-12">
         <div className="text-center max-w-md">
           <div className="flex justify-center mb-6">
-            <ChidiAvatar size="lg" tone="default" />
+            <ArcFace size={40} className="text-[var(--chidi-text-primary)]" />
           </div>
 
           <p className="ty-meta text-[var(--chidi-text-muted)] mb-3">Hiccup</p>

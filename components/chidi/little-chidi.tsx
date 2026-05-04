@@ -37,7 +37,7 @@ import {
   Search as SearchIcon,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import {
@@ -510,7 +510,7 @@ export function LittleChidi({ open, initialQuery, initialTab, onClose }: LittleC
       >
         {/* Header --------------------------------------------------------- */}
         <div className="flex items-center gap-2 px-4 h-12 border-b border-[var(--chidi-border-subtle)] flex-shrink-0">
-          <ChidiMark size={18} variant="default" />
+          <ArcFace size={20} className="text-[var(--chidi-text-primary)]" />
           <span className="text-[13px] font-medium text-[var(--chidi-text-primary)]">Quick peek</span>
           <kbd className="ml-2 text-[10px] font-mono text-[var(--chidi-text-muted)] bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] px-1.5 py-0.5 rounded">
             ⌘.
