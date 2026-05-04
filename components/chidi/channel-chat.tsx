@@ -8,6 +8,7 @@ import {
   Loader2,
   CheckCircle,
   RefreshCw,
+  Columns2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,6 +55,14 @@ import { CustomerProfileRail } from '@/components/chidi/customer-profile-rail'
 import { chidiActed } from '@/lib/chidi/ai-toast'
 import { draftReply } from '@/lib/chidi/draft-reply'
 import { playTap } from '@/lib/chidi/sound'
+import { BoostsPanel } from '@/components/chidi/boosts-panel'
+import { ChatSplitView } from '@/components/chidi/chat-split-view'
+import {
+  applyBoosts,
+  countActive as countActiveBoosts,
+  getBoosts,
+  subscribe as subscribeBoosts,
+} from '@/lib/chidi/boosts'
 
 interface ChannelChatProps {
   conversation: ChannelConversation
@@ -94,6 +103,27 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
   const [paymentSheetOpen, setPaymentSheetOpen] = useState(false)
   const isMobileViewport = useIsMobile()
 
+  // Split view (Arc-style "split with order"). Toggles a side-by-side
+  // panel showing the linked order. Only enabled when an order exists.
+  const [splitOpen, setSplitOpen] = useState(false)
+
+  // Per-customer boost count — drives the "N boosts active" chip above the
+  // input. Hydrated from store + kept in sync via subscribe.
+  const [activeBoostCount, setActiveBoostCount] = useState<number>(() =>
+    countActiveBoosts(getBoosts(conversation.customer_id)),
+  )
+  useEffect(() => {
+    setActiveBoostCount(
+      countActiveBoosts(getBoosts(conversation.customer_id)),
+    )
+    const off = subscribeBoosts(() => {
+      setActiveBoostCount(
+        countActiveBoosts(getBoosts(conversation.customer_id)),
+      )
+    })
+    return off
+  }, [conversation.customer_id])
+
   useEffect(() => {
     setPaymentConfirmation(pendingOrderId ? getConfirmation(pendingOrderId) : null)
     if (!pendingOrderId) return
@@ -124,6 +154,30 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
       })
     }
   }, [conversation.id])
+
+  // When the active conversation changes, close any open split — the order
+  // reference no longer applies.
+  useEffect(() => {
+    setSplitOpen(false)
+  }, [conversation.id])
+
+  // If the linked order disappears (e.g. cancelled), drop split too.
+  useEffect(() => {
+    if (!pendingOrder && splitOpen) setSplitOpen(false)
+  }, [pendingOrder, splitOpen])
+
+  // Cmd+\ (Ctrl+\ on non-mac) toggles split when an order is linked.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        if (!pendingOrder) return
+        e.preventDefault()
+        setSplitOpen((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pendingOrder])
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -199,8 +253,17 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
   }
 
   const handleSendReply = () => {
-    const content = replyInputRef.current?.value?.trim()
-    if (!content || sendReply.isPending) return
+    const raw = replyInputRef.current?.value?.trim()
+    if (!raw || sendReply.isPending) return
+
+    // Wrap with the customer's boosts (signature, prepend, append, order ref)
+    // before the message hits the wire. Idempotent when no boosts are set.
+    const customerFirstName =
+      (conversation.customer_name ?? '').trim().split(/\s+/)[0] ?? ''
+    const content = applyBoosts(raw, conversation.customer_id, {
+      orderRef: pendingOrder?.id ?? null,
+      customerFirstName,
+    })
 
     sendReply.mutate(
       { conversationId: conversation.id, content },
@@ -307,7 +370,12 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
 
   return (
     <div className="flex h-full bg-white">
-      <div className="flex flex-col flex-1 min-w-0">
+      <ChatSplitView
+        open={splitOpen && !!pendingOrder}
+        onOpenChange={setSplitOpen}
+        orderId={pendingOrder?.id ?? null}
+      >
+      <div className="flex flex-col flex-1 min-w-0 h-full">
       {/* Header — customer name + ambient memory line + status tag */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--chidi-border-subtle)] bg-white">
         <div className="flex items-center gap-3 min-w-0">
@@ -349,6 +417,27 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] font-medium font-chidi-voice whitespace-nowrap">
               Needs you
             </span>
+          )}
+          {pendingOrder && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSplitOpen((v) => !v)}
+              aria-pressed={splitOpen}
+              aria-label={splitOpen ? 'Close split with order' : 'Split with order'}
+              title={splitOpen ? 'Close split (Esc)' : 'Split with order (⌘\\)'}
+              className={cn(
+                'h-8 px-2 gap-1.5 text-[12px] font-chidi-voice',
+                splitOpen
+                  ? 'text-[var(--chidi-text-primary)] bg-[var(--chidi-surface)]'
+                  : 'text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]',
+              )}
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">
+                {splitOpen ? 'Close split' : 'Split with order'}
+              </span>
+            </Button>
           )}
           <Button
             variant="ghost"
@@ -707,6 +796,29 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
         }}
       />
 
+      {/* Active-boosts chip — quietly tells the merchant their messages
+          to this customer will be auto-wrapped. Click jumps into the panel. */}
+      {activeBoostCount > 0 && (
+        <div className="px-4 pt-2 -mb-1">
+          <BoostsPanel
+            customerId={conversation.customer_id}
+            customerName={conversation.customer_name}
+            orderRef={pendingOrder?.id ?? null}
+            onActiveChange={setActiveBoostCount}
+            trigger={
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 text-[11px] font-chidi-voice text-[var(--chidi-win)] hover:opacity-80 transition-opacity"
+              >
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--chidi-win)]" />
+                {activeBoostCount} boost{activeBoostCount === 1 ? '' : 's'} active for{' '}
+                {conversation.customer_name?.split(/\s+/)[0] || 'this customer'}
+              </button>
+            }
+          />
+        </div>
+      )}
+
       {/* Reply Input */}
       <div className="px-4 py-3 border-t border-[var(--chidi-border-subtle)] bg-white">
         <div className="flex gap-2 items-center">
@@ -729,6 +841,12 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
               }
             }}
           />
+          <BoostsPanel
+            customerId={conversation.customer_id}
+            customerName={conversation.customer_name}
+            orderRef={pendingOrder?.id ?? null}
+            onActiveChange={setActiveBoostCount}
+          />
           <Button
             onClick={handleSendReply}
             disabled={sendReply.isPending}
@@ -745,6 +863,7 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
         </div>
       </div>
       </div>
+      </ChatSplitView>
 
       {/* Customer profile rail — desktop only (xl+), shows accumulated context */}
       <CustomerProfileRail
