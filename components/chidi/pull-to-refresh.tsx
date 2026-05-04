@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, ReactNode } from "react"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { hapticSoft } from "@/lib/chidi/haptics"
 
 interface PullToRefreshProps {
@@ -105,7 +105,7 @@ export function PullToRefresh({
             transition: "transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1)",
           }}
         >
-          {/* ChidiMark wrapped in a span so we can apply transform — the
+          {/* ArcFace wrapped in a span so we can apply transform — the
               component itself doesn't accept a style prop. */}
           <span
             style={{
@@ -114,10 +114,9 @@ export function PullToRefresh({
               transition: "transform 200ms ease-out",
             }}
           >
-            <ChidiMark
-              size={18}
-              variant="muted"
-              className={refreshing ? "chidi-loader-breathe" : ""}
+            <ArcFace
+              size={20}
+              className={`text-[var(--chidi-text-secondary)] ${refreshing ? "chidi-loader-breathe" : ""}`}
             />
           </span>
           <span className="text-xs">

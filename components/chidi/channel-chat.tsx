@@ -9,8 +9,8 @@ import {
   CheckCircle,
   RefreshCw,
   Columns2,
-  Sparkles,
 } from 'lucide-react'
+import { ArcFace } from '@/components/chidi/arc-face'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -495,7 +495,7 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
               title="Summarize conversation"
               className="h-8 px-2 gap-1.5 text-[12px] font-chidi-voice text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <ArcFace size={14} className="text-[var(--chidi-text-secondary)]" />
               <span className="hidden sm:inline">Summarize</span>
             </Button>
           )}

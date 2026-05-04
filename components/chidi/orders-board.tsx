@@ -62,7 +62,7 @@ import {
   Inbox as InboxIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { ChidiMark } from "@/components/chidi/chidi-mark"
+import { ArcFace } from "@/components/chidi/arc-face"
 import { OrderCard } from "@/components/chidi/order-card"
 import {
   type Order,
@@ -741,7 +741,7 @@ function DraggableCard({
 function ColumnEmpty({ hint }: { hint: string }) {
   return (
     <div className="flex flex-col items-center justify-center text-center px-4 py-10 gap-2">
-      <ChidiMark size={20} variant="muted" />
+      <ArcFace size={20} className="text-[var(--chidi-text-primary)]" />
       <p className="text-[11.5px] text-[var(--chidi-text-muted)] leading-snug max-w-[16ch]">
         {hint}
       </p>

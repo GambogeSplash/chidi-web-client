@@ -2,7 +2,8 @@
 import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Package, Edit3, AlertTriangle, X, Trash2, Loader2, Sparkles, TrendingUp, Calendar, Percent, ShoppingCart, MessageCircle, ArrowUpToLine, Plus, History } from "lucide-react"
+import { Package, Edit3, AlertTriangle, X, Trash2, Loader2, TrendingUp, Calendar, Percent, ShoppingCart, MessageCircle, ArrowUpToLine, Plus, History } from "lucide-react"
+import { ArcFace } from "./arc-face"
 import { productsAPI } from "@/lib/api"
 import type { DisplayProduct } from "@/lib/types/product"
 import { formatCurrency } from "@/lib/utils/currency"
@@ -208,7 +209,7 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
                       onClick={() => onAskChidi(`How is "${product.name}" doing? Should I restock?`)}
                       className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[var(--chidi-win-soft)] hover:bg-[var(--chidi-win)]/20 text-[var(--chidi-win-foreground)] text-sm font-chidi-voice transition-colors group"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-[var(--chidi-win)]" />
+                      <ArcFace size={14} className="text-[var(--chidi-win)]" />
                       Ask Chidi about this product
                     </button>
                   )}
