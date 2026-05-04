@@ -1,32 +1,34 @@
 "use client"
 
 /**
- * Insights — merchant analytics dashboard (rebuild 2026-05-03 — wave 4 strip + craft).
+ * Insights — merchant analytics dashboard.
  *
- * Why this rebuild (vs the wave-3 cut):
+ * DRILL-IN REDESIGN (2026-05-03, Direction C — stacked sections, no tabs):
  *
- *   • Decisions thread is GONE. It moved to the Playbook (owned by another
- *     agent). Insights is now purely the analytics surface — no calls to
- *     action mixed into the read.
- *   • KPI cards are pure number cards now — eyebrow + big number + delta line.
- *     Sparklines, hover affordances and click handlers stripped. The KPIs
- *     match the Customers page's SnapshotStrip visually so the two pages read
- *     as siblings.
- *   • Top hours bar chart now has a SIBLING — Day-of-week revenue (Mon-Sun
- *     vertical bars). Two charts side-by-side at lg+, stacked on mobile,
- *     equal width. See the rationale comment above the new chart.
- *   • Filler buttons removed across the board: "Manage" (Channels),
- *     "All inventory" (Bestsellers), "View" chevron pills on rows that
- *     duplicate the row's own click affordance, helper subtitles ("How your
- *     money comes in.") that just describe what the section is.
- *   • Spacing rhythm is now consistently `mt-6` (no mix of `mt-12` / `mt-3`).
+ *   The previous "Channels | Bestsellers" tab strip read like a settings page
+ *   inside an analytics surface. Both lenses are short (5 rows each) and they
+ *   answer different questions ("where is the money coming from" vs "what
+ *   are people buying"), so a toggle was pure navigation cost for no payoff.
+ *   Now they're two top-level sections of the page — Channels first
+ *   (donut + legend with revenue and share), then Bestsellers (top-5 product
+ *   rows with thumb + name + units + revenue). No drill-in container, no
+ *   "DRILL IN" eyebrow, no per-tab subtitle row, no dead "Manage" / "View
+ *   all" filler. Spacing between the two new sections is `mt-8` so they read
+ *   as peers rather than a single grouped card.
+ *
+ * Other notes preserved from the wave-4 rebuild:
+ *
+ *   • Decisions thread lives on the Playbook now — Insights is purely read.
+ *   • KPI cards are pure number cards (eyebrow + big number + delta line),
+ *     visually aligned to Customers' SnapshotStrip.
+ *   • Top hours, Day-of-week, and Cohort form an equal-width 3-up row at lg+.
  *
  * No new dependencies. Token-only colors. Honors prefers-reduced-motion.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import Image from "next/image"
-import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import {
   ArrowUp,
   ArrowDown,
@@ -47,6 +49,8 @@ import {
   YAxis,
   Tooltip as RTooltip,
   CartesianGrid,
+  PieChart,
+  Pie,
 } from "recharts"
 import { cn } from "@/lib/utils"
 import {
@@ -92,15 +96,6 @@ const CHANNEL_LABEL: Record<string, string> = {
   UNKNOWN: "Other",
 }
 
-// Drill-in lens tabs. No subtitles — the tab name is the section name.
-// Customers lens lives on the Orders page now (top-level Customers tab),
-// so Insights stays focused on Channels + Bestsellers analytics.
-type Lens = "channels" | "products"
-const LENS_OPTIONS: Array<{ id: Lens; label: string }> = [
-  { id: "channels", label: "Channels" },
-  { id: "products", label: "Bestsellers" },
-]
-
 // Revenue-trend bucket toggle.
 type Bucket = "daily" | "weekly" | "monthly"
 const BUCKET_OPTIONS: Array<{ id: Bucket; label: string }> = [
@@ -113,12 +108,8 @@ const BUCKET_OPTIONS: Array<{ id: Bucket; label: string }> = [
 // InsightsView — top-level
 // ============================================================================
 
-const VALID_LENSES: Lens[] = ["channels", "products"]
-
 export function InsightsView() {
-  const router = useRouter()
   const params = useParams()
-  const searchParams = useSearchParams()
   const slug = (params?.slug as string | undefined) ?? "default"
 
   const [period, setPeriod] = usePersistedState<Period>("insights:period", "30d")
@@ -126,33 +117,6 @@ export function InsightsView() {
     "insights:compare",
     true,
   )
-  const [lens, setLens] = usePersistedState<Lens>("insights:lens", "channels")
-
-  // ?lens=<id> takes priority over the persisted value on mount, so a
-  // deep-link from elsewhere in the app lands on the right tab (channels
-  // or products). Customers is no longer a lens here — it lives on Orders.
-  useEffect(() => {
-    const raw = searchParams?.get("lens") as Lens | null
-    if (raw && VALID_LENSES.includes(raw) && raw !== lens) {
-      setLens(raw)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
-
-  // Mirror the lens into the URL so deep-links round-trip cleanly.
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const current = new URLSearchParams(searchParams?.toString() ?? "")
-    const next = lens === "channels" ? null : lens
-    const existing = current.get("lens")
-    if (next === existing) return
-    if (next === null) current.delete("lens")
-    else current.set("lens", next)
-    const qs = current.toString()
-    const url = qs ? `?${qs}` : window.location.pathname
-    router.replace(url, { scroll: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lens])
 
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
@@ -309,16 +273,24 @@ export function InsightsView() {
           </BentoCard>
         </section>
 
-        {/* === Drill-in lens panel ========================================== */}
-        <section className="mt-6 mb-6">
-          <DrillInPanel
-            lens={lens}
-            onLensChange={setLens}
-            channels={channelMix?.channels ?? []}
-            channelTotal={channelMix?.totals.revenue ?? 0}
-            products={topProducts?.top_products ?? []}
-            onProductRowClick={() => goToTab("inventory")}
-          />
+        {/* === Channels — donut + legend list (top-level section, no tabs) === */}
+        <section className="mt-8">
+          <BentoCard>
+            <ChannelsSection
+              channels={channelMix?.channels ?? []}
+              total={channelMix?.totals.revenue ?? 0}
+            />
+          </BentoCard>
+        </section>
+
+        {/* === Bestsellers — top-5 product rows (top-level section, no tabs) = */}
+        <section className="mt-8 mb-6">
+          <BentoCard>
+            <BestsellersSection
+              products={topProducts?.top_products ?? []}
+              onRowClick={() => goToTab("inventory")}
+            />
+          </BentoCard>
         </section>
       </div>
 
@@ -1082,73 +1054,19 @@ function DayOfWeekCard({
 }
 
 // ============================================================================
-// Drill-in panel — tabs + lens content
+// Channels section — donut chart + legend list
 // ============================================================================
 
-function DrillInPanel({
-  lens,
-  onLensChange,
-  channels,
-  channelTotal,
-  products,
-  onProductRowClick,
-}: {
-  lens: Lens
-  onLensChange: (l: Lens) => void
-  channels: Array<{
-    channel: string
-    revenue: number
-    revenue_percentage: number
-    order_count: number
-  }>
-  channelTotal: number
-  products: Array<{
-    product_id: string | null
-    product_name: string
-    units_sold: number
-    revenue: number
-    image_url?: string | null
-  }>
-  onProductRowClick: () => void
-}) {
-  return (
-    <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
-      {/* Tab strip — no subtitle, the tab name is the section name.
-          Horizontal scroll on mobile so the chips never wrap. */}
-      <div className="flex items-center justify-start sm:justify-end mb-4 -mx-1 px-1 overflow-x-auto scrollbar-none">
-        <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-default)] bg-[var(--card)] p-0.5 flex-shrink-0">
-          {LENS_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => onLensChange(opt.id)}
-              className={cn(
-                "px-3 py-1.5 rounded text-[12px] font-medium transition-colors",
-                lens === opt.id
-                  ? "bg-[var(--chidi-text-primary)] text-[var(--background)]"
-                  : "text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]",
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {lens === "channels" && (
-        <ChannelsLens channels={channels} total={channelTotal} />
-      )}
-      {lens === "products" && (
-        <ProductsLens products={products} onRowClick={onProductRowClick} />
-      )}
-    </div>
-  )
-}
-
-// ============================================================================
-// Channels lens — bar chart (no Manage button)
-// ============================================================================
-
-function ChannelsLens({
+/**
+ * Channels lives at the section level now (no tab strip wrapping it). The
+ * shape is a donut on the left + a legend list on the right at sm+, stacked
+ * on mobile. The donut center reads the total revenue across all channels —
+ * the headline number this section is decomposing. Slice hover highlights the
+ * matching legend row via shared color tokens; we don't wire a click handler
+ * because the inbox doesn't yet support a channel deep-link and dead buttons
+ * are worse than no buttons.
+ */
+function ChannelsSection({
   channels,
   total,
 }: {
@@ -1171,56 +1089,40 @@ function ChannelsLens({
     }))
     .sort((a, b) => b.value - a.value)
 
+  const channelCount = chartData.length
   const headerHint =
-    total > 0 ? `${formatCurrency(total)} across ${chartData.length} channels` : undefined
+    total > 0
+      ? `${formatCurrency(total)} across ${channelCount} ${channelCount === 1 ? "channel" : "channels"}`
+      : undefined
 
   return (
     <>
-      {headerHint && (
-        <p className="text-[12px] text-[var(--chidi-text-secondary)] tabular-nums mb-3">
-          {headerHint}
-        </p>
-      )}
+      <CardHeader title="Channels" hint={headerHint} />
 
       {chartData.length === 0 ? (
         <ChartEmpty headline="No channel revenue yet." />
       ) : (
-        <div className="flex flex-col gap-4">
-          <div
-            className="w-full"
-            style={{ height: Math.max(chartData.length * 44, 120) }}
-          >
+        <div className="flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-6">
+          {/* Donut + center label */}
+          <div className="relative w-full sm:w-[180px] h-[180px] flex-shrink-0 mx-auto sm:mx-0">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                layout="vertical"
-                data={chartData}
-                margin={{ top: 4, right: 16, bottom: 4, left: 16 }}
-                barCategoryGap="22%"
-              >
-                <CartesianGrid
-                  stroke="var(--chidi-border-subtle)"
-                  horizontal={false}
-                  strokeDasharray="3 3"
-                />
-                <XAxis
-                  type="number"
-                  tick={{ fill: "var(--chidi-text-muted)", fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => formatCompact(v)}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{
-                    fill: "var(--chidi-text-secondary)",
-                    fontSize: 11,
-                    fontWeight: 500,
-                  }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={80}
-                />
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius="62%"
+                  outerRadius="92%"
+                  stroke="var(--card)"
+                  strokeWidth={2}
+                  isAnimationActive
+                  animationDuration={700}
+                  paddingAngle={1.5}
+                >
+                  {chartData.map((d, i) => (
+                    <Cell key={i} fill={d.color} fillOpacity={0.92} />
+                  ))}
+                </Pie>
                 <RTooltip
                   content={(p) => (
                     <ChartTooltip
@@ -1230,42 +1132,45 @@ function ChannelsLens({
                       }
                     />
                   )}
-                  cursor={{ fill: "var(--chidi-border-subtle)" }}
                 />
-                <Bar
-                  dataKey="value"
-                  radius={[0, 4, 4, 0]}
-                  isAnimationActive
-                  animationDuration={700}
-                >
-                  {chartData.map((d, i) => (
-                    <Cell key={i} fill={d.color} fillOpacity={0.85} />
-                  ))}
-                </Bar>
-              </BarChart>
+              </PieChart>
             </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <p className="text-[9.5px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+                Total
+              </p>
+              <p className="mt-0.5 text-[14px] font-semibold tabular-nums text-[var(--chidi-text-primary)] leading-tight">
+                {formatCurrency(total)}
+              </p>
+            </div>
           </div>
 
-          <ul className="space-y-1.5">
+          {/* Legend list — channel name, revenue, share % */}
+          <ul className="flex-1 min-w-0 divide-y divide-[var(--chidi-border-subtle)]">
             {chartData.map((d) => (
               <li
                 key={d.name}
-                className="flex items-center justify-between gap-3 text-[12px]"
+                className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
               >
-                <span className="inline-flex items-center gap-2 min-w-0">
+                <span className="inline-flex items-center gap-2.5 min-w-0">
                   <span
                     className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
                     style={{ backgroundColor: d.color }}
                   />
-                  <span className="text-[var(--chidi-text-primary)] truncate">
+                  <span className="text-[12.5px] font-medium text-[var(--chidi-text-primary)] truncate">
                     {d.name}
                   </span>
-                  <span className="text-[var(--chidi-text-muted)] tabular-nums text-[11px]">
+                  <span className="text-[10.5px] text-[var(--chidi-text-muted)] tabular-nums">
                     {d.orders} {d.orders === 1 ? "order" : "orders"}
                   </span>
                 </span>
-                <span className="text-[var(--chidi-text-primary)] font-medium tabular-nums flex-shrink-0">
-                  {d.pct}%
+                <span className="flex items-baseline gap-2 flex-shrink-0">
+                  <span className="text-[12.5px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
+                    {formatCurrency(d.value)}
+                  </span>
+                  <span className="text-[10.5px] tabular-nums text-[var(--chidi-text-muted)] w-9 text-right">
+                    {d.pct}%
+                  </span>
                 </span>
               </li>
             ))}
@@ -1277,10 +1182,10 @@ function ChannelsLens({
 }
 
 // ============================================================================
-// Products lens — bestsellers list (no All inventory button, no View pill)
+// Bestsellers section — top-5 product rows (image + name + units + revenue)
 // ============================================================================
 
-function ProductsLens({
+function BestsellersSection({
   products,
   onRowClick,
 }: {
@@ -1293,39 +1198,54 @@ function ProductsLens({
   }>
   onRowClick: () => void
 }) {
+  const top = products.slice(0, 5)
+  const totalRevenue = top.reduce((s, p) => s + p.revenue, 0)
+  const headerHint =
+    top.length > 0
+      ? `${formatCurrency(totalRevenue)} from top ${top.length}`
+      : undefined
+
   if (products.length === 0) {
-    return <ChartEmpty headline="No products with sales yet." />
+    return (
+      <>
+        <CardHeader title="Bestsellers" />
+        <ChartEmpty headline="No products with sales yet." />
+      </>
+    )
   }
   return (
-    <ul className="divide-y divide-[var(--chidi-border-subtle)] -mx-1">
-      {products.slice(0, 5).map((p, i) => (
-        <li key={`${p.product_id}-${i}`}>
-          <button
-            onClick={onRowClick}
-            className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group text-left"
-          >
-            <ProductThumb src={p.image_url} name={p.product_name} size={40} />
-            <div className="flex-1 min-w-0">
-              <p className="text-[12.5px] font-medium text-[var(--chidi-text-primary)] truncate">
-                {p.product_name}
-              </p>
-              <p className="text-[10.5px] text-[var(--chidi-text-muted)] mt-0.5 tabular-nums">
-                {p.units_sold} sold
-              </p>
-            </div>
-            <div className="text-right flex-shrink-0">
-              <p className="text-[12.5px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
-                {formatCurrency(p.revenue)}
-              </p>
-            </div>
-            <ChevronRight
-              className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-              strokeWidth={2}
-            />
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      <CardHeader title="Bestsellers" hint={headerHint} />
+      <ul className="divide-y divide-[var(--chidi-border-subtle)] -mx-1">
+        {top.map((p, i) => (
+          <li key={`${p.product_id}-${i}`}>
+            <button
+              onClick={onRowClick}
+              className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group text-left rounded-md"
+            >
+              <ProductThumb src={p.image_url} name={p.product_name} size={40} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[12.5px] font-medium text-[var(--chidi-text-primary)] truncate">
+                  {p.product_name}
+                </p>
+                <p className="text-[10.5px] text-[var(--chidi-text-muted)] mt-0.5 tabular-nums">
+                  {p.units_sold} sold
+                </p>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-[12.5px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
+                  {formatCurrency(p.revenue)}
+                </p>
+              </div>
+              <ChevronRight
+                className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                strokeWidth={2}
+              />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }
 
