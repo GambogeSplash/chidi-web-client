@@ -85,7 +85,7 @@ export default function TestimonialsSection() {
     >
       <div className="self-stretch px-2 overflow-hidden flex justify-start items-center bg-background border-t-0 border-l-0 border-r-0 border-b border-[var(--chidi-border-default)]">
         <div className="flex-1 py-16 md:py-24 flex flex-col md:flex-row justify-center items-end gap-6">
-          <div className="self-stretch px-3 md:px-12 justify-center items-start gap-4 flex flex-col md:flex-row">
+          <div className="self-stretch px-3 md:px-6 lg:px-10 max-w-[1320px] mx-auto justify-center items-start gap-6 flex flex-col md:flex-row">
             <Reveal
               className="w-48 h-48 md:w-48 md:h-48 rounded-lg overflow-hidden flex items-center justify-center transition-all duration-700 ease-in-out flex-shrink-0 ring-1 ring-[var(--chidi-border-default)]"
             >
@@ -118,7 +118,7 @@ export default function TestimonialsSection() {
                 quote at the new scale.
               */}
               <blockquote
-                className="self-stretch justify-start flex flex-col text-[var(--chidi-text-primary)] text-3xl md:text-5xl font-semibold leading-tight md:leading-[60px] font-sans tracking-tight min-h-[180px] md:min-h-[260px] overflow-hidden transition-all duration-700 ease-in-out"
+                className="self-stretch justify-start flex flex-col text-[var(--chidi-text-primary)] text-3xl md:text-5xl lg:text-[56px] font-semibold leading-tight md:leading-[60px] lg:leading-[68px] font-sans tracking-tight min-h-[180px] md:min-h-[260px] max-w-[1100px] overflow-hidden transition-all duration-700 ease-in-out"
                 style={{
                   filter: transitioning ? 'blur(4px)' : 'blur(0px)',
                   transition: 'filter 0.7s ease-in-out',

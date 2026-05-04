@@ -16,7 +16,7 @@ import { UserSettings } from '@/components/settings'
 import { SetupStatus } from '@/components/settings/setup-status'
 import { AppHeader } from '@/components/chidi/app-header'
 import { NavRail } from '@/components/chidi/nav-rail'
-import { ChidiMark } from '@/components/chidi/chidi-mark'
+import { ArcFace } from '@/components/chidi/arc-face'
 import { ChidiPreferences } from '@/components/chidi/chidi-preferences'
 import { LibraryBottomNav } from '@/components/chidi/library-bottom-nav'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
@@ -166,9 +166,9 @@ export default function SettingsPage() {
                     )}
                   >
                     {isChidi ? (
-                      <ChidiMark
+                      <ArcFace
                         size={16}
-                        className={cn('flex-shrink-0', isActive && 'text-[var(--chidi-win)]')}
+                        className={cn('flex-shrink-0', isActive ? 'text-[var(--chidi-win)]' : 'text-[var(--chidi-text-secondary)]')}
                       />
                     ) : Icon ? (
                       <Icon
