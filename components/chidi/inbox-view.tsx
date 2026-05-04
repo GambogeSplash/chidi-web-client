@@ -13,6 +13,15 @@ import {
   HelpCircle,
   ExternalLink,
   AlertCircle,
+  Pin,
+  PinOff,
+  Archive,
+  ArchiveRestore,
+  PackageSearch,
+  Truck,
+  Crown,
+  Sparkles,
+  Wallet,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -82,6 +91,38 @@ import {
   type SnoozeStore,
 } from "@/lib/chidi/snoozed"
 import { addNotification } from "@/lib/chidi/notifications"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import {
+  getPinned,
+  isPinned as isConvPinned,
+  pin as pinConv,
+  unpin as unpinConv,
+  subscribe as subscribePinned,
+  MAX_PINS,
+} from "@/lib/chidi/inbox-pinned"
+import {
+  LIVE_FOLDERS,
+  applyFolder,
+  computeFolderCounts,
+  type LiveFolderId,
+  type FolderContext,
+} from "@/lib/chidi/inbox-folders"
+import {
+  isArchived as isConvArchived,
+  partitionByArchive,
+  manualArchive,
+  restore as restoreConv,
+  subscribe as subscribeArchive,
+  AUTO_ARCHIVE_DAYS,
+} from "@/lib/chidi/inbox-archive"
+import { useOrders } from "@/lib/hooks/use-orders"
+import { useCustomers } from "@/lib/hooks/use-analytics"
 
 interface InboxViewProps {
   onViewCustomerOrders?: (customerName: string) => void
@@ -103,6 +144,16 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
   // status filter chip + per-row badge can read it without an extra query.
   const [snoozes, setSnoozes] = useState<SnoozeStore>({})
   const [snoozePickerOpen, setSnoozePickerOpen] = useState(false)
+
+  // Pinned conversations — local store, max 12. Subscribed below so external
+  // mutations (e.g. context menu in another row) reflect everywhere.
+  const [pinnedIds, setPinnedIds] = useState<string[]>([])
+  // Active live folder filter — composes with statusFilter (intersected).
+  const [activeFolder, setActiveFolder] = useState<LiveFolderId | null>(null)
+  // Bumped to re-render when manual archive/restore mutates localStorage.
+  const [archiveTick, setArchiveTick] = useState(0)
+  // Toggles the dedicated archive view (Arc-style separate surface).
+  const [showingArchive, setShowingArchive] = useState(false)
 
   // Connection dialog state
   const [showChannelPicker, setShowChannelPicker] = useState(false)
@@ -133,6 +184,19 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
   
   const connectTelegram = useConnectTelegram()
   const resolveConversation = useResolveConversation()
+
+  // Live-folder context: orders + customers. Both queries are already cached
+  // by other surfaces, so this is usually a free hit. Falls back to safe
+  // empty arrays so predicates never throw on first paint.
+  const { data: ordersData } = useOrders()
+  const { data: customersData } = useCustomers(undefined, "total_spent", 200)
+  const folderContext: FolderContext = useMemo(
+    () => ({
+      orders: ordersData?.orders ?? [],
+      customers: customersData?.customers ?? [],
+    }),
+    [ordersData, customersData],
+  )
 
   // Snooze: subscribe to the local store + sweep expired snoozes every 30s.
   // When a snooze expires we (a) refetch the conversation list (the thread
@@ -195,6 +259,19 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
       unsub()
     }
   }, [queryClient, status, channel])
+
+  // Pinned + archive stores — both local-only, both pub/sub. We seed once on
+  // mount + subscribe so the chip / header counts always match reality even
+  // if mutated from a context menu deep in the list.
+  useEffect(() => {
+    setPinnedIds(getPinned())
+    const unsubPinned = subscribePinned((next) => setPinnedIds([...next]))
+    const unsubArchive = subscribeArchive(() => setArchiveTick((t) => t + 1))
+    return () => {
+      unsubPinned()
+      unsubArchive()
+    }
+  }, [])
 
   // Bulk action handlers — fan out to per-conversation mutations.
   const handleBulkResolve = async () => {
@@ -342,14 +419,28 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
     [conversations, snoozes],
   )
 
-  const filteredConversations = conversations.filter(conv => {
+  // Partition by archive once (60-day cutoff + manual overrides). Pinned and
+  // NEEDS_HUMAN conversations are protected inside isArchived(). archiveTick is
+  // read here to invalidate this memo when overrides mutate.
+  const { live: liveConvs, archived: archivedConvs } = useMemo(
+    () => partitionByArchive(conversations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [conversations, archiveTick, pinnedIds],
+  )
+
+  const baseConversations = showingArchive ? archivedConvs : liveConvs
+
+  const filteredConversations = baseConversations.filter(conv => {
     // Snoozed view shows ONLY snoozed; default view hides snoozed conversations
-    // so they don't compete for attention with live work.
-    const snoozed = !!snoozes[conv.id]
-    if (showingSnoozed) {
-      if (!snoozed) return false
-    } else if (snoozed) {
-      return false
+    // so they don't compete for attention with live work. Archive view ignores
+    // snooze entirely — once archived, snooze no longer matters.
+    if (!showingArchive) {
+      const snoozed = !!snoozes[conv.id]
+      if (showingSnoozed) {
+        if (!snoozed) return false
+      } else if (snoozed) {
+        return false
+      }
     }
     if (!searchQuery) return true
     const customerId = formatCustomerId(conv.customer_id, conv.channel_type).toLowerCase()
@@ -358,20 +449,329 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
     return customerId.includes(query) || name.includes(query)
   })
 
+  // Live folder filter intersects with everything else. Archive view skips
+  // folders since the merchant is in cleanup mode there.
+  const folderedConversations = useMemo(() => {
+    if (!activeFolder || showingArchive) return filteredConversations
+    return applyFolder(activeFolder, filteredConversations, folderContext)
+  }, [filteredConversations, activeFolder, showingArchive, folderContext])
+
   // Sort: NEEDS_HUMAN pinned to top (Front pattern), then by recency.
-  // Resolved threads sink so they don't compete with live work.
+  // Resolved threads sink so they don't compete with live work. Pinned
+  // conversations are extracted into their own section above this list.
+  const pinnedSet = useMemo(() => new Set(pinnedIds), [pinnedIds])
   const sortedConversations = useMemo(
     () =>
-      [...filteredConversations].sort((a, b) => {
-        const aNeeds = a.status === "NEEDS_HUMAN" ? 0 : a.status === "RESOLVED" ? 2 : 1
-        const bNeeds = b.status === "NEEDS_HUMAN" ? 0 : b.status === "RESOLVED" ? 2 : 1
-        if (aNeeds !== bNeeds) return aNeeds - bNeeds
-        return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
-      }),
-    [filteredConversations],
+      [...folderedConversations]
+        .filter((c) => !pinnedSet.has(c.id))
+        .sort((a, b) => {
+          const aNeeds = a.status === "NEEDS_HUMAN" ? 0 : a.status === "RESOLVED" ? 2 : 1
+          const bNeeds = b.status === "NEEDS_HUMAN" ? 0 : b.status === "RESOLVED" ? 2 : 1
+          if (aNeeds !== bNeeds) return aNeeds - bNeeds
+          return new Date(b.last_activity).getTime() - new Date(a.last_activity).getTime()
+        }),
+    [folderedConversations, pinnedSet],
   )
 
+  // Pinned section: respects all filters, ordered by pin recency.
+  const pinnedConversations = useMemo(() => {
+    if (showingArchive) return [] as ChannelConversation[]
+    const matched = folderedConversations.filter((c) => pinnedSet.has(c.id))
+    const orderIndex = new Map(pinnedIds.map((id, i) => [id, i] as const))
+    return matched.sort(
+      (a, b) => (orderIndex.get(a.id) ?? 999) - (orderIndex.get(b.id) ?? 999),
+    )
+  }, [folderedConversations, pinnedSet, pinnedIds, showingArchive])
+
+  // Folder counts — recompute against the *unfiltered live* set so the chip
+  // numbers don't bounce around as the merchant types in the search box.
+  const folderCounts = useMemo(
+    () => computeFolderCounts(liveConvs, folderContext),
+    [liveConvs, folderContext],
+  )
+
+  const archivedTotal = archivedConvs.length
+
+  // Pin / archive handlers — toast feedback + a tiny "Undo" so a misclick
+  // never costs the merchant more than a tap.
+  const handleTogglePin = (conversation: ChannelConversation) => {
+    const wasPinned = isConvPinned(conversation.id)
+    if (wasPinned) {
+      unpinConv(conversation.id)
+      toast(`${conversation.customer_name || "Conversation"} unpinned`, {
+        action: { label: "Undo", onClick: () => pinConv(conversation.id) },
+      })
+      return
+    }
+    const droppedOne = pinnedIds.length >= MAX_PINS
+    const next = pinConv(conversation.id)
+    toast(`Pinned ${conversation.customer_name || "conversation"} to top`, {
+      description: droppedOne
+        ? `Holding your ${MAX_PINS} latest pins — oldest dropped off.`
+        : undefined,
+      action: { label: "Undo", onClick: () => unpinConv(conversation.id) },
+    })
+    setPinnedIds([...next])
+  }
+
+  const handleManualArchive = (conversation: ChannelConversation) => {
+    manualArchive(conversation.id)
+    toast(`${conversation.customer_name || "Conversation"} archived`, {
+      description: "Hidden from your inbox until they message again.",
+      action: { label: "Undo", onClick: () => restoreConv(conversation.id) },
+    })
+  }
+
+  const handleRestore = (conversation: ChannelConversation) => {
+    restoreConv(conversation.id)
+    toast(`${conversation.customer_name || "Conversation"} restored`)
+  }
+
   const hasMultipleChannels = (connections?.connections.length ?? 0) > 1
+
+  /**
+   * Render a single inbox row. Same primitive used for the Pinned section,
+   * the main list, and the Archive view — so pin / hover / context-menu /
+   * restore behavior stays identical everywhere.
+   *
+   * `pinnedRow` toggles the "PINNED" tint affordance.
+   * `archivedRow` swaps the trailing actions for a single Restore button.
+   */
+  const renderConversationRow = (
+    conversation: ChannelConversation,
+    idx: number,
+    pinnedRow: boolean,
+    archivedRow: boolean,
+  ) => {
+    const isNeedsHuman = conversation.status === "NEEDS_HUMAN"
+    const isResolved = conversation.status === "RESOLVED"
+    const isUnread = conversation.unread_count > 0
+    const snoozeEntry = snoozes[conversation.id]
+    const channelInfo = conversation.channel_type
+      ? getChannelInfo(conversation.channel_type)
+      : null
+    const displayName =
+      conversation.customer_name ||
+      formatCustomerId(conversation.customer_id, conversation.channel_type)
+    const peek =
+      conversation.last_message_preview ||
+      (conversation.last_intent && conversation.last_intent !== "UNKNOWN"
+        ? conversation.last_intent.replace(/_/g, " ").toLowerCase()
+        : "")
+    const isSelected = selectedIds.has(conversation.id)
+    const inSelectMode = selectedIds.size > 0
+    const pinned = pinnedRow || pinnedSet.has(conversation.id)
+
+    return (
+      <ContextMenu key={conversation.id}>
+        <ContextMenuTrigger asChild>
+          <li
+            className="chidi-list-in"
+            style={{ animationDelay: `${Math.min(idx, 12) * 28}ms` }}
+          >
+            <div className="relative group">
+              <button
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || inSelectMode) {
+                    e.preventDefault()
+                    setSelectedIds((s) => {
+                      const next = new Set(s)
+                      if (next.has(conversation.id)) next.delete(conversation.id)
+                      else next.add(conversation.id)
+                      return next
+                    })
+                    return
+                  }
+                  handleConversationClick(conversation)
+                }}
+                className={cn(
+                  "w-full px-4 lg:px-6 py-3 text-left transition-colors",
+                  isNeedsHuman && !isSelected
+                    ? "bg-[var(--chidi-warning)]/5 hover:bg-[var(--chidi-warning)]/10"
+                    : "hover:bg-[var(--chidi-surface)]/60",
+                  isSelected && "bg-[var(--chidi-win)]/10 hover:bg-[var(--chidi-win)]/15",
+                  isResolved && "opacity-70",
+                  archivedRow && "opacity-80",
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    aria-label={isSelected ? "Deselect conversation" : "Select conversation"}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedIds((s) => {
+                        const next = new Set(s)
+                        if (next.has(conversation.id)) next.delete(conversation.id)
+                        else next.add(conversation.id)
+                        return next
+                      })
+                    }}
+                    className={cn(
+                      "flex-shrink-0 mt-1 w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
+                      isSelected
+                        ? "bg-[var(--chidi-win)] border-[var(--chidi-win)]"
+                        : "border-[var(--chidi-border-default)] hover:border-[var(--chidi-text-muted)]",
+                      inSelectMode || isSelected
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-60",
+                    )}
+                  >
+                    {isSelected && (
+                      <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4L9 11.6l6.3-6.3a1 1 0 011.4 0z" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="relative flex-shrink-0">
+                    <CustomerCharacter
+                      name={conversation.customer_name}
+                      fallbackId={conversation.customer_id}
+                      size="md"
+                    />
+                    {hasMultipleChannels && channelInfo && (
+                      <span
+                        className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[var(--background)] flex items-center justify-center"
+                        style={{ backgroundColor: channelInfo.color }}
+                        title={channelInfo.name}
+                        aria-label={channelInfo.name}
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2 mb-0.5">
+                      <span
+                        className={cn(
+                          "text-sm truncate flex items-center gap-1.5",
+                          isUnread
+                            ? "font-semibold text-[var(--chidi-text-primary)]"
+                            : "text-[var(--chidi-text-secondary)]",
+                        )}
+                      >
+                        {pinned && !archivedRow && (
+                          <Pin
+                            className="w-3 h-3 text-[var(--chidi-text-muted)] flex-shrink-0"
+                            aria-label="Pinned"
+                          />
+                        )}
+                        <span className="truncate">{displayName}</span>
+                      </span>
+                      <span className="text-[11px] text-[var(--chidi-text-muted)] tabular-nums flex-shrink-0">
+                        {formatTime(conversation.last_activity)}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <p
+                        className={cn(
+                          "text-[13px] truncate min-w-0 font-chidi-voice",
+                          isUnread
+                            ? "text-[var(--chidi-text-secondary)]"
+                            : "text-[var(--chidi-text-muted)]",
+                        )}
+                      >
+                        {peek || (isResolved ? "Resolved" : "No messages yet")}
+                      </p>
+
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {snoozeEntry ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-text-primary)]/8 text-[var(--chidi-text-secondary)] font-medium font-chidi-voice whitespace-nowrap"
+                            title={`Quiet until ${formatSnoozeUntil(snoozeEntry.until)}`}
+                          >
+                            <Clock className="w-2.5 h-2.5" />
+                            {formatSnoozeUntil(snoozeEntry.until)}
+                          </span>
+                        ) : isNeedsHuman ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] font-medium font-chidi-voice whitespace-nowrap">
+                            Needs you
+                          </span>
+                        ) : isUnread ? (
+                          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--chidi-success)] text-white text-[10px] font-medium flex items-center justify-center tabular-nums">
+                            {conversation.unread_count}
+                          </span>
+                        ) : !isResolved ? (
+                          <span
+                            className="relative flex w-1.5 h-1.5"
+                            title="Chidi handling"
+                            aria-label="Chidi handling"
+                          >
+                            <span className="absolute inset-0 rounded-full bg-[var(--chidi-success)] chidi-live-dot opacity-50" />
+                            <span className="relative w-1.5 h-1.5 rounded-full bg-[var(--chidi-success)]" />
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Hover-revealed pin / unpin / restore — sits on top of the row,
+                  doesn't intercept the row click except on its own footprint. */}
+              {archivedRow ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRestore(conversation)
+                  }}
+                  className="absolute top-1/2 -translate-y-1/2 right-3 lg:right-5 inline-flex items-center gap-1 h-7 px-2 rounded-md text-[11px] font-medium text-[var(--chidi-text-secondary)] bg-white border border-[var(--chidi-border-default)] hover:text-[var(--chidi-text-primary)] hover:border-[var(--chidi-text-primary)]/40 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+                  title="Restore to inbox"
+                >
+                  <ArchiveRestore className="w-3 h-3" />
+                  Restore
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleTogglePin(conversation)
+                  }}
+                  className={cn(
+                    "absolute top-1/2 -translate-y-1/2 right-3 lg:right-5 w-7 h-7 inline-flex items-center justify-center rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--card)] transition-all focus:opacity-100",
+                    pinned
+                      ? "opacity-100 text-[var(--chidi-text-primary)]"
+                      : "opacity-0 group-hover:opacity-100",
+                  )}
+                  title={pinned ? "Unpin" : "Pin to top"}
+                  aria-label={pinned ? "Unpin conversation" : "Pin conversation to top"}
+                >
+                  {pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+                </button>
+              )}
+            </div>
+          </li>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-52 bg-white border-[var(--chidi-border-default)]">
+          {pinned ? (
+            <ContextMenuItem onSelect={() => handleTogglePin(conversation)}>
+              <PinOff className="w-3.5 h-3.5 mr-2 text-[var(--chidi-text-muted)]" />
+              Unpin
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem onSelect={() => handleTogglePin(conversation)}>
+              <Pin className="w-3.5 h-3.5 mr-2 text-[var(--chidi-text-muted)]" />
+              Pin to top
+            </ContextMenuItem>
+          )}
+          <ContextMenuSeparator />
+          {archivedRow || isConvArchived(conversation) ? (
+            <ContextMenuItem onSelect={() => handleRestore(conversation)}>
+              <ArchiveRestore className="w-3.5 h-3.5 mr-2 text-[var(--chidi-text-muted)]" />
+              Restore to inbox
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem onSelect={() => handleManualArchive(conversation)}>
+              <Archive className="w-3.5 h-3.5 mr-2 text-[var(--chidi-text-muted)]" />
+              Archive
+            </ContextMenuItem>
+          )}
+        </ContextMenuContent>
+      </ContextMenu>
+    )
+  }
 
   const isConnecting = connectTelegram.isPending
   const loading = loadingConversations && conversations.length === 0
@@ -712,6 +1112,43 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
               </span>
             )}
           </button>
+          {/* Archive chip — toggles a separate archive view (auto-archived
+              after 60 days inactive + manually archived threads). */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowingArchive((v) => !v)
+              // Leaving archive resets folder + selection so we don't carry
+              // weird state into the live inbox.
+              if (!showingArchive) {
+                setActiveFolder(null)
+                setSelectedIds(new Set())
+              }
+            }}
+            aria-pressed={showingArchive}
+            className={cn(
+              "h-9 inline-flex items-center gap-1.5 px-3 rounded-md border text-[12px] font-medium transition-colors",
+              showingArchive
+                ? "bg-[var(--chidi-text-primary)] text-white border-[var(--chidi-text-primary)]"
+                : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:text-[var(--chidi-text-primary)]",
+            )}
+            title={`Archived (auto after ${AUTO_ARCHIVE_DAYS}d inactive)`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            Archive
+            {archivedTotal > 0 && (
+              <span
+                className={cn(
+                  "ml-0.5 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] tabular-nums font-semibold",
+                  showingArchive
+                    ? "bg-white/25 text-white"
+                    : "bg-[var(--chidi-text-primary)]/10 text-[var(--chidi-text-primary)]",
+                )}
+              >
+                {archivedTotal}
+              </span>
+            )}
+          </button>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[120px] h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]">
               <SelectValue placeholder="Filter" />
@@ -725,6 +1162,18 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
             </SelectContent>
           </Select>
         </div>
+
+        {/* Live folders strip — auto-grouping chips. Only the live inbox
+            view shows them; the archive view skips folders. Each chip is a
+            label + count; the active folder gets a clear-X. */}
+        {!showingArchive && (
+          <LiveFoldersStrip
+            counts={folderCounts}
+            activeFolder={activeFolder}
+            onSelect={(id) => setActiveFolder((curr) => (curr === id ? null : id))}
+            onClear={() => setActiveFolder(null)}
+          />
+        )}
       </div>
 
       {/* Conversation List — wrapped in pull-to-refresh on mobile */}
@@ -765,8 +1214,28 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
               </li>
             ))}
           </ul>
-        ) : sortedConversations.length === 0 ? (
-          searchQuery ? (
+        ) : sortedConversations.length === 0 && pinnedConversations.length === 0 ? (
+          showingArchive ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 lg:px-6">
+              <EmptyArt variant="inbox" size={104} className="text-[var(--chidi-text-muted)] mb-5" />
+              <h3 className="ty-page-title text-[var(--chidi-text-primary)] mb-2">
+                Nothing archived yet.
+              </h3>
+              <p className="ty-body-voice text-[var(--chidi-text-secondary)] text-center max-w-sm">
+                Threads auto-archive after {AUTO_ARCHIVE_DAYS} days of silence. You can also archive any conversation from its right-click menu.
+              </p>
+            </div>
+          ) : activeFolder ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 lg:px-6">
+              <EmptyArt variant="search" size={120} className="text-[var(--chidi-text-muted)] mb-5" />
+              <h3 className="ty-page-title text-[var(--chidi-text-primary)] mb-2">
+                Nothing in this folder right now.
+              </h3>
+              <p className="ty-body-voice text-[var(--chidi-text-secondary)] text-center max-w-sm">
+                Folders update live as new messages come in.
+              </p>
+            </div>
+          ) : searchQuery ? (
             <div className="flex-1 flex flex-col items-center justify-center py-16 px-4 lg:px-6">
               <EmptyArt variant="search" size={120} className="text-[var(--chidi-text-muted)] mb-5" />
               <h3 className="ty-page-title text-[var(--chidi-text-primary)] mb-2">
@@ -853,166 +1322,37 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
                 </div>
               </div>
             )}
+          {/* Archive helper — only when looking at the archive view. */}
+          {showingArchive && (
+            <div className="px-4 lg:px-6 py-2 border-b border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/40">
+              <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice">
+                Conversations auto-archive after {AUTO_ARCHIVE_DAYS} days inactive. Restore any thread to bring it back.
+              </p>
+            </div>
+          )}
+
+          {/* Pinned section — sits above the main list, visually distinct.
+              Same row primitive as below + a "PINNED" eyebrow. */}
+          {pinnedConversations.length > 0 && !showingArchive && (
+            <div className="border-b border-[var(--chidi-border-subtle)] bg-[var(--chidi-text-primary)]/[0.025]">
+              <div className="px-4 lg:px-6 pt-2.5 pb-1.5 flex items-center gap-1.5">
+                <Pin className="w-3 h-3 text-[var(--chidi-text-muted)]" />
+                <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium">
+                  Pinned
+                </span>
+                <span className="text-[10px] tabular-nums text-[var(--chidi-text-muted)]">
+                  · {pinnedConversations.length}
+                </span>
+              </div>
+              <ul className="divide-y divide-[var(--chidi-border-subtle)]">
+                {pinnedConversations.map((conv, idx) => renderConversationRow(conv, idx, true, false))}
+              </ul>
+            </div>
+          )}
           <ul className="divide-y divide-[var(--chidi-border-subtle)]">
-            {sortedConversations.map((conversation, idx) => {
-              const isNeedsHuman = conversation.status === "NEEDS_HUMAN"
-              const isResolved = conversation.status === "RESOLVED"
-              const isUnread = conversation.unread_count > 0
-              const snoozeEntry = snoozes[conversation.id]
-              const channelInfo = conversation.channel_type
-                ? getChannelInfo(conversation.channel_type)
-                : null
-              const displayName =
-                conversation.customer_name ||
-                formatCustomerId(conversation.customer_id, conversation.channel_type)
-              const peek = conversation.last_message_preview ||
-                (conversation.last_intent && conversation.last_intent !== "UNKNOWN"
-                  ? conversation.last_intent.replace(/_/g, " ").toLowerCase()
-                  : "")
-
-              const isSelected = selectedIds.has(conversation.id)
-              const inSelectMode = selectedIds.size > 0
-              return (
-                <li
-                  key={conversation.id}
-                  className="chidi-list-in"
-                  style={{ animationDelay: `${Math.min(idx, 12) * 28}ms` }}
-                >
-                  <button
-                    onClick={(e) => {
-                      // Cmd/Ctrl-click → toggle selection. Plain click while in
-                      // select mode also toggles (faster than always holding cmd).
-                      if (e.metaKey || e.ctrlKey || inSelectMode) {
-                        e.preventDefault()
-                        setSelectedIds((s) => {
-                          const next = new Set(s)
-                          if (next.has(conversation.id)) next.delete(conversation.id)
-                          else next.add(conversation.id)
-                          return next
-                        })
-                        return
-                      }
-                      handleConversationClick(conversation)
-                    }}
-                    className={cn(
-                      "w-full px-4 lg:px-6 py-3 text-left transition-colors group",
-                      isNeedsHuman && !isSelected
-                        ? "bg-[var(--chidi-warning)]/5 hover:bg-[var(--chidi-warning)]/10"
-                        : "hover:bg-[var(--chidi-surface)]/60",
-                      isSelected && "bg-[var(--chidi-win)]/10 hover:bg-[var(--chidi-win)]/15",
-                      isResolved && "opacity-70",
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      {/* Selection checkbox — visible on hover OR always when in select mode */}
-                      <button
-                        type="button"
-                        aria-label={isSelected ? "Deselect conversation" : "Select conversation"}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedIds((s) => {
-                            const next = new Set(s)
-                            if (next.has(conversation.id)) next.delete(conversation.id)
-                            else next.add(conversation.id)
-                            return next
-                          })
-                        }}
-                        className={cn(
-                          "flex-shrink-0 mt-1 w-4 h-4 rounded border-2 flex items-center justify-center transition-all",
-                          isSelected
-                            ? "bg-[var(--chidi-win)] border-[var(--chidi-win)]"
-                            : "border-[var(--chidi-border-default)] hover:border-[var(--chidi-text-muted)]",
-                          inSelectMode || isSelected
-                            ? "opacity-100"
-                            : "opacity-0 group-hover:opacity-60",
-                        )}
-                      >
-                        {isSelected && (
-                          <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M16.7 5.3a1 1 0 010 1.4l-7 7a1 1 0 01-1.4 0l-3.5-3.5a1 1 0 011.4-1.4L9 11.6l6.3-6.3a1 1 0 011.4 0z" />
-                          </svg>
-                        )}
-                      </button>
-                      <div className="relative flex-shrink-0">
-                        <CustomerCharacter
-                          name={conversation.customer_name}
-                          fallbackId={conversation.customer_id}
-                          size="md"
-                        />
-                        {hasMultipleChannels && channelInfo && (
-                          <span
-                            className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[var(--background)] flex items-center justify-center"
-                            style={{ backgroundColor: channelInfo.color }}
-                            title={channelInfo.name}
-                            aria-label={channelInfo.name}
-                          />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2 mb-0.5">
-                          <span
-                            className={cn(
-                              "text-sm truncate",
-                              isUnread
-                                ? "font-semibold text-[var(--chidi-text-primary)]"
-                                : "text-[var(--chidi-text-secondary)]",
-                            )}
-                          >
-                            {displayName}
-                          </span>
-                          <span className="text-[11px] text-[var(--chidi-text-muted)] tabular-nums flex-shrink-0">
-                            {formatTime(conversation.last_activity)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2">
-                          <p
-                            className={cn(
-                              "text-[13px] truncate min-w-0 font-chidi-voice",
-                              isUnread
-                                ? "text-[var(--chidi-text-secondary)]"
-                                : "text-[var(--chidi-text-muted)]",
-                            )}
-                          >
-                            {peek || (isResolved ? "Resolved" : "No messages yet")}
-                          </p>
-
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {snoozeEntry ? (
-                              <span
-                                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-text-primary)]/8 text-[var(--chidi-text-secondary)] font-medium font-chidi-voice whitespace-nowrap"
-                                title={`Quiet until ${formatSnoozeUntil(snoozeEntry.until)}`}
-                              >
-                                <Clock className="w-2.5 h-2.5" />
-                                {formatSnoozeUntil(snoozeEntry.until)}
-                              </span>
-                            ) : isNeedsHuman ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] font-medium font-chidi-voice whitespace-nowrap">
-                                Needs you
-                              </span>
-                            ) : isUnread ? (
-                              <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-[var(--chidi-success)] text-white text-[10px] font-medium flex items-center justify-center tabular-nums">
-                                {conversation.unread_count}
-                              </span>
-                            ) : !isResolved ? (
-                              <span
-                                className="relative flex w-1.5 h-1.5"
-                                title="Chidi handling"
-                                aria-label="Chidi handling"
-                              >
-                                <span className="absolute inset-0 rounded-full bg-[var(--chidi-success)] chidi-live-dot opacity-50" />
-                                <span className="relative w-1.5 h-1.5 rounded-full bg-[var(--chidi-success)]" />
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                </li>
-              )
-            })}
+            {sortedConversations.map((conv, idx) =>
+              renderConversationRow(conv, idx, false, showingArchive),
+            )}
           </ul>
           </>
         )}
@@ -1049,6 +1389,91 @@ function InboxQuietState({ channelCount, voiceLine }: InboxQuietStateProps) {
           Listening on {channelCount} {channelCount === 1 ? "channel" : "channels"}
         </span>
       </div>
+    </div>
+  )
+}
+
+// =====================
+// Live Folders strip
+// =====================
+
+const FOLDER_ICONS = {
+  PackageSearch,
+  Truck,
+  Crown,
+  Sparkles,
+  Wallet,
+} as const
+
+interface LiveFoldersStripProps {
+  counts: Record<LiveFolderId, number>
+  activeFolder: LiveFolderId | null
+  onSelect: (id: LiveFolderId) => void
+  onClear: () => void
+}
+
+/**
+ * Horizontal scroll strip of folder chips. Each chip shows label + count;
+ * the active folder pulls a clear-X. We hide chips with zero count to keep
+ * the surface quiet — empty folders aren't useful.
+ */
+function LiveFoldersStrip({ counts, activeFolder, onSelect, onClear }: LiveFoldersStripProps) {
+  // Always show the active folder, even if its count is 0 (so the merchant
+  // can see what they're filtering by). Hide other zero-count folders.
+  const visible = LIVE_FOLDERS.filter((f) => counts[f.id] > 0 || f.id === activeFolder)
+  if (!visible.length) return null
+
+  return (
+    <div className="mt-3 -mx-1 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+      <span className="px-1 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium flex-shrink-0">
+        Live
+      </span>
+      {visible.map((folder) => {
+        const Icon = FOLDER_ICONS[folder.icon]
+        const isActive = activeFolder === folder.id
+        const count = counts[folder.id] ?? 0
+        return (
+          <button
+            key={folder.id}
+            type="button"
+            onClick={() => onSelect(folder.id)}
+            aria-pressed={isActive}
+            title={folder.hint}
+            className={cn(
+              "h-7 inline-flex items-center gap-1.5 px-2.5 rounded-full border text-[12px] font-medium whitespace-nowrap transition-colors flex-shrink-0",
+              isActive
+                ? "bg-[var(--chidi-text-primary)] text-white border-[var(--chidi-text-primary)]"
+                : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:text-[var(--chidi-text-primary)]",
+            )}
+          >
+            <Icon className="w-3 h-3" />
+            <span>{folder.label}</span>
+            <span
+              className={cn(
+                "tabular-nums text-[10.5px] px-1 rounded-full",
+                isActive
+                  ? "bg-white/25 text-white"
+                  : "bg-[var(--chidi-text-primary)]/8 text-[var(--chidi-text-primary)]",
+              )}
+            >
+              {count}
+            </span>
+            {isActive && (
+              <span
+                role="button"
+                aria-label="Clear folder filter"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClear()
+                }}
+                className="ml-0.5 -mr-0.5 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full hover:bg-white/15"
+              >
+                <XIcon className="w-2.5 h-2.5" />
+              </span>
+            )}
+          </button>
+        )
+      })}
     </div>
   )
 }
