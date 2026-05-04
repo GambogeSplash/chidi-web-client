@@ -90,7 +90,7 @@ export function AuthLeftTheatre() {
       <div className="relative bg-white rounded-[28px] p-3 shadow-2xl border border-[var(--chidi-border-subtle)] chidi-paper">
         <div className="relative z-[2]">
           {/* Chat-feel header bar — generic dark teal reads as either WhatsApp or Telegram */}
-          <div className="flex items-center gap-2.5 px-3 py-2.5 mb-2 bg-[#075E54] text-white rounded-t-2xl -mx-3 -mt-3">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 mb-2 bg-[#5288C1] text-white rounded-t-2xl -mx-3 -mt-3">
             <CustomerCharacter
               name={beat.customerName}
               size="sm"
@@ -109,10 +109,10 @@ export function AuthLeftTheatre() {
 
           {/* Conversation area */}
           <div
-            className="rounded-b-2xl bg-[#ECE5DD]/60 px-3 py-3 -mx-3 -mb-3 min-h-[200px] flex flex-col gap-2"
+            className="rounded-b-2xl bg-[#F4F4F5] px-3 py-3 -mx-3 -mb-3 min-h-[200px] flex flex-col gap-2"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 10% 20%, rgba(7,94,84,0.05) 1px, transparent 1px), radial-gradient(circle at 80% 70%, rgba(7,94,84,0.05) 1px, transparent 1px)",
+                "radial-gradient(circle at 10% 20%, rgba(82,136,193,0.06) 1px, transparent 1px), radial-gradient(circle at 80% 70%, rgba(82,136,193,0.06) 1px, transparent 1px)",
               backgroundSize: "40px 40px",
             }}
           >
@@ -130,12 +130,12 @@ export function AuthLeftTheatre() {
             {showTyping && (
               <div className="flex justify-end">
                 <div
-                  className="bg-[#DCF8C6] rounded-lg rounded-tr-none px-3 py-2.5 shadow-sm border-l-2 inline-flex items-center gap-1"
+                  className="bg-[#EFFDDE] rounded-lg rounded-tr-none px-3 py-2.5 shadow-sm border-l-2 inline-flex items-center gap-1"
                   style={{ borderLeftColor: "var(--chidi-win)" }}
                 >
-                  <span className="chidi-typing-dot w-1.5 h-1.5 rounded-full bg-[#075E54]/60" />
-                  <span className="chidi-typing-dot w-1.5 h-1.5 rounded-full bg-[#075E54]/60" />
-                  <span className="chidi-typing-dot w-1.5 h-1.5 rounded-full bg-[#075E54]/60" />
+                  <span className="chidi-typing-dot w-1.5 h-1.5 rounded-full bg-[#5288C1]/60" />
+                  <span className="chidi-typing-dot w-1.5 h-1.5 rounded-full bg-[#5288C1]/60" />
+                  <span className="chidi-typing-dot w-1.5 h-1.5 rounded-full bg-[#5288C1]/60" />
                 </div>
               </div>
             )}
@@ -144,7 +144,7 @@ export function AuthLeftTheatre() {
             {showReply && (
               <div className="flex justify-end chidi-bubble-settle">
                 <div
-                  className="max-w-[82%] bg-[#DCF8C6] rounded-lg rounded-tr-none px-3 py-2 shadow-sm border-l-2"
+                  className="max-w-[82%] bg-[#EFFDDE] rounded-lg rounded-tr-none px-3 py-2 shadow-sm border-l-2"
                   style={{ borderLeftColor: "var(--chidi-win)" }}
                 >
                   <div className="flex items-center gap-1 mb-1">

@@ -37,8 +37,8 @@ const EffortlessIntegration: React.FC<EffortlessIntegrationProps> = ({
     radius: number
     angle: number
   }> = [
-    { name: 'WhatsApp', icon: 'whatsapp', bg: '#25D366', invert: true, radius: 80, angle: 0 },
-    { name: 'Telegram', icon: 'telegram', bg: '#26A5E4', invert: true, radius: 80, angle: Math.PI },
+    { name: 'Telegram', icon: 'telegram', bg: '#26A5E4', invert: true, radius: 80, angle: 0 },
+    { name: 'WhatsApp', icon: 'whatsapp', bg: '#25D366', invert: true, radius: 80, angle: Math.PI },
     { name: 'Instagram', icon: 'instagram', bg: '#E4405F', invert: true, radius: 120, angle: -Math.PI / 4 },
     { name: 'Stripe', icon: 'stripe', bg: '#635BFF', invert: true, radius: 120, angle: (3 * Math.PI) / 4 },
     { name: 'Paystack', icon: 'paystack', bg: '#0BA4DB', invert: true, radius: 120, angle: (5 * Math.PI) / 4 },

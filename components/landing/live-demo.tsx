@@ -211,10 +211,10 @@ export function LiveDemo() {
               aria-label="Live conversation between customer and Chidi"
             >
               <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-5 bg-[#1C1917] rounded-b-2xl z-10" />
-              <div className="rounded-[36px] bg-[#ECE5DD] overflow-hidden h-[560px] flex flex-col">
-                {/* Chat header — generic dark teal so it reads as either WhatsApp or Telegram */}
-                <div className="bg-[#075E54] text-white px-4 pt-8 pb-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#128C7E] flex items-center justify-center text-sm font-medium">
+              <div className="rounded-[36px] bg-[#F4F4F5] overflow-hidden h-[560px] flex flex-col">
+                {/* Chat header — Telegram blue (Chidi started on Telegram). */}
+                <div className="bg-[#5288C1] text-white px-4 pt-8 pb-3 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#3F7BB7] flex items-center justify-center text-sm font-medium">
                     T
                   </div>
                   <div className="flex-1 min-w-0">
@@ -229,7 +229,7 @@ export function LiveDemo() {
                   className="flex-1 px-3 py-3 space-y-2 overflow-y-auto overscroll-contain"
                   style={{
                     backgroundImage:
-                      'radial-gradient(circle at 10% 20%, rgba(7,94,84,0.04) 0px, transparent 1px), radial-gradient(circle at 80% 70%, rgba(7,94,84,0.04) 0px, transparent 1px)',
+                      'radial-gradient(circle at 10% 20%, rgba(82,136,193,0.05) 0px, transparent 1px), radial-gradient(circle at 80% 70%, rgba(82,136,193,0.05) 0px, transparent 1px)',
                     backgroundSize: '40px 40px',
                   }}
                 >
@@ -265,8 +265,8 @@ function Bubble({ turn, typing }: { turn: Turn; typing: boolean }) {
       <div
         className={
           isChidi
-            ? 'max-w-[82%] bg-[#DCF8C6] rounded-lg rounded-tr-none px-3 py-2 shadow-sm border-l-2'
-            : 'max-w-[82%] bg-white rounded-lg rounded-tl-none px-3 py-2 shadow-sm'
+            ? 'max-w-[82%] bg-[#EFFDDE] rounded-2xl rounded-tr-md px-3 py-2 shadow-sm border-l-2'
+            : 'max-w-[82%] bg-white rounded-2xl rounded-tl-md px-3 py-2 shadow-sm'
         }
         style={isChidi ? { borderLeftColor: 'var(--chidi-win)' } : undefined}
       >
