@@ -11,6 +11,9 @@ import {
   PinOff,
   RotateCcw,
   Archive,
+  Bike,
+  Truck,
+  Zap,
 } from "lucide-react"
 import { type Order } from "@/lib/api/orders"
 import { CustomerCharacter } from "./customer-character"
@@ -56,6 +59,15 @@ import {
   restore as restoreOrder,
   subscribe as subscribeArchive,
 } from "@/lib/chidi/orders-archive"
+import {
+  courierColor,
+  deliverySummary,
+  getDelivery,
+  modeLabel,
+  providerColor,
+  subscribe as subscribeDeliveries,
+  type Delivery,
+} from "@/lib/chidi/deliveries"
 import { smartOrderTitle, smartOrderSubtitle } from "@/lib/chidi/order-titles"
 import { cn } from "@/lib/utils"
 

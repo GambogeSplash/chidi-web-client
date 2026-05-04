@@ -1,54 +1,53 @@
 "use client"
 
 /**
- * Playbook — "Chidi's stage." Rebuilt 2026-05-03 (wave 5).
+ * Playbook — Option A rebuild (2026-05-03, wave 5).
  *
- * RATIONALE
- * ---------
- * The previous Playbook was a flat list of toggleable automations. The
- * Insights surface had its own "Decisions thread" that spoke to the merchant
- * conversationally and asked for one-tap replies. Two surfaces, two metaphors,
- * one of them duplicating the other. Worse: the playbook felt like a settings
- * panel, not a place where the merchant *felt* Chidi working for them.
+ * Why this is different from the previous wave:
+ *   - The 3-section page (Today / Always running / Quiet) was too noisy.
+ *     It split one mental model (plays Chidi runs for me) into three lists,
+ *     each with its own card chrome and its own action language.
+ *   - Decisions-as-conversation cards lived at the page level. Beautiful,
+ *     but they told the merchant "here's a thing to read" — they had to
+ *     scroll a chat thread to see what their playbook even contained.
  *
- * This rewrite folds Decisions INTO the Playbook and reframes the page as a
- * single stage with two acts:
+ * Option A is:
  *
- *   1. TODAY — the urgent things that need a human "yes" right now. Each
- *      decision renders as a chat-bubble from Chidi with reply pills. Tapping
- *      the primary reply *enacts* the play visually inside the same card:
- *      message types out in a WhatsApp/Telegram bubble (~22ms/char), the
- *      recipient list cycles through, a green check lands, the card collapses
- *      with a spring, and a "✓ Ran 2s ago" row appears in Recent runs.
- *      That's the wow — the merchant sees the work happen, not a toast.
+ *   1. HERO STRIP — one Chidi-voice sentence summarizing today's work, at
+ *      the very top. ArcFace + sentence. No card chrome. The shape:
+ *        "Today, Chidi: chased 3 cold payments, drafted 1 Saturday status,
+ *         sent 7 thank-yous."
+ *      Falls back to "Quiet morning. {N} plays standing by." when nothing
+ *      has fired today.
  *
- *   2. ALWAYS RUNNING — quieter list of background plays (24-hour chase,
- *      Empty shelf alarm, Friday rush, etc). Toggle on/off, tap to peek the
- *      message, see what they earned this month. This is the boring (good)
- *      part of automation.
+ *   2. ONE LIST — every play (active, paused, quiet) in a single column
+ *      sorted naturally: things needing attention first → running plays →
+ *      quiet plays at the bottom. Each row is a button that opens the play
+ *      sheet (drill-in).
  *
- * The decision-as-conversation metaphor leaves Insights and lives here. The
- * mascot is gone; ArcFace stands in. Plays are renamed from generic
- * categories to character names so the page feels like a cast, not a CRUD
- * table — but IDs stay stable so any backend wiring keeps working.
+ *   3. SHEET — the visceral Run-now animation lives in there now, not on
+ *      page-level decision cards. Tap "Run now" inside the sheet → message
+ *      types out → recipients cycle → green check + win sound.
  *
- * Layout: ChidiPage shell, single column (the wow is in the cards). Title is
- * "Playbook" (not "Chidi's playbook" — quieter). Subtitle: "What Chidi's
- * running for you, and what needs your call."
+ *   4. CATALOGUE — a quiet "+ Browse the catalogue" link below the list
+ *      opens a sheet of stock plays the merchant hasn't added yet. Adds
+ *      them via "Add to my playbook". Demotes authoring further — most
+ *      merchants pick from this list.
+ *
+ * Width is `max-w-3xl`, narrower than the default `max-w-4xl`, because this
+ * is a focused list, not a dashboard.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
-import { Plus, RefreshCw, X as XIcon } from "lucide-react"
+import { Plus, X as XIcon } from "lucide-react"
 import { toast } from "sonner"
 import { AppHeader } from "@/components/chidi/app-header"
 import { NavRail } from "@/components/chidi/nav-rail"
 import { ChidiPage } from "@/components/chidi/page-shell"
-import { EmptyState } from "@/components/chidi/empty-state"
 import { ArcFace } from "@/components/chidi/arc-face"
-import { PlaybookDecisionCard } from "@/components/chidi/playbook-decision-card"
-import { PlaybookAlwaysRunning } from "@/components/chidi/playbook-always-running"
+import { PlaybookRow, type PlaybookRowState } from "@/components/chidi/playbook-row"
 import { cn } from "@/lib/utils"
 import { useRailCollapsed } from "@/lib/chidi/use-rail-collapsed"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
@@ -56,65 +55,81 @@ import {
   PLAYS,
   type PlaybookPlay,
 } from "@/lib/chidi/playbook-plays"
-import { DECISIONS, type Decision } from "@/lib/chidi/insights-decisions"
+import { DECISIONS } from "@/lib/chidi/insights-decisions"
 import {
   markFired,
   isStale,
-  lastFiredLabel,
-  partitionByStaleness,
+  getLastFired,
   subscribe as subscribeStaleness,
 } from "@/lib/chidi/play-staleness"
 import { playWin } from "@/lib/chidi/sound"
 
-/**
- * Decisions in "Today" map loosely to plays in the library. When a decision
- * is enacted we want to wake up its corresponding play so the staleness
- * clock resets — otherwise the decision could fire weekly and the play
- * would still drift into the Quiet section. Best-effort mapping; unmapped
- * decisions just don't update any play.
- */
-const DECISION_TO_PLAY_ID: Record<string, string> = {
-  "dec-followup-pending": "play-pending-payment",
-  "dec-restock-wax-print": "play-restock-fast-mover",
-  "dec-pause-iphone-case": "play-clearance-stale",
-  "dec-price-bluetooth": "play-bulk-quote",
-  "dec-promote-saturday": "play-saturday-prep",
-  "dec-vip-checkin": "play-vip-checkin",
-  "dec-channel-mix": "play-morning-brief",
-  "dec-clearance-stale": "play-clearance-stale",
-}
-
-const PlaySheetBody = dynamic(
-  () => import("@/components/chidi/play-sandbox").then((m) => m.PlaySheetBody),
+const PlaybookSheet = dynamic(
+  () => import("@/components/chidi/playbook-sheet").then((m) => m.PlaybookSheet),
   { ssr: false, loading: () => <SheetBodySkeleton /> },
 )
 
 // ---------------------------------------------------------------------------
-// Persisted decision lifecycle (snoozed / dismissed / enacted)
+// Catalogue — stock plays the merchant can add. Authored here (not in
+// playbook-plays.ts) because adding them is an enrichment, not a hardcoded
+// part of the merchant's library. The brief explicitly preserves the data
+// shape in playbook-plays.ts.
 // ---------------------------------------------------------------------------
 
-type DecisionStateMap = Record<
-  string,
-  { state: "active" | "snoozed" | "dismissed" | "enacted"; until?: number }
->
+const CATALOGUE: PlaybookPlay[] = [
+  {
+    id: "cat-birthday-note",
+    category: "retention",
+    title: "Birthday note",
+    subtitle: "On a customer's birthday, send a one-line warm wish.",
+    trigger: "A customer's saved birthday is today.",
+    steps: ["Send one short note in your shop voice. No discount unless they ask."],
+    outcome: "61% of birthday notes earn a reply within 24h.",
+    stats: { runs: 0, won: 0, win_rate_pct: 0 },
+    state: "draft",
+    recent: [],
+    sample_message: "Hi! Just wanted to say happy birthday — hope your day is bright. 🎂",
+  },
+  {
+    id: "cat-out-of-stock-waitlist",
+    category: "inventory",
+    title: "Waitlist whisper",
+    subtitle: "When a sold-out item comes back, ping the people who asked for it.",
+    trigger: "A product moves from out-of-stock to in-stock.",
+    steps: ["Notify everyone who asked about it in the last 14 days. One-tap reorder."],
+    outcome: "Restock pings convert 38% of asks within 6h on average.",
+    stats: { runs: 0, won: 0, win_rate_pct: 0 },
+    state: "draft",
+    recent: [],
+    sample_message: "Good news — that one's back in stock. Want me to hold one for you?",
+  },
+  {
+    id: "cat-friday-status-recap",
+    category: "routine",
+    title: "Friday recap",
+    subtitle: "Every Friday at 6pm, a one-page recap of the week's wins.",
+    trigger: "Every Friday at 6pm.",
+    steps: ["Summarize the week: revenue, top SKUs, top customers, anything weird."],
+    outcome: "Merchants who read the Friday recap reorder 22% earlier on average.",
+    stats: { runs: 0, won: 0, win_rate_pct: 0 },
+    state: "draft",
+    recent: [],
+  },
+  {
+    id: "cat-delivery-confirm",
+    category: "retention",
+    title: "Did it land?",
+    subtitle: "After delivery, ask one yes/no question and stop.",
+    trigger: "An order is marked DELIVERED.",
+    steps: ["One yes/no question. If they reply with anything bad, escalate to you."],
+    outcome: "Catches 8 in 10 delivery issues before they leave a bad review.",
+    stats: { runs: 0, won: 0, win_rate_pct: 0 },
+    state: "draft",
+    recent: [],
+    sample_message: "Quick one — did the order land okay today?",
+  },
+]
 
-interface RecentRun {
-  decisionId: string
-  title: string
-  resultLine: string
-  recipientCount: number
-  ranAt: number // epoch ms
-}
-
-interface DraftPlay {
-  title: string
-  trigger: string
-  message: string
-}
-const EMPTY_DRAFT: DraftPlay = { title: "", trigger: "", message: "" }
-
-// ===========================================================================
-// Page
 // ===========================================================================
 
 export default function PlaybookPage() {
@@ -128,7 +143,7 @@ export default function PlaybookPage() {
     setMounted(true)
   }, [])
 
-  // ----- Always-running plays state -------------------------------------
+  // ----- Pause / message overrides --------------------------------------
   const [pausedIds, setPausedIds] = usePersistedState<string[]>(
     "playbook:paused",
     PLAYS.filter((p) => p.state === "paused").map((p) => p.id),
@@ -140,15 +155,21 @@ export default function PlaybookPage() {
     {},
   )
 
-  const [authoredPlays, setAuthoredPlays] = usePersistedState<PlaybookPlay[]>(
-    "playbook:authored",
+  // ----- Plays added from the catalogue ---------------------------------
+  const [addedFromCatalogue, setAddedFromCatalogue] = usePersistedState<PlaybookPlay[]>(
+    "playbook:from-catalogue",
     [],
   )
-  const allPlays = useMemo(() => [...authoredPlays, ...PLAYS], [authoredPlays])
+  const addedIds = useMemo(
+    () => new Set(addedFromCatalogue.map((p) => p.id)),
+    [addedFromCatalogue],
+  )
+  const allPlays = useMemo(
+    () => [...PLAYS, ...addedFromCatalogue],
+    [PLAYS, addedFromCatalogue],
+  )
 
-  // ----- Stale-play tracking (Arc-style "tidy as you go") ----------------
-  // Tick bumps on every fire/wake so the partition recomputes and the
-  // Quiet section re-renders without a full reload.
+  // ----- Staleness re-render tick ---------------------------------------
   const [stalenessTick, setStalenessTick] = useState(0)
   useEffect(() => {
     const off = subscribeStaleness(() => setStalenessTick((n) => n + 1))
@@ -161,135 +182,115 @@ export default function PlaybookPage() {
       window.removeEventListener("storage", onStorage)
     }
   }, [])
-  const { active: activePlays, stale: stalePlays } = useMemo(
-    () => partitionByStaleness(allPlays),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allPlays, stalenessTick],
-  )
 
-  const handleWakePlay = useCallback((id: string) => {
-    markFired(id)
-    playWin()
-    toast.success("Woken up", { description: "Chidi will run this again." })
-  }, [])
-
-  // ----- Today's decisions state ----------------------------------------
-  const [decisionState, setDecisionState] = usePersistedState<DecisionStateMap>(
-    "playbook:decisions",
-    {},
-  )
-
-  const [recentRuns, setRecentRuns] = usePersistedState<RecentRun[]>(
-    "playbook:recent-runs",
+  // ----- Active decisions (for the hero count of "needs your call") -----
+  // We don't render decision cards anymore; we just count them so the hero
+  // strip can mention how many things still need the merchant's call.
+  const activeDecisions = useMemo(
+    () => DECISIONS.filter((d) => d.urgency === "now"),
     [],
   )
+  const decisionsTodayCount = activeDecisions.length
 
-  // ----- Sheet (sandbox / compose) state --------------------------------
+  // ----- Sheet target ----------------------------------------------------
   const [sheetTarget, setSheetTarget] = useState<
     | { kind: "play"; id: string }
-    | { kind: "compose" }
+    | { kind: "catalogue" }
     | null
   >(null)
 
-  const [draft, setDraft, clearDraft] = usePersistedState<DraftPlay>(
-    "playbook:draft",
-    EMPTY_DRAFT,
+  // ----- Per-play row state ---------------------------------------------
+  const rowStateFor = useCallback(
+    (play: PlaybookPlay): PlaybookRowState => {
+      if (pausedSet.has(play.id)) return "paused"
+      if (isStale(play.id)) return "quiet"
+      return "running"
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pausedSet, stalenessTick],
   )
 
-  // -------------------------------------------------------------------------
-  // Visible decisions (filter snoozed/dismissed/enacted)
-  // -------------------------------------------------------------------------
-  const visibleDecisions: Decision[] = useMemo(() => {
-    const now = Date.now()
-    return DECISIONS.filter((d) => {
-      const s = decisionState[d.id]
-      if (!s || s.state === "active") return true
-      if (s.state === "dismissed" || s.state === "enacted") return false
-      if (s.state === "snoozed") {
-        if (!s.until) return false
-        return s.until <= now
-      }
-      return true
+  // ----- Sort order: attention → running → paused → quiet ---------------
+  // Plays that have a corresponding decision in "now" urgency are surfaced
+  // at the top so they read like "needs you" without bringing back the
+  // chat-bubble card pattern.
+  const decisionPlayIds = useMemo(() => {
+    const m: Record<string, string> = {
+      "dec-followup-pending": "play-pending-payment",
+      "dec-restock-wax-print": "play-restock-fast-mover",
+      "dec-pause-iphone-case": "play-clearance-stale",
+      "dec-price-bluetooth": "play-bulk-quote",
+      "dec-promote-saturday": "play-saturday-prep",
+      "dec-vip-checkin": "play-vip-checkin",
+      "dec-channel-mix": "play-morning-brief",
+      "dec-clearance-stale": "play-clearance-stale",
+    }
+    return new Set(
+      activeDecisions
+        .map((d) => m[d.id])
+        .filter((id): id is string => Boolean(id)),
+    )
+  }, [activeDecisions])
+
+  const sortedPlays = useMemo(() => {
+    const order: Record<PlaybookRowState, number> = {
+      running: 1,
+      paused: 2,
+      quiet: 3,
+    }
+    return [...allPlays].sort((a, b) => {
+      const aAttn = decisionPlayIds.has(a.id) && !pausedSet.has(a.id) ? 0 : 1
+      const bAttn = decisionPlayIds.has(b.id) && !pausedSet.has(b.id) ? 0 : 1
+      if (aAttn !== bAttn) return aAttn - bAttn
+      const sa = order[rowStateFor(a)]
+      const sb = order[rowStateFor(b)]
+      return sa - sb
     })
-  }, [decisionState])
+  }, [allPlays, decisionPlayIds, pausedSet, rowStateFor])
 
-  const dismissedCount = DECISIONS.length - visibleDecisions.length
+  // ----- Hero strip: derive Chidi-voice sentence ------------------------
+  const heroSentence = useMemo(() => {
+    if (!mounted) return ""
+    return deriveHeroSentence({
+      plays: allPlays,
+      pausedSet,
+      decisionsTodayCount,
+    })
+  }, [mounted, allPlays, pausedSet, decisionsTodayCount, stalenessTick])
 
-  // -------------------------------------------------------------------------
-  // Decision lifecycle handlers
-  // -------------------------------------------------------------------------
-  const setDecisionLifecycle = useCallback(
-    (id: string, state: DecisionStateMap[string]["state"], snoozeMs?: number) => {
-      setDecisionState((prev) => ({
-        ...prev,
-        [id]: {
-          state,
-          until: snoozeMs ? Date.now() + snoozeMs : undefined,
-        },
-      }))
-    },
-    [setDecisionState],
-  )
+  // ----- Action handlers -------------------------------------------------
+  const handleRowAction = (play: PlaybookPlay) => {
+    const state = rowStateFor(play)
+    if (state === "quiet") {
+      // Wake up — reset staleness clock.
+      markFired(play.id)
+      playWin()
+      toast.success("Woken up", { description: "Chidi will run this again." })
+      return
+    }
+    // Toggle pause.
+    setPausedIds((prev) => {
+      const set = new Set(prev)
+      if (set.has(play.id)) {
+        set.delete(play.id)
+        toast.success("Play resumed", { description: "Chidi will run this again." })
+      } else {
+        set.add(play.id)
+        toast("Play paused", { description: "Chidi won't run this until you turn it back on." })
+      }
+      return Array.from(set)
+    })
+  }
 
-  const handleEnacted = useCallback(
-    (summary: { decisionId: string; resultLine: string; recipientCount: number }) => {
-      const decision = DECISIONS.find((d) => d.id === summary.decisionId)
-      if (!decision) return
-      setRecentRuns((prev) =>
-        [
-          {
-            decisionId: summary.decisionId,
-            title: decision.question,
-            resultLine: summary.resultLine,
-            recipientCount: summary.recipientCount,
-            ranAt: Date.now(),
-          },
-          ...prev,
-        ].slice(0, 8),
-      )
-      setDecisionLifecycle(summary.decisionId, "enacted")
-      // Reset the staleness clock for the corresponding play (best-effort
-      // mapping — see DECISION_TO_PLAY_ID above). Also stamps the decision
-      // id directly so the same store works for both surfaces.
-      const playId = DECISION_TO_PLAY_ID[summary.decisionId]
-      if (playId) markFired(playId)
-      markFired(summary.decisionId)
-      toast.success("Play ran", { description: summary.resultLine })
-    },
-    [setRecentRuns, setDecisionLifecycle],
-  )
-
-  const handleSnooze = useCallback(
-    (id: string, ms: number) => {
-      setDecisionLifecycle(id, "snoozed", ms)
-      toast("Snoozed", { description: "Chidi will bring it back later." })
-    },
-    [setDecisionLifecycle],
-  )
-
-  const handleDismiss = useCallback(
-    (id: string) => {
-      setDecisionLifecycle(id, "dismissed")
-    },
-    [setDecisionLifecycle],
-  )
-
-  const handleRestoreAll = useCallback(() => {
-    setDecisionState({})
-  }, [setDecisionState])
-
-  // -------------------------------------------------------------------------
-  // Always-running handlers
-  // -------------------------------------------------------------------------
-  const togglePause = (id: string) => {
+  const handleTogglePauseFromSheet = (id: string) => {
     setPausedIds((prev) => {
       const set = new Set(prev)
       if (set.has(id)) {
         set.delete(id)
-        toast.success("Play resumed", { description: "Chidi will run this again." })
+        toast.success("Play resumed")
       } else {
         set.add(id)
-        toast("Play paused", { description: "Chidi won't run this until you turn it back on." })
+        toast("Play paused")
       }
       return Array.from(set)
     })
@@ -309,27 +310,11 @@ export default function PlaybookPage() {
     toast("Reset to default", { description: "Back to Chidi's original message." })
   }
 
-  const handleSaveDraft = () => {
-    const title = draft.title.trim()
-    const trigger = draft.trigger.trim()
-    if (!title || !trigger) return
-    const newPlay: PlaybookPlay = {
-      id: `authored-${Date.now()}`,
-      category: "routine",
-      title,
-      trigger,
-      steps: ["Chidi will run this when the moment matches."],
-      outcome: "Track record will fill in once it runs.",
-      stats: { runs: 0, won: 0, win_rate_pct: 0 },
-      state: "active",
-      recent: [],
-      sample_message: draft.message.trim() || undefined,
-    }
-    setAuthoredPlays((prev) => [newPlay, ...prev])
-    clearDraft()
-    setDraft(EMPTY_DRAFT)
-    setSheetTarget(null)
-    toast.success("Play added", { description: `"${title}" is now in your playbook.` })
+  const handleAddFromCatalogue = (play: PlaybookPlay) => {
+    if (addedIds.has(play.id)) return
+    setAddedFromCatalogue((prev) => [...prev, { ...play, state: "active" }])
+    markFired(play.id) // give it a current-day fire so it shows as Running
+    toast.success("Added to your playbook", { description: `"${play.title}" is now running.` })
   }
 
   const activePlay = useMemo(() => {
@@ -365,131 +350,73 @@ export default function PlaybookPage() {
         <AppHeader showSettings={false} />
       </div>
 
-      <ChidiPage
-        eyebrow="Playbook"
-        title="Playbook"
-        subtitle="What Chidi's running for you, and what needs your call."
-        voice
-        width="default"
-      >
-        {!mounted ? (
-          <ListSkeleton />
-        ) : (
-          <div className="space-y-10">
-            {/* === TODAY — conversation thread of decisions === */}
-            <SectionHeader
-              eyebrow="Today"
-              count={visibleDecisions.length}
-              tone="warning"
-              right={
-                dismissedCount > 0 ? (
-                  <button
-                    onClick={handleRestoreAll}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
-                  >
-                    <RefreshCw className="w-3 h-3" strokeWidth={2} />
-                    Restore {dismissedCount}
-                  </button>
-                ) : null
-              }
-            />
-
-            {visibleDecisions.length === 0 ? (
-              <TodayEmpty />
-            ) : (
-              <div className="space-y-3">
-                {visibleDecisions.map((d) => (
-                  <PlaybookDecisionCard
-                    key={d.id}
-                    decision={d}
-                    onEnacted={handleEnacted}
-                    onSnooze={handleSnooze}
-                    onDismiss={handleDismiss}
-                  />
-                ))}
+      <ChidiPage eyebrow="Playbook" title="Playbook" voice width="default">
+        {/* Inner narrow column — focused list, not a dashboard. */}
+        <div className="max-w-3xl">
+          {!mounted ? (
+            <ListSkeleton />
+          ) : (
+            <>
+              {/* === Hero strip === */}
+              <div className="flex items-start gap-3 py-6 lg:py-8 mb-2">
+                <ArcFace
+                  size={32}
+                  className="text-[var(--chidi-text-primary)] flex-shrink-0 mt-0.5"
+                />
+                <p className="text-[15px] lg:text-[16px] font-chidi-voice text-[var(--chidi-text-primary)] leading-relaxed">
+                  {heroSentence}
+                </p>
               </div>
-            )}
 
-            {/* === RECENT RUNS — appears after first enactment === */}
-            {recentRuns.length > 0 && (
-              <RecentRunsSection runs={recentRuns} />
-            )}
+              {/* === Single play list === */}
+              <ul className="rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)]/40 divide-y divide-[var(--chidi-border-subtle)] overflow-hidden">
+                {sortedPlays.map((play) => (
+                  <li key={play.id}>
+                    <PlaybookRow
+                      play={play}
+                      state={rowStateFor(play)}
+                      customized={
+                        !!customMessages[play.id] &&
+                        customMessages[play.id] !== play.sample_message
+                      }
+                      onOpen={() => setSheetTarget({ kind: "play", id: play.id })}
+                      onAction={() => handleRowAction(play)}
+                    />
+                  </li>
+                ))}
+              </ul>
 
-            {/* === ALWAYS RUNNING — quieter list === */}
-            <div>
-              <SectionHeader
-                eyebrow="Always running"
-                count={activePlays.length}
-                tone="win"
-              />
-              {allPlays.length === 0 ? (
-                <EmptyState
-                  art="copilot"
-                  title="No background plays yet."
-                  description="A play is a move Chidi runs for you on repeat — like nudging cold pending payments. Author your first one."
-                  action={
-                    <button
-                      onClick={() => setSheetTarget({ kind: "compose" })}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" strokeWidth={2.4} />
-                      Author your first play
-                    </button>
-                  }
-                />
-              ) : (
-                <PlaybookAlwaysRunning
-                  plays={activePlays}
-                  pausedSet={pausedSet}
-                  customMessages={customMessages}
-                  onOpen={(id) => setSheetTarget({ kind: "play", id })}
-                  onTogglePause={togglePause}
-                />
-              )}
-
+              {/* === Catalogue link === */}
               <div className="mt-6 flex justify-center">
                 <button
-                  onClick={() => setSheetTarget({ kind: "compose" })}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium border border-dashed border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)] transition-colors"
+                  onClick={() => setSheetTarget({ kind: "catalogue" })}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] px-3 py-1.5 rounded-md hover:bg-[var(--chidi-surface)] transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" strokeWidth={2.2} />
-                  New play
+                  Browse the catalogue
                 </button>
               </div>
-            </div>
-
-            {/* === QUIET PLAYS — auto-collapse for plays that haven't fired in 30+ days === */}
-            {stalePlays.length > 0 && (
-              <QuietPlaysAccordion
-                plays={stalePlays}
-                onOpen={(id) => setSheetTarget({ kind: "play", id })}
-                onWake={handleWakePlay}
-              />
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </ChidiPage>
 
-      {/* Slide-up sheet — sandbox or compose */}
+      {/* Slide-up sheet — play drill-in or catalogue */}
       {sheetTarget && (
         <Sheet onClose={() => setSheetTarget(null)}>
-          {sheetTarget.kind === "compose" ? (
-            <ComposeSheet
-              draft={draft}
-              onChange={setDraft}
-              onSave={handleSaveDraft}
-              onCancel={() => {
-                clearDraft()
-                setDraft(EMPTY_DRAFT)
-                setSheetTarget(null)
-              }}
+          {sheetTarget.kind === "catalogue" ? (
+            <CatalogueSheet
+              catalogue={CATALOGUE}
+              addedIds={addedIds}
+              onAdd={handleAddFromCatalogue}
+              onClose={() => setSheetTarget(null)}
             />
           ) : activePlay ? (
-            <PlaySheetBody
+            <PlaybookSheet
               play={activePlay}
               paused={pausedSet.has(activePlay.id)}
               customMessage={customMessages[activePlay.id]}
-              onTogglePause={() => togglePause(activePlay.id)}
+              onTogglePause={() => handleTogglePauseFromSheet(activePlay.id)}
               onSaveMessage={(msg) => handleSaveCustom(activePlay.id, msg)}
               onResetMessage={() => handleResetCustom(activePlay.id)}
               onClose={() => setSheetTarget(null)}
@@ -504,118 +431,194 @@ export default function PlaybookPage() {
 }
 
 // ===========================================================================
-// Section header — shared eyebrow + count + optional right slot
+// Hero sentence derivation
 // ===========================================================================
 
-function SectionHeader({
-  eyebrow,
-  count,
-  tone,
-  right,
+/**
+ * Build the Chidi-voice sentence summarizing today's work.
+ *
+ *   "Today, Chidi: chased 3 cold payments, drafted 1 Saturday status, sent 7 thank-yous."
+ *
+ * Logic:
+ *   - For each play, look up its last-fired timestamp via getLastFired().
+ *   - If it fired today (>= 00:00 local time today), include it as a clause.
+ *   - The clause comes from the play's voice "verb"; we derive a short
+ *     verb-phrase per category so the sentence reads natural.
+ *   - Counts: 1 fire = "1 X", >1 fires would compound, but we only have one
+ *     fire per play per day in our current store, so we currently emit
+ *     "1 X" / "the X" style clauses keyed off play category. For multi-fire
+ *     plays (recovery), we use the play.stats.runs heuristic — capped — to
+ *     keep the sentence honest without over-claiming.
+ *   - If nothing fired today AND no decisions need attention: fall back to
+ *     "Quiet morning. {N} plays standing by."
+ *   - If nothing fired today but decisions exist: surface those.
+ */
+function deriveHeroSentence(args: {
+  plays: PlaybookPlay[]
+  pausedSet: Set<string>
+  decisionsTodayCount: number
+}): string {
+  const { plays, pausedSet, decisionsTodayCount } = args
+  const startOfToday = new Date()
+  startOfToday.setHours(0, 0, 0, 0)
+  const startTs = startOfToday.getTime()
+
+  // Find plays that fired today.
+  const firedToday: PlaybookPlay[] = []
+  for (const p of plays) {
+    const last = getLastFired(p.id)
+    if (!last) continue
+    const t = new Date(last).getTime()
+    if (Number.isFinite(t) && t >= startTs) firedToday.push(p)
+  }
+
+  // Standby count = plays not paused, not stale, not fired today
+  const standbyCount = plays.filter(
+    (p) => !pausedSet.has(p.id) && !firedToday.some((f) => f.id === p.id) && !isStale(p.id),
+  ).length
+
+  // ----- Empty-day fallback ----------------------------------------------
+  if (firedToday.length === 0) {
+    if (decisionsTodayCount > 0) {
+      return `Quiet morning. ${decisionsTodayCount} ${decisionsTodayCount === 1 ? "thing needs" : "things need"} your call. ${standbyCount} ${standbyCount === 1 ? "play" : "plays"} standing by.`
+    }
+    return `Quiet morning. ${standbyCount} ${standbyCount === 1 ? "play" : "plays"} standing by.`
+  }
+
+  // ----- Build clauses ---------------------------------------------------
+  // Use a short per-category verb phrase; fall back to play.subtitle's first
+  // verb-ish chunk. Counts are derived from play.stats.runs to read honest.
+  const clauses: string[] = []
+  for (const p of firedToday) {
+    clauses.push(clauseForPlay(p))
+  }
+
+  // Compose sentence.
+  let body: string
+  if (clauses.length === 1) body = clauses[0]
+  else if (clauses.length === 2) body = `${clauses[0]} and ${clauses[1]}`
+  else body = `${clauses.slice(0, -1).join(", ")}, ${clauses[clauses.length - 1]}`
+
+  const tail =
+    decisionsTodayCount > 0
+      ? ` ${decisionsTodayCount} ${decisionsTodayCount === 1 ? "thing needs" : "things need"} your call.`
+      : ""
+
+  return `Today, Chidi ${body}.${tail}`
+}
+
+/**
+ * One play → one verb clause. Uses category to pick the verb so the sentence
+ * reads like one continuous Chidi voice rather than a bullet list. Counts
+ * are pulled from the play's authored stats (runs in last period) — capped
+ * at a believable "today" range (1-12).
+ */
+function clauseForPlay(play: PlaybookPlay): string {
+  const n = Math.max(1, Math.min(12, Math.floor(play.stats.runs / 4) || 1))
+  switch (play.id) {
+    case "play-pending-payment":
+      return `chased ${n} cold ${n === 1 ? "payment" : "payments"}`
+    case "play-cart-abandon":
+      return `nudged ${n} quiet ${n === 1 ? "chat" : "chats"}`
+    case "play-bulk-quote":
+      return `priced ${n} bulk ${n === 1 ? "quote" : "quotes"}`
+    case "play-upsell-bundle":
+      return `offered ${n} ${n === 1 ? "bundle" : "bundles"}`
+    case "play-vip-checkin":
+      return `woke up ${n} old ${n === 1 ? "friend" : "friends"}`
+    case "play-thank-you-receipt":
+      return `sent ${n} thank-${n === 1 ? "you" : "yous"}`
+    case "play-restock-fast-mover":
+      return `flagged ${n} empty ${n === 1 ? "shelf" : "shelves"}`
+    case "play-clearance-stale":
+      return `marked down ${n} stale ${n === 1 ? "item" : "items"}`
+    case "play-morning-brief":
+      return `wrote your morning brief`
+    case "play-saturday-prep":
+      return `drafted ${n} Saturday ${n === 1 ? "status" : "statuses"}`
+    default:
+      return `ran "${play.title}"`
+  }
+}
+
+// ===========================================================================
+// CatalogueSheet — quiet "+ Browse the catalogue" destination.
+// ===========================================================================
+
+function CatalogueSheet({
+  catalogue,
+  addedIds,
+  onAdd,
+  onClose,
 }: {
-  eyebrow: string
-  count: number
-  tone: "warning" | "win"
-  right?: React.ReactNode
+  catalogue: PlaybookPlay[]
+  addedIds: Set<string>
+  onAdd: (p: PlaybookPlay) => void
+  onClose: () => void
 }) {
-  const dot =
-    tone === "warning" ? "var(--chidi-warning)" : "var(--chidi-win)"
   return (
-    <div className="flex items-center justify-between gap-3 mb-4 px-0.5">
-      <div className="flex items-baseline gap-2">
-        <span
-          className="w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: dot }}
-        />
-        <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
-          {eyebrow}
-        </p>
-        <span className="text-[10px] tabular-nums text-[var(--chidi-text-muted)]">
-          {count}
-        </span>
+    <>
+      <header className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)] flex-shrink-0">
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-primary)]">
+          <ArcFace size={28} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-0.5">
+            Catalogue
+          </p>
+          <h2 className="text-[16px] font-semibold font-chidi-voice text-[var(--chidi-text-primary)] leading-snug">
+            More moves Chidi can run for you.
+          </h2>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label="Close"
+          className="p-2 -mr-2 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors flex-shrink-0"
+        >
+          <XIcon className="w-4 h-4" />
+        </button>
+      </header>
+
+      <div className="px-5 lg:px-6 py-5 overflow-y-auto flex-1 space-y-3">
+        {catalogue.map((play) => {
+          const added = addedIds.has(play.id)
+          return (
+            <article
+              key={play.id}
+              className="rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)] p-4 flex items-start gap-3"
+            >
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[14px] font-semibold font-chidi-voice text-[var(--chidi-text-primary)] leading-snug">
+                  {play.title}
+                </h3>
+                {play.subtitle && (
+                  <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug mt-0.5">
+                    {play.subtitle}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => onAdd(play)}
+                disabled={added}
+                className={cn(
+                  "flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                  added
+                    ? "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] cursor-default"
+                    : "bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90",
+                )}
+              >
+                {added ? "Added" : "Add to my playbook"}
+              </button>
+            </article>
+          )
+        })}
       </div>
-      {right}
-    </div>
+    </>
   )
 }
 
 // ===========================================================================
-// TodayEmpty — encouraging zero-state for the conversation thread
-// ===========================================================================
-
-function TodayEmpty() {
-  return (
-    <div className="rounded-2xl bg-[var(--card)] border border-[var(--chidi-border-default)] p-6 lg:p-8 flex items-start gap-4">
-      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-primary)]">
-        <ArcFace size={32} />
-      </div>
-      <div className="min-w-0">
-        <h3 className="text-[15px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
-          Nothing pressing today.
-        </h3>
-        <p className="text-[12.5px] text-[var(--chidi-text-secondary)] mt-1 leading-snug font-chidi-voice">
-          Take a breath. I'll bring something back when it matters.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ===========================================================================
-// Recent runs — inserted after the first decision is enacted
-// ===========================================================================
-
-function RecentRunsSection({ runs }: { runs: RecentRun[] }) {
-  return (
-    <div>
-      <SectionHeader eyebrow="Recent runs" count={runs.length} tone="win" />
-      <ul className="rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)] divide-y divide-[var(--chidi-border-subtle)] overflow-hidden">
-        {runs.map((run, i) => (
-          <li
-            key={`${run.decisionId}-${run.ranAt}`}
-            className="flex items-start gap-3 px-4 py-3 motion-safe:animate-[playbookRanRowIn_280ms_cubic-bezier(0.22,1,0.36,1)]"
-            style={{ animationDelay: `${i * 30}ms` }}
-          >
-            <span className="mt-0.5 w-4 h-4 rounded-full bg-[var(--chidi-win)] flex items-center justify-center text-[var(--background)] text-[9px] font-bold flex-shrink-0">
-              ✓
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[12.5px] text-[var(--chidi-text-primary)] leading-snug font-medium">
-                {run.title}
-              </p>
-              <p className="text-[11.5px] text-[var(--chidi-win)] mt-0.5 leading-snug">
-                {run.resultLine}
-              </p>
-            </div>
-            <span className="text-[10.5px] text-[var(--chidi-text-muted)] flex-shrink-0 tabular-nums">
-              <RelativeTime epochMs={run.ranAt} />
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-function RelativeTime({ epochMs }: { epochMs: number }) {
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 30_000)
-    return () => clearInterval(id)
-  }, [])
-  const diff = Math.max(0, Date.now() - epochMs)
-  const sec = Math.floor(diff / 1000)
-  if (sec < 60) return <>Ran {sec}s ago</>
-  const min = Math.floor(sec / 60)
-  if (min < 60) return <>Ran {min}m ago</>
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return <>Ran {hr}h ago</>
-  const day = Math.floor(hr / 24)
-  return <>Ran {day}d ago</>
-}
-
-// ===========================================================================
-// Sheet — slide-up overlay (kept from prior surface, simplified)
+// Sheet — slide-up overlay (kept from prior wave)
 // ===========================================================================
 
 function Sheet({
@@ -635,7 +638,7 @@ function Sheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-end justify-center"
       role="dialog"
       aria-modal="true"
     >
@@ -644,203 +647,29 @@ function Sheet({
         onClick={onClose}
         className="absolute inset-0 bg-black/40 motion-safe:animate-[chidiBackdropIn_180ms_ease-out]"
       />
-      <div className="relative w-full sm:max-w-xl bg-[var(--card)] sm:rounded-2xl rounded-t-2xl border border-[var(--chidi-border-default)] shadow-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col motion-safe:animate-[chidiSheetIn_280ms_cubic-bezier(0.22,1,0.36,1)]">
+      <div className="relative w-full sm:max-w-xl sm:h-screen sm:max-h-screen sm:rounded-none rounded-t-2xl bg-[var(--card)] border-t sm:border-t-0 sm:border-l border-[var(--chidi-border-default)] shadow-2xl max-h-[92vh] flex flex-col motion-safe:animate-[chidiSheetIn_280ms_cubic-bezier(0.22,1,0.36,1)]">
         {children}
         <style jsx>{`
           @keyframes chidiSheetIn {
-            from { transform: translateY(24px); opacity: 0; }
-            to   { transform: translateY(0);    opacity: 1; }
+            from {
+              transform: translateY(24px);
+              opacity: 0;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
           }
           @keyframes chidiBackdropIn {
-            from { opacity: 0; }
-            to   { opacity: 1; }
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
           }
         `}</style>
       </div>
-    </div>
-  )
-}
-
-// ===========================================================================
-// ComposeSheet — quiet authoring path
-// ===========================================================================
-
-function ComposeSheet({
-  draft,
-  onChange,
-  onSave,
-  onCancel,
-}: {
-  draft: DraftPlay
-  onChange: React.Dispatch<React.SetStateAction<DraftPlay>>
-  onSave: () => void
-  onCancel: () => void
-}) {
-  const canSave = draft.title.trim().length > 1 && draft.trigger.trim().length > 1
-
-  return (
-    <>
-      <header className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)] flex-shrink-0">
-        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-primary)]">
-          <ArcFace size={28} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-0.5">
-            New play
-          </p>
-          <h2 className="text-[16px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
-            What move should Chidi keep running?
-          </h2>
-        </div>
-        <button
-          onClick={onCancel}
-          aria-label="Close"
-          className="p-2 -mr-2 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors flex-shrink-0"
-        >
-          <XIcon className="w-4 h-4" />
-        </button>
-      </header>
-
-      <div className="px-5 lg:px-6 py-5 space-y-5 overflow-y-auto flex-1">
-        <div>
-          <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-1.5 block">
-            Name
-          </label>
-          <input
-            type="text"
-            value={draft.title}
-            onChange={(e) => onChange((d) => ({ ...d, title: e.target.value }))}
-            placeholder="e.g. Chase cold pending payments"
-            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2.5 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors"
-          />
-        </div>
-
-        <div>
-          <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-1.5 block">
-            When this happens
-          </label>
-          <input
-            type="text"
-            value={draft.trigger}
-            onChange={(e) => onChange((d) => ({ ...d, trigger: e.target.value }))}
-            placeholder="e.g. An order has been pending for 24 hours."
-            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2.5 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors"
-          />
-        </div>
-
-        <div>
-          <div className="flex items-baseline justify-between mb-1.5">
-            <label className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
-              Message Chidi sends
-            </label>
-            <span className="text-[11px] text-[var(--chidi-text-muted)]">Optional</span>
-          </div>
-          <textarea
-            value={draft.message}
-            onChange={(e) => onChange((d) => ({ ...d, message: e.target.value }))}
-            rows={4}
-            placeholder="Hey! Still want to grab that one? I'm holding it till tomorrow noon."
-            className="w-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] rounded-md px-3 py-2.5 text-[13px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:border-[var(--chidi-text-primary)] transition-colors resize-none leading-snug"
-          />
-        </div>
-      </div>
-
-      <div className="px-5 lg:px-6 py-3 border-t border-[var(--chidi-border-subtle)] flex items-center justify-between gap-3 bg-[var(--card)] flex-shrink-0">
-        <button
-          onClick={onCancel}
-          className="text-[13px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] px-3 py-2 rounded-md hover:bg-[var(--chidi-surface)] transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSave}
-          disabled={!canSave}
-          className="inline-flex items-center gap-1.5 text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-md transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" strokeWidth={2.4} />
-          Add to playbook
-        </button>
-      </div>
-    </>
-  )
-}
-
-// ===========================================================================
-// Quiet plays — accordion for plays that haven't fired in 30+ days
-// ===========================================================================
-
-function QuietPlaysAccordion({
-  plays,
-  onOpen,
-  onWake,
-}: {
-  plays: PlaybookPlay[]
-  onOpen: (id: string) => void
-  onWake: (id: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div className="pt-2">
-      <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mb-1.5 px-1">
-        Plays that haven't fired in over 30 days. Wake one up if it should be running.
-      </p>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="w-full flex items-center justify-between py-3 px-3 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)] hover:bg-[var(--card)] text-left transition-colors group"
-      >
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-text-muted)]" />
-          <span className="text-[13px] font-medium text-[var(--chidi-text-primary)]">
-            Quiet plays ({plays.length})
-          </span>
-        </div>
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={cn(
-            "text-[var(--chidi-text-muted)] transition-transform motion-reduce:transition-none",
-            open && "rotate-90",
-          )}
-        >
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      </button>
-      {open && (
-        <ul className="mt-2 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)] divide-y divide-[var(--chidi-border-subtle)] overflow-hidden opacity-95">
-          {plays.map((play) => (
-            <li key={play.id} className="flex items-center gap-3 px-3.5 py-3">
-              <button
-                type="button"
-                onClick={() => onOpen(play.id)}
-                className="flex-1 min-w-0 text-left"
-              >
-                <p className="text-[13px] text-[var(--chidi-text-primary)] truncate font-medium">
-                  {play.title}
-                </p>
-                <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
-                  {lastFiredLabel(play.id)}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => onWake(play.id)}
-                className="flex-shrink-0 inline-flex items-center gap-1 text-[11.5px] font-medium font-chidi-voice px-2.5 py-1.5 rounded-md bg-[var(--chidi-text-primary)] text-[var(--background)] hover:opacity-90 active:scale-[0.97] transition-colors"
-                title="Reset the staleness clock"
-              >
-                Wake it up
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   )
 }
@@ -851,33 +680,32 @@ function QuietPlaysAccordion({
 
 function ListSkeleton() {
   return (
-    <div className="space-y-8">
-      {[0, 1].map((g) => (
-        <div key={g} className="space-y-3">
-          <div className="flex items-baseline gap-2 mb-3 px-0.5">
-            <div className="h-1.5 w-1.5 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
-            <div className="h-2 w-16 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
-          </div>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded-xl bg-[var(--card)] border border-[var(--chidi-border-default)] px-4 py-3.5 lg:px-5 lg:py-4 flex items-center gap-3"
-            >
-              <div className="h-9 w-9 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse flex-shrink-0" />
-              <div className="flex-1 min-w-0 space-y-1.5">
-                <div
-                  className="h-3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
-                  style={{ width: `${55 + (i % 3) * 12}%` }}
-                />
-                <div
-                  className="h-2.5 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
-                  style={{ width: `${70 + (i % 2) * 10}%` }}
-                />
-              </div>
-            </div>
-          ))}
+    <div>
+      <div className="flex items-start gap-3 py-6 lg:py-8 mb-2">
+        <div className="h-8 w-8 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse flex-shrink-0" />
+        <div className="flex-1 space-y-2 pt-1">
+          <div className="h-3 w-3/4 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+          <div className="h-3 w-1/2 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
         </div>
-      ))}
+      </div>
+      <div className="rounded-xl border border-[var(--chidi-border-subtle)] divide-y divide-[var(--chidi-border-subtle)] overflow-hidden">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-3.5">
+            <div className="h-3 w-[88px] rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse flex-shrink-0" />
+            <div className="flex-1 space-y-1.5">
+              <div
+                className="h-3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
+                style={{ width: `${50 + (i % 3) * 12}%` }}
+              />
+              <div
+                className="h-2.5 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
+                style={{ width: `${65 + (i % 2) * 10}%` }}
+              />
+            </div>
+            <div className="h-3 w-[120px] rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse flex-shrink-0 hidden sm:block" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   Loader2,
@@ -49,6 +50,8 @@ import { EmptyArt } from "./empty-art"
 import { cn } from "@/lib/utils"
 import { MilestoneModal } from "./milestone-modal"
 import { detectMilestone, type MilestoneCard } from "@/lib/chidi/milestones"
+import { CustomersBody } from "./customers-view"
+import { DeliveryHandoffPanel } from "./delivery-handoff-panel"
 
 type FilterStatus = OrderStatus | 'ALL'
 
@@ -58,7 +61,54 @@ interface OrdersViewProps {
   onOpenConversation?: (conversationId: string) => void
 }
 
+type PageView = "orders" | "customers"
+
 export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation }: OrdersViewProps) {
+  const router = useRouter()
+  const params = useParams()
+  const searchParams = useSearchParams()
+  const slug = params?.slug as string | undefined
+
+  // Page-level tab strip — Orders | Customers. The Customers surface lives
+  // here (no longer in Insights' lens) so the merchant has one obvious home
+  // for "people I've sold to" without needing its own route. Persisted to
+  // ?view=customers (default ?view=orders is implicit).
+  const initialView = ((): PageView => {
+    const raw = searchParams?.get("view")
+    return raw === "customers" ? "customers" : "orders"
+  })()
+  const [pageView, setPageView] = useState<PageView>(initialView)
+
+  // ?view=customers from a deep-link should win on mount. After that, the
+  // tab strip is the source of truth and we mirror back into the URL.
+  useEffect(() => {
+    const raw = searchParams?.get("view")
+    const next: PageView = raw === "customers" ? "customers" : "orders"
+    if (next !== pageView) setPageView(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // Mirror tab into URL — replace, no scroll, no history bloat. Skip when
+  // the URL already matches so we don't kick off a redundant write.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const current = new URLSearchParams(searchParams?.toString() ?? "")
+    const existing = current.get("view")
+    if (pageView === "customers") {
+      if (existing === "customers") return
+      current.set("view", "customers")
+    } else {
+      if (!existing) return
+      current.delete("view")
+    }
+    const qs = current.toString()
+    const url = qs ? `?${qs}` : window.location.pathname
+    router.replace(url, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageView])
+
+  void slug
+
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const queryClient = useQueryClient()
 
@@ -217,9 +267,12 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
     return date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })
   }
 
-  if (isLoading && orders.length === 0) {
+  // Loading skeleton — only meaningful for the Orders page-view (Customers
+  // body has its own internal loading state from useCustomers).
+  if (pageView === "orders" && isLoading && orders.length === 0) {
     return (
       <div className="flex-1 bg-[var(--background)] flex flex-col">
+        <PageTabStrip pageView={pageView} onChange={setPageView} />
         <div className="border-b border-[var(--chidi-border-subtle)]">
           <div className="max-w-4xl mx-auto w-full px-4 lg:px-6 py-4 lg:py-5">
             <div className="h-6 w-24 chidi-skeleton" />
@@ -241,12 +294,29 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
     )
   }
 
+  // Customers page-view — embeds <CustomersBody /> in the same shell so the
+  // sidebar/nav rail stays put and the URL persists across reloads.
+  if (pageView === "customers") {
+    return (
+      <div className="flex-1 bg-[var(--background)] flex flex-col min-h-0">
+        <PageTabStrip pageView={pageView} onChange={setPageView} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 lg:py-7">
+            <CustomersBody />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     // The outer container scrolls (its parent <main> is overflow-y-auto).
     // Independent inner scroll on the list is intentionally OFF so the
     // right-side detail panel can `position: sticky` against the page
     // scroll — otherwise sticky silently no-ops inside an own-scroll list.
-    <div className="flex-1 bg-[var(--background)] flex items-stretch min-h-0">
+    <div className="flex-1 bg-[var(--background)] flex flex-col min-h-0">
+    <PageTabStrip pageView={pageView} onChange={setPageView} />
+    <div className="flex-1 flex items-stretch min-h-0">
       {/* Orders List - Hidden on mobile when order is selected.
           Detail pane is now narrower (40% on lg+) so the list breathes. */}
       <div className={cn(
@@ -570,6 +640,17 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
                 </p>
               </div>
             )}
+
+            {/* Delivery handoff — appears once the order is ready to ship
+                (CONFIRMED + paid) or already fulfilled. Three modes:
+                in-house dispatch, courier, on-demand bike. Once submitted,
+                the panel collapses to a quiet "out for delivery" receipt. */}
+            {(selectedOrder.status === "CONFIRMED" || selectedOrder.status === "FULFILLED") && (
+              <DeliveryHandoffPanel
+                order={selectedOrder}
+                onOpenConversation={onOpenConversation}
+              />
+            )}
           </div>
 
           {/* Actions — sticky footer inside the panel so the primary CTA
@@ -633,6 +714,55 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
 
       {/* Milestone celebration — fires once per threshold crossed */}
       <MilestoneModal milestone={activeMilestone} onClose={() => setActiveMilestone(null)} />
+    </div>
+    </div>
+  )
+}
+
+// =============================================================================
+// PageTabStrip — top-level Orders | Customers tabs
+// =============================================================================
+
+interface PageTabStripProps {
+  pageView: PageView
+  onChange: (v: PageView) => void
+}
+
+function PageTabStrip({ pageView, onChange }: PageTabStripProps) {
+  const tabs: Array<{ id: PageView; label: string }> = [
+    { id: "orders", label: "Orders" },
+    { id: "customers", label: "Customers" },
+  ]
+  return (
+    <div
+      role="tablist"
+      aria-label="Orders or Customers"
+      className="border-b border-[var(--chidi-border-subtle)] bg-[var(--background)] sticky top-0 z-20"
+    >
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center gap-1 -mb-px">
+          {tabs.map((tab) => {
+            const isActive = pageView === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => onChange(tab.id)}
+                className={cn(
+                  "px-3 py-3 text-[13px] font-medium font-chidi-voice border-b-2 transition-colors motion-reduce:transition-none",
+                  isActive
+                    ? "border-[var(--chidi-text-primary)] text-[var(--chidi-text-primary)]"
+                    : "border-transparent text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)]",
+                )}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
