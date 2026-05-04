@@ -12,6 +12,7 @@ import {
   BookOpen,
   LayoutDashboard,
   Users,
+  Calendar,
   type LucideIcon,
 } from "lucide-react"
 import type { TabId } from "@/components/chidi/bottom-navigation"
@@ -65,9 +66,20 @@ export const LIBRARY_ENTRIES: LibraryEntry[] = [
     href: (slug) => `/dashboard/${slug}/notebook`,
     shortcut: "N",
   },
-  // Customers — "everyone you've sold to". Sits between Playbook and Board in
-  // the Library section. Used to be a top-level tab; both the Orders-tab and
-  // Insights-lens placements felt forced, so it lives here as its own surface.
+  // Calendar — full month view of deliveries, broadcasts, follow-ups. The Peek
+  // popover (anchored on the rail) still handles "today"; this Library entry
+  // is the destination for the full month. Used to live behind a Sheet — now
+  // a real route between Playbook and Customers in the Library rhythm.
+  {
+    id: "calendar",
+    label: "Calendar",
+    icon: Calendar,
+    href: (slug) => `/dashboard/${slug}/calendar`,
+    shortcut: "L",
+  },
+  // Customers — "everyone you've sold to". Used to be a top-level tab; both
+  // the Orders-tab and Insights-lens placements felt forced, so it lives
+  // here as its own surface.
   {
     id: "customers",
     label: "Customers",
