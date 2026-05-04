@@ -89,6 +89,8 @@ const CATALOGUE: PlaybookPlay[] = [
     state: "draft",
     recent: [],
     sample_message: "Hi! Just wanted to say happy birthday — hope your day is bright. 🎂",
+    trigger_v2: { kind: "customer_birthday" },
+    audience: { kind: "all" },
   },
   {
     id: "cat-out-of-stock-waitlist",
@@ -102,6 +104,8 @@ const CATALOGUE: PlaybookPlay[] = [
     state: "draft",
     recent: [],
     sample_message: "Good news — that one's back in stock. Want me to hold one for you?",
+    trigger_v2: { kind: "stock_out" },
+    audience: { kind: "all" },
   },
   {
     id: "cat-friday-status-recap",
@@ -114,6 +118,8 @@ const CATALOGUE: PlaybookPlay[] = [
     stats: { runs: 0, won: 0, win_rate_pct: 0 },
     state: "draft",
     recent: [],
+    trigger_v2: { kind: "schedule_weekly", dayOfWeek: 5, hourOfDay: 18, minuteOfHour: 0 },
+    audience: { kind: "all" },
   },
   {
     id: "cat-delivery-confirm",
@@ -127,6 +133,8 @@ const CATALOGUE: PlaybookPlay[] = [
     state: "draft",
     recent: [],
     sample_message: "Quick one — did the order land okay today?",
+    trigger_v2: { kind: "order_fulfilled" },
+    audience: { kind: "all" },
   },
 ]
 

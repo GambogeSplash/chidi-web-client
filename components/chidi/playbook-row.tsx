@@ -21,6 +21,8 @@
 import { cn } from "@/lib/utils"
 import { formatNGN, type PlaybookPlay } from "@/lib/chidi/playbook-plays"
 import { lastFiredLabel } from "@/lib/chidi/play-staleness"
+import { triggerSummary } from "@/lib/chidi/play-triggers"
+import { audienceShort } from "@/lib/chidi/play-audiences"
 
 export type PlaybookRowState = "running" | "paused" | "quiet"
 
@@ -77,11 +79,7 @@ export function PlaybookRow({
             </span>
           )}
         </div>
-        {play.subtitle && (
-          <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug truncate mt-0.5">
-            {play.subtitle}
-          </p>
-        )}
+        <TriggerAudienceLine play={play} />
       </div>
 
       <div className="hidden sm:block flex-shrink-0 text-right max-w-[180px]">
@@ -128,6 +126,48 @@ export function PlaybookRow({
         {actionLabel}
       </span>
     </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// TriggerAudienceLine — replaces the legacy free-text trigger blurb under
+// the play title with a structured "{trigger summary} · {audience short}"
+// line. Falls back to the play subtitle when neither structured field is
+// present (older plays before the audit-gap migration).
+// ---------------------------------------------------------------------------
+
+function TriggerAudienceLine({ play }: { play: PlaybookPlay }) {
+  const tSummary = play.trigger_v2 ? triggerSummary(play.trigger_v2) : null
+  const aShort =
+    play.audience && play.audience.kind !== "all"
+      ? audienceShort(play.audience)
+      : null
+
+  // Both structured fields missing → fall back to the legacy subtitle so
+  // older / merchant-authored plays still read.
+  if (!tSummary && !aShort) {
+    if (!play.subtitle) return null
+    return (
+      <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug truncate mt-0.5">
+        {play.subtitle}
+      </p>
+    )
+  }
+
+  return (
+    <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug truncate mt-0.5 tabular-nums">
+      {tSummary && (
+        <span className="font-medium text-[var(--chidi-text-secondary)]">
+          {tSummary}
+        </span>
+      )}
+      {tSummary && aShort && (
+        <span className="text-[var(--chidi-text-muted)]"> · </span>
+      )}
+      {aShort && (
+        <span className="text-[var(--chidi-text-muted)]">{aShort}</span>
+      )}
+    </p>
   )
 }
 

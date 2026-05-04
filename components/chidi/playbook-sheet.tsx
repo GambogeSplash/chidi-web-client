@@ -22,7 +22,7 @@
  * playbook-decision-card.tsx (now deleted).
  */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Pause,
   PlayCircle,
@@ -32,6 +32,9 @@ import {
   CheckCircle2,
   XCircle,
   CircleDashed,
+  Pencil,
+  Zap,
+  Users,
 } from "lucide-react"
 import { ArcFace } from "./arc-face"
 import { CustomerCharacter } from "./customer-character"
@@ -45,6 +48,26 @@ import {
 import { markFired } from "@/lib/chidi/play-staleness"
 import { playWin } from "@/lib/chidi/sound"
 import { hapticWin } from "@/lib/chidi/haptics"
+import {
+  triggerLabel,
+  defaultsForKind,
+  paramShape,
+  TRIGGER_KIND_LABEL,
+  TRIGGER_KINDS_ORDERED,
+  DAY_OPTIONS,
+  type PlayTrigger,
+  type TriggerKind,
+} from "@/lib/chidi/play-triggers"
+import {
+  audienceLabel,
+  audienceMatchCopy,
+  audienceSize,
+  AUDIENCE_KIND_LABEL,
+  AUDIENCE_KIND_HINT,
+  AUDIENCE_KINDS_ORDERED,
+  type PlayAudience,
+  type AudienceKind,
+} from "@/lib/chidi/play-audiences"
 
 // ---------------------------------------------------------------------------
 // Animation timing — preserved from the deleted playbook-decision-card.tsx
@@ -59,6 +82,53 @@ const TIMING = {
 } as const
 
 type EnactPhase = "idle" | "typing" | "sending" | "sent"
+
+// ---------------------------------------------------------------------------
+// Trigger + audience overrides — persisted to localStorage so a merchant's
+// edits survive a refresh. Keyed by play id; the sheet merges the override
+// onto the seed play to derive the "effective" trigger/audience that all
+// surfaces read.
+//
+// The store is keyed on `chidi:play-overrides` per the audit-gap brief, with
+// a partial shape so future fields (e.g. `paused`, `cooldown_hours`) can
+// land here without a migration.
+// ---------------------------------------------------------------------------
+
+const PLAY_OVERRIDES_KEY = "chidi:play-overrides"
+
+interface PlayOverride {
+  trigger?: PlayTrigger
+  audience?: PlayAudience
+}
+type PlayOverridesStore = Record<string, PlayOverride>
+
+function readOverridesStore(): PlayOverridesStore {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(PLAY_OVERRIDES_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === "object" ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeOverridesStore(store: PlayOverridesStore) {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(PLAY_OVERRIDES_KEY, JSON.stringify(store))
+  } catch {
+    /* quota exceeded — silent fail, in-memory state still reflects the change */
+  }
+}
+
+function patchOverride(playId: string, patch: PlayOverride) {
+  const store = readOverridesStore()
+  const next: PlayOverride = { ...(store[playId] ?? {}), ...patch }
+  store[playId] = next
+  writeOverridesStore(store)
+}
 
 // ---------------------------------------------------------------------------
 // Channel inference — picks a matching footer label based on the play's
@@ -106,6 +176,45 @@ export function PlaybookSheet({
     setMessage(baseMessage)
     setEditing(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [play.id])
+
+  // ----- Trigger / audience overrides (localStorage) ----------------------
+  // The seed play ships with `trigger_v2` + `audience`; merchant edits land in
+  // `chidi:play-overrides` and override the seed. The picker UIs below write
+  // directly through `patchOverride` and then `setOverride` so the merge is
+  // synchronous in the sheet without a parent round-trip.
+  const [override, setOverride] = useState<PlayOverride>({})
+  useEffect(() => {
+    setOverride(readOverridesStore()[play.id] ?? {})
+  }, [play.id])
+
+  const effectiveTrigger: PlayTrigger = override.trigger ??
+    play.trigger_v2 ?? { kind: "manual" }
+  const effectiveAudience: PlayAudience = override.audience ??
+    play.audience ?? { kind: "all" }
+  const triggerCustomized = !!override.trigger
+  const audienceCustomized = !!override.audience
+
+  const handleSaveTrigger = useCallback(
+    (next: PlayTrigger) => {
+      patchOverride(play.id, { trigger: next })
+      setOverride((prev) => ({ ...prev, trigger: next }))
+    },
+    [play.id],
+  )
+  const handleSaveAudience = useCallback(
+    (next: PlayAudience) => {
+      patchOverride(play.id, { audience: next })
+      setOverride((prev) => ({ ...prev, audience: next }))
+    },
+    [play.id],
+  )
+
+  // Picker open state — only one picker open at a time so the sheet doesn't
+  // visually balloon if the merchant opens both.
+  const [openPicker, setOpenPicker] = useState<"trigger" | "audience" | null>(null)
+  useEffect(() => {
+    setOpenPicker(null)
   }, [play.id])
 
   // ----- Recent runs (sheet-local) ----------------------------------------
@@ -345,6 +454,34 @@ export function PlaybookSheet({
             <span className="text-[var(--chidi-text-primary)]">{play.outcome}</span>
           </p>
         </section>
+
+        {/* Trigger */}
+        <TriggerSection
+          trigger={effectiveTrigger}
+          customized={triggerCustomized}
+          open={openPicker === "trigger"}
+          onToggleOpen={() =>
+            setOpenPicker((p) => (p === "trigger" ? null : "trigger"))
+          }
+          onSave={(t) => {
+            handleSaveTrigger(t)
+            setOpenPicker(null)
+          }}
+        />
+
+        {/* Audience */}
+        <AudienceSection
+          audience={effectiveAudience}
+          customized={audienceCustomized}
+          open={openPicker === "audience"}
+          onToggleOpen={() =>
+            setOpenPicker((p) => (p === "audience" ? null : "audience"))
+          }
+          onSave={(a) => {
+            handleSaveAudience(a)
+            setOpenPicker(null)
+          }}
+        />
 
         {/* The message — editable WhatsApp bubble */}
         <section>
@@ -586,5 +723,309 @@ function RunningDots() {
       <span className="w-1 h-1 rounded-full bg-[var(--background)] motion-safe:animate-pulse" style={{ animationDelay: "150ms" }} />
       <span className="w-1 h-1 rounded-full bg-[var(--background)] motion-safe:animate-pulse" style={{ animationDelay: "300ms" }} />
     </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// TriggerSection — read-only label + "Change" pencil → inline kind/param picker.
+// All persistence happens in the parent via `onSave`; this component is purely
+// presentational beyond the local "draft" trigger it edits while the picker is
+// open (so the merchant can dial in hours/stock before committing).
+// ---------------------------------------------------------------------------
+
+function TriggerSection({
+  trigger,
+  customized,
+  open,
+  onToggleOpen,
+  onSave,
+}: {
+  trigger: PlayTrigger
+  customized: boolean
+  open: boolean
+  onToggleOpen: () => void
+  onSave: (next: PlayTrigger) => void
+}) {
+  const [draft, setDraft] = useState<PlayTrigger>(trigger)
+  // Reset draft when sheet swaps trigger underneath us, or when picker opens.
+  useEffect(() => {
+    setDraft(trigger)
+  }, [trigger, open])
+
+  const shape = paramShape(draft.kind)
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+          Trigger
+        </p>
+        <button
+          onClick={onToggleOpen}
+          className="inline-flex items-center gap-1 text-[11px] text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
+          aria-expanded={open}
+        >
+          <Pencil className="w-3 h-3" />
+          {open ? "Cancel" : "Change"}
+        </button>
+      </div>
+
+      <div className="rounded-lg border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/40 px-3.5 py-2.5">
+        <div className="flex items-start gap-2.5">
+          <Zap className="w-3.5 h-3.5 mt-0.5 text-[var(--chidi-text-muted)] flex-shrink-0" strokeWidth={2} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] text-[var(--chidi-text-primary)] leading-snug">
+              {triggerLabel(trigger)}
+            </p>
+            {customized && (
+              <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] mt-1">
+                Yours
+              </p>
+            )}
+          </div>
+        </div>
+
+        {open && (
+          <div className="mt-3 pt-3 border-t border-[var(--chidi-border-subtle)] space-y-3 motion-safe:animate-[playbookEnactIn_180ms_ease-out]">
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold block mb-1">
+                Kind
+              </span>
+              <select
+                value={draft.kind}
+                onChange={(e) =>
+                  setDraft(defaultsForKind(e.target.value as TriggerKind))
+                }
+                className="w-full text-[12.5px] bg-[var(--card)] border border-[var(--chidi-border-default)] rounded-md px-2.5 py-1.5 text-[var(--chidi-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/30"
+              >
+                {TRIGGER_KINDS_ORDERED.map((k) => (
+                  <option key={k} value={k}>
+                    {TRIGGER_KIND_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {shape && (
+              <TriggerParamInput
+                shape={shape}
+                value={draft}
+                onChange={setDraft}
+              />
+            )}
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => onSave(draft)}
+                className="inline-flex items-center gap-1 text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:opacity-90 px-3 py-1.5 rounded-md"
+              >
+                Save trigger
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function TriggerParamInput({
+  shape,
+  value,
+  onChange,
+}: {
+  shape: NonNullable<ReturnType<typeof paramShape>>
+  value: PlayTrigger
+  onChange: (next: PlayTrigger) => void
+}) {
+  if (shape.type === "hours") {
+    return (
+      <label className="block">
+        <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold block mb-1">
+          {shape.label}
+        </span>
+        <input
+          type="number"
+          min={shape.min}
+          max={shape.max}
+          step={shape.step}
+          value={value.hoursThreshold ?? shape.min}
+          onChange={(e) =>
+            onChange({ ...value, hoursThreshold: Math.max(shape.min, Math.min(shape.max, Number(e.target.value) || shape.min)) })
+          }
+          className="w-full text-[12.5px] bg-[var(--card)] border border-[var(--chidi-border-default)] rounded-md px-2.5 py-1.5 text-[var(--chidi-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/30 tabular-nums"
+        />
+      </label>
+    )
+  }
+  if (shape.type === "stock") {
+    return (
+      <label className="block">
+        <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold block mb-1">
+          {shape.label}
+        </span>
+        <input
+          type="number"
+          min={shape.min}
+          max={shape.max}
+          step={shape.step}
+          value={value.stockThreshold ?? shape.min}
+          onChange={(e) =>
+            onChange({ ...value, stockThreshold: Math.max(shape.min, Math.min(shape.max, Number(e.target.value) || shape.min)) })
+          }
+          className="w-full text-[12.5px] bg-[var(--card)] border border-[var(--chidi-border-default)] rounded-md px-2.5 py-1.5 text-[var(--chidi-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/30 tabular-nums"
+        />
+      </label>
+    )
+  }
+  if (shape.type === "time-of-day") {
+    return (
+      <label className="block">
+        <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold block mb-1">
+          {shape.label}
+        </span>
+        <input
+          type="time"
+          value={`${String(value.hourOfDay ?? 7).padStart(2, "0")}:${String(value.minuteOfHour ?? 0).padStart(2, "0")}`}
+          onChange={(e) => {
+            const [h, m] = (e.target.value || "07:30").split(":").map((n) => Number(n))
+            onChange({ ...value, hourOfDay: h, minuteOfHour: m })
+          }}
+          className="w-full text-[12.5px] bg-[var(--card)] border border-[var(--chidi-border-default)] rounded-md px-2.5 py-1.5 text-[var(--chidi-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/30 tabular-nums"
+        />
+      </label>
+    )
+  }
+  // day-and-time
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <label className="block">
+        <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold block mb-1">
+          Day
+        </span>
+        <select
+          value={value.dayOfWeek ?? 5}
+          onChange={(e) => onChange({ ...value, dayOfWeek: Number(e.target.value) })}
+          className="w-full text-[12.5px] bg-[var(--card)] border border-[var(--chidi-border-default)] rounded-md px-2.5 py-1.5 text-[var(--chidi-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/30"
+        >
+          {DAY_OPTIONS.map((d) => (
+            <option key={d.value} value={d.value}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block">
+        <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold block mb-1">
+          Time
+        </span>
+        <input
+          type="time"
+          value={`${String(value.hourOfDay ?? 18).padStart(2, "0")}:${String(value.minuteOfHour ?? 0).padStart(2, "0")}`}
+          onChange={(e) => {
+            const [h, m] = (e.target.value || "18:00").split(":").map((n) => Number(n))
+            onChange({ ...value, hourOfDay: h, minuteOfHour: m })
+          }}
+          className="w-full text-[12.5px] bg-[var(--card)] border border-[var(--chidi-border-default)] rounded-md px-2.5 py-1.5 text-[var(--chidi-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/30 tabular-nums"
+        />
+      </label>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AudienceSection — read-only label + matched-count + picker (kind only).
+// Counts use the static fallback in `audienceSize` since the sheet doesn't
+// fetch /analytics/customers; the merchant still gets a believable "{N} match"
+// derived from the shipped ~30-customer roster.
+// ---------------------------------------------------------------------------
+
+function AudienceSection({
+  audience,
+  customized,
+  open,
+  onToggleOpen,
+  onSave,
+}: {
+  audience: PlayAudience
+  customized: boolean
+  open: boolean
+  onToggleOpen: () => void
+  onSave: (next: PlayAudience) => void
+}) {
+  const [draft, setDraft] = useState<PlayAudience>(audience)
+  useEffect(() => {
+    setDraft(audience)
+  }, [audience, open])
+
+  const matchedCount = audienceSize(audience)
+  const draftMatchedCount = audienceSize(draft)
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+          Audience
+        </p>
+        <button
+          onClick={onToggleOpen}
+          className="inline-flex items-center gap-1 text-[11px] text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
+          aria-expanded={open}
+        >
+          <Pencil className="w-3 h-3" />
+          {open ? "Cancel" : "Change"}
+        </button>
+      </div>
+
+      <div className="rounded-lg border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/40 px-3.5 py-2.5">
+        <div className="flex items-start gap-2.5">
+          <Users className="w-3.5 h-3.5 mt-0.5 text-[var(--chidi-text-muted)] flex-shrink-0" strokeWidth={2} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] text-[var(--chidi-text-primary)] leading-snug">
+              {audienceLabel(audience)}
+            </p>
+            <p className="text-[11px] text-[var(--chidi-text-muted)] tabular-nums leading-snug mt-0.5">
+              {audienceMatchCopy(matchedCount)}
+              {customized && (
+                <span className="ml-2 text-[10px] uppercase tracking-wider">· Yours</span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {open && (
+          <div className="mt-3 pt-3 border-t border-[var(--chidi-border-subtle)] space-y-3 motion-safe:animate-[playbookEnactIn_180ms_ease-out]">
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-semibold block mb-1">
+                Who this targets
+              </span>
+              <select
+                value={draft.kind}
+                onChange={(e) => setDraft({ kind: e.target.value as AudienceKind })}
+                className="w-full text-[12.5px] bg-[var(--card)] border border-[var(--chidi-border-default)] rounded-md px-2.5 py-1.5 text-[var(--chidi-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/30"
+              >
+                {AUDIENCE_KINDS_ORDERED.map((k) => (
+                  <option key={k} value={k}>
+                    {AUDIENCE_KIND_LABEL[k]}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10.5px] text-[var(--chidi-text-muted)] block mt-1.5 leading-snug">
+                {AUDIENCE_KIND_HINT[draft.kind]} · {audienceMatchCopy(draftMatchedCount)}
+              </span>
+            </label>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => onSave(draft)}
+                className="inline-flex items-center gap-1 text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:opacity-90 px-3 py-1.5 rounded-md"
+              >
+                Save audience
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   )
 }
