@@ -57,7 +57,8 @@ import { formatOrderAmount } from '@/lib/api/orders'
 import { AISuggestStrip } from '@/components/chidi/ai-suggest-strip'
 import { VoiceButton } from '@/components/chidi/voice-button'
 import { CustomerCharacter } from '@/components/chidi/customer-character'
-import { CustomerProfileRail } from '@/components/chidi/customer-profile-rail'
+import { CustomerProfileRail, CustomerProfileRailMobile } from '@/components/chidi/customer-profile-rail'
+import { User as UserIcon } from 'lucide-react'
 import { chidiActed } from '@/lib/chidi/ai-toast'
 import { draftReply } from '@/lib/chidi/draft-reply'
 import { playTap } from '@/lib/chidi/sound'
@@ -120,6 +121,10 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
 
   // Chidi-summarized recap sheet — Arc-style "summarize this thread."
   const [summaryOpen, setSummaryOpen] = useState(false)
+
+  // Mobile profile rail — desktop has a permanent xl+ rail; below xl the
+  // merchant pulls it up as a bottom sheet from the chat header.
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false)
 
   // Active-delivery flag for the linked order — drives whether the in-chat
   // DeliveryTrackingWidget mounts. Recomputes on `chidi:delivery-changed`.
@@ -421,8 +426,10 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
         orderId={pendingOrder?.id ?? null}
       >
       <div className="flex flex-col flex-1 min-w-0 h-full">
-      {/* Header — customer name + ambient memory line + status tag */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--chidi-border-subtle)] bg-white">
+      {/* Header — customer name + ambient memory line + status tag.
+          Sticky so the back button + summary controls stay reachable
+          on long mobile threads. */}
+      <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-3 border-b border-[var(--chidi-border-subtle)] bg-white">
         <div className="flex items-center gap-3 min-w-0">
           <Button
             variant="ghost"
@@ -499,6 +506,18 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
               <span className="hidden sm:inline">Summarize</span>
             </Button>
           )}
+          {/* Mobile-only: pull up the customer profile as a bottom sheet.
+              Desktop (xl+) has the persistent rail mounted at the side. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setProfileSheetOpen(true)}
+            aria-label="View customer profile"
+            title="View profile"
+            className="xl:hidden h-8 w-8 p-0 text-[var(--chidi-text-secondary)]"
+          >
+            <UserIcon className="w-4 h-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -689,7 +708,7 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
                   >
                     <div
                       className={cn(
-                        'max-w-[78%] rounded-md px-2.5 py-1.5 relative',
+                        'max-w-[85vw] sm:max-w-[78%] rounded-md px-2.5 py-1.5 relative',
                         tailCorner,
                         isCustomer
                           ? 'bg-white text-[var(--chidi-text-primary)] border border-[var(--chidi-border-subtle)]/40'
@@ -890,8 +909,9 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
         </div>
       )}
 
-      {/* Reply Input */}
-      <div className="px-4 py-3 border-t border-[var(--chidi-border-subtle)] bg-white">
+      {/* Reply Input — safe-area-bottom keeps the send button clear of the
+          iOS home indicator on mobile. */}
+      <div className="px-4 py-3 border-t border-[var(--chidi-border-subtle)] bg-white safe-area-bottom">
         <div className="flex gap-2 items-center">
           <Input
             ref={replyInputRef}
@@ -969,6 +989,38 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
         onViewAllOrders={onViewCustomerOrders}
         onAskChidiAbout={onAskChidiAboutCustomer}
       />
+
+      {/* Mobile/tablet variant — same content, bottom sheet host. Hidden
+          entirely on xl+ where the side rail is always visible. */}
+      <Sheet open={profileSheetOpen} onOpenChange={setProfileSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="xl:hidden bg-[var(--chidi-surface)] p-0 max-h-[90vh] h-[90vh] rounded-t-2xl flex flex-col"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Customer profile</SheetTitle>
+          </SheetHeader>
+          <CustomerProfileRailMobile
+            onOpenOrder={(orderId) => {
+              setProfileSheetOpen(false)
+              onOpenOrder?.(orderId)
+            }}
+            customerName={conversation.customer_name}
+            customerId={conversation.customer_id}
+            customerPhone={customerDisplay}
+            channelName={channelInfo?.name}
+            onClose={() => setProfileSheetOpen(false)}
+            onViewAllOrders={(name) => {
+              setProfileSheetOpen(false)
+              onViewCustomerOrders?.(name)
+            }}
+            onAskChidiAbout={(name) => {
+              setProfileSheetOpen(false)
+              onAskChidiAboutCustomer?.(name)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

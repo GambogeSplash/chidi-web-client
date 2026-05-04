@@ -48,7 +48,35 @@ const VIP_THRESHOLD = 25_000
  * private CRM scratchpad. Channel-agnostic: keyed off customerId, which is
  * already channel-prefixed by the messaging API.
  */
-export function CustomerProfileRail({
+export function CustomerProfileRail(props: CustomerProfileRailProps) {
+  return (
+    <aside
+      className={`hidden xl:flex flex-col flex-shrink-0 w-[300px] bg-[var(--chidi-surface)] border-l border-[var(--chidi-border-subtle)] overflow-y-auto ${props.className || ""}`}
+      aria-label="Customer profile"
+      data-chidi-rail="desktop"
+    >
+      <CustomerProfileRailContent {...props} />
+    </aside>
+  )
+}
+
+/**
+ * Mobile-friendly variant — renders the same content with no aside chrome,
+ * intended to be hosted inside a Sheet so the merchant can pull up the same
+ * relationship data on a phone via a "View profile" button.
+ */
+export function CustomerProfileRailMobile(props: CustomerProfileRailProps) {
+  return (
+    <div
+      className="flex flex-col h-full overflow-y-auto bg-[var(--chidi-surface)]"
+      aria-label="Customer profile"
+    >
+      <CustomerProfileRailContent {...props} />
+    </div>
+  )
+}
+
+function CustomerProfileRailContent({
   customerName,
   customerId,
   customerPhone,
@@ -57,7 +85,6 @@ export function CustomerProfileRail({
   onViewAllOrders,
   onOpenOrder,
   onAskChidiAbout,
-  className,
 }: CustomerProfileRailProps) {
   // customer_id from the conversation IS the phone (e.g. "+2348012345678")
   const { data, isLoading } = useCustomerDetail(customerId)
@@ -75,10 +102,7 @@ export function CustomerProfileRail({
       : "#9CA3AF"
 
   return (
-    <aside
-      className={`hidden xl:flex flex-col flex-shrink-0 w-[300px] bg-[var(--chidi-surface)] border-l border-[var(--chidi-border-subtle)] overflow-y-auto ${className || ""}`}
-      aria-label="Customer profile"
-    >
+    <>
       {/* Header */}
       <div className="px-5 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)]">
         <div className="flex items-start justify-between mb-3">
@@ -204,7 +228,7 @@ export function CustomerProfileRail({
           </button>
         )}
       </div>
-    </aside>
+    </>
   )
 }
 

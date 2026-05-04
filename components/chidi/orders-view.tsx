@@ -303,8 +303,10 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
               </svg>
             </div>
 
-            {/* Status tabs — quick swap into a focused single-status view */}
-            <div className="flex items-center gap-1 overflow-x-auto -mx-1 px-1" role="tablist">
+            {/* Status tabs — quick swap into a focused single-status view.
+                Horizontal scroll on mobile so chips never wrap; hide the
+                scrollbar so the strip reads as a clean ribbon. */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none -mx-1 px-1" role="tablist">
               {([
                 { id: "pending" as const, label: "Need you", count: counts.pending, tone: "warn" as const },
                 { id: "in_progress" as const, label: "In progress", count: counts.in_progress },

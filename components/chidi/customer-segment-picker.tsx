@@ -47,7 +47,7 @@ export function CustomerSegmentPicker({
     <div
       ref={scrollRef}
       className={cn(
-        "flex items-center gap-1.5 overflow-x-auto scrollbar-thin pb-1",
+        "flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1",
         className,
       )}
       role="tablist"

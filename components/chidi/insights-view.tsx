@@ -233,7 +233,7 @@ export function InsightsView() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 -mx-1 px-1 overflow-x-auto scrollbar-none w-full sm:w-auto">
             <CompareToggle on={compareToPrior} onChange={setCompareToPrior} />
             <PeriodPicker value={period} onChange={setPeriod} />
             <button
@@ -1113,8 +1113,9 @@ function DrillInPanel({
 }) {
   return (
     <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
-      {/* Tab strip — no subtitle, the tab name is the section name. */}
-      <div className="flex items-center justify-end mb-4">
+      {/* Tab strip — no subtitle, the tab name is the section name.
+          Horizontal scroll on mobile so the chips never wrap. */}
+      <div className="flex items-center justify-start sm:justify-end mb-4 -mx-1 px-1 overflow-x-auto scrollbar-none">
         <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-default)] bg-[var(--card)] p-0.5 flex-shrink-0">
           {LENS_OPTIONS.map((opt) => (
             <button

@@ -480,9 +480,10 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
         >
           {/* Drag handle — shows on row hover. Pinned rows skip it: the
               Pinned strip's order is "most-recently-pinned first", not
-              custom-order, so dragging would just be a confusing no-op. */}
+              custom-order, so dragging would just be a confusing no-op.
+              Hidden entirely on mobile — touch-drag isn't useful here. */}
           <span
-            className="w-4 flex items-center justify-center text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+            className="hidden sm:flex w-4 items-center justify-center text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
             onClick={(e) => e.stopPropagation()}
             title={pinned ? "Pinned" : "Drag to reorder"}
           >
@@ -572,6 +573,17 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             ) : (
               <p className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice">—</p>
             )}
+            {/* Mobile-only second row: price + stock summary so we don't need
+                separate hidden columns. Inline edit still lives on the
+                desktop right-side cells. */}
+            <div className="sm:hidden mt-0.5 flex items-baseline gap-2 text-[12px] tabular-nums">
+              <span className="font-semibold text-[var(--chidi-text-primary)]">
+                {product.displayPrice}
+              </span>
+              <span className="text-[var(--chidi-text-muted)] font-chidi-voice">
+                · {product.stock} in stock
+              </span>
+            </div>
           </div>
           <span className="hidden sm:block w-20 text-right text-sm font-semibold text-[var(--chidi-text-primary)]">
             <EditableCell
@@ -909,15 +921,15 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   return (
     <div className="flex-1 flex flex-col bg-[var(--background)] min-h-0 overflow-hidden">
       {/* Header — noun title + summary chips. No conversational subtitle. */}
-      <div className="px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
-        <div className="flex items-start justify-between mb-3 gap-3">
+      <div className="sticky top-0 z-10 bg-[var(--background)] px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
+        <div className="flex items-start justify-between mb-3 gap-3 flex-col sm:flex-row sm:items-center">
           <div className="min-w-0">
             <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inventory</h1>
             {/* Stat tiles removed — the row was visually noisy and the
                 low/out filters are reachable from the search-row dropdown
                 and from per-row stock pills. Worth was informational only. */}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <div className="hidden md:flex items-center gap-0.5 bg-[var(--chidi-surface)] rounded-lg p-0.5 border border-[var(--chidi-border-subtle)]" role="tablist" aria-label="View mode">
               <button
                 role="tab"
@@ -949,12 +961,12 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               </button>
             </div>
             {/* "Add product" — single click opens a small modal where the
-                merchant picks the path (manually OR import). Modal beats
-                dropdown because the choices deserve a moment, not a hover. */}
+                merchant picks the path (manually OR import). Full width on
+                mobile so it's a confident primary CTA; inline on lg+. */}
             <button
               type="button"
               onClick={() => setAddChooserOpen(true)}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 active:scale-[0.97] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
+              className="inline-flex flex-1 sm:flex-none justify-center items-center gap-1.5 h-10 sm:h-9 px-3.5 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 active:scale-[0.97] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
             >
               <Plus className="w-4 h-4" strokeWidth={2.4} />
               Add product

@@ -380,8 +380,9 @@ export function CopilotView({
         onShowHistory={() => setShowHistory(true)}
         onPromptClick={handlePromptChipClick}
       >
-        {/* Input - fixed at bottom */}
-        <div className="flex-shrink-0 p-4 pb-4 bg-[var(--chidi-surface)] border-t border-[var(--chidi-border-subtle)]">
+        {/* Input - fixed at bottom; safe-area-bottom keeps it clear of the
+            iOS home indicator on the empty-state surface too. */}
+        <div className="flex-shrink-0 p-4 pb-4 bg-[var(--chidi-surface)] border-t border-[var(--chidi-border-subtle)] safe-area-bottom">
           <form
             onSubmit={handleSubmit}
             className="max-w-lg mx-auto"
@@ -528,7 +529,7 @@ export function CopilotView({
                 <div
                   className={cn(
                     message.role === "user"
-                      ? "max-w-[78%] bg-[var(--chidi-surface)] text-[var(--chidi-text-primary)] rounded-2xl px-4 py-2.5 border border-[var(--chidi-border-subtle)]"
+                      ? "max-w-[85vw] sm:max-w-[78%] bg-[var(--chidi-surface)] text-[var(--chidi-text-primary)] rounded-2xl px-4 py-2.5 border border-[var(--chidi-border-subtle)]"
                       : "max-w-[calc(100%-2.5rem)] bg-transparent",
                   )}
                 >
@@ -575,8 +576,9 @@ export function CopilotView({
         </div>
       </div>
 
-      {/* Input — Claude-style large rounded bubble with send inside */}
-      <div className="flex-shrink-0 px-4 lg:px-6 pb-6 pt-2 bg-[var(--background)]">
+      {/* Input — Claude-style large rounded bubble with send inside.
+          safe-area-bottom keeps the input above the iOS home indicator. */}
+      <div className="flex-shrink-0 px-4 lg:px-6 pb-6 pt-2 bg-[var(--background)] safe-area-bottom">
         <form
           onSubmit={handleSubmit}
           className="max-w-3xl mx-auto"

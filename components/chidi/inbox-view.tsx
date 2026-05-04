@@ -550,9 +550,13 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
     const channelInfo = conversation.channel_type
       ? getChannelInfo(conversation.channel_type)
       : null
-    const displayName =
+    // Hard-cap the display name on narrow viewports so the status badge
+    // (Needs you / unread count / snooze chip) never gets pushed under the
+    // name on a small screen. We keep the full name for sm+ via CSS truncate.
+    const fullName =
       conversation.customer_name ||
       formatCustomerId(conversation.customer_id, conversation.channel_type)
+    const displayName = fullName.length > 18 ? `${fullName.slice(0, 17).trimEnd()}…` : fullName
     const peek =
       conversation.last_message_preview ||
       (conversation.last_intent && conversation.last_intent !== "UNKNOWN"
@@ -1024,8 +1028,9 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
 
   return (
     <div className="flex-1 flex flex-col bg-[var(--background)]">
-      {/* Header — noun title + inline meta. No conversational subtitle. */}
-      <div className="px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
+      {/* Header — noun title + inline meta. Sticky on mobile so the
+          merchant keeps page context when scrolling the conversation list. */}
+      <div className="sticky top-0 z-10 bg-[var(--background)] px-4 lg:px-6 pt-4 lg:pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
         <div className="flex items-center justify-between mb-3 gap-3">
           <div className="min-w-0 flex items-baseline gap-3">
             <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inbox</h1>
@@ -1066,8 +1071,10 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
           </Tabs>
         )}
 
-        {/* Search and filter */}
-        <div className="flex gap-2">
+        {/* Search and filter — search fills the row on mobile; the snoozed /
+            archive / status chips wrap to a second scrollable row below so
+            nothing clips. */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--chidi-text-muted)]" />
             <Input
@@ -1077,6 +1084,9 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
               className="pl-9 h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)]"
             />
           </div>
+          {/* Mobile: chips ride a horizontal scroll strip so they never wrap
+              or clip. Desktop: lay out inline next to the search field. */}
+          <div className="flex gap-2 sm:contents -mx-4 px-4 overflow-x-auto scrollbar-none">
           {/* Snoozed chip — sits next to the status dropdown so the count is
               always visible and one tap toggles the snoozed-only view. */}
           <button
@@ -1084,7 +1094,7 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
             onClick={() => setStatusFilter(statusFilter === "SNOOZED" ? "all" : "SNOOZED")}
             aria-pressed={statusFilter === "SNOOZED"}
             className={cn(
-              "h-9 inline-flex items-center gap-1.5 px-3 rounded-md border text-[12px] font-medium transition-colors",
+              "h-9 inline-flex items-center gap-1.5 px-3 rounded-md border text-[12px] font-medium transition-colors flex-shrink-0 whitespace-nowrap",
               statusFilter === "SNOOZED"
                 ? "bg-[var(--chidi-text-primary)] text-white border-[var(--chidi-text-primary)]"
                 : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:text-[var(--chidi-text-primary)]",
@@ -1121,7 +1131,7 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
             }}
             aria-pressed={showingArchive}
             className={cn(
-              "h-9 inline-flex items-center gap-1.5 px-3 rounded-md border text-[12px] font-medium transition-colors",
+              "h-9 inline-flex items-center gap-1.5 px-3 rounded-md border text-[12px] font-medium transition-colors flex-shrink-0 whitespace-nowrap",
               showingArchive
                 ? "bg-[var(--chidi-text-primary)] text-white border-[var(--chidi-text-primary)]"
                 : "bg-[var(--chidi-surface)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:text-[var(--chidi-text-primary)]",
@@ -1144,7 +1154,7 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
             )}
           </button>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[120px] h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]">
+            <SelectTrigger className="w-[120px] h-9 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] flex-shrink-0">
               <SelectValue placeholder="Filter" />
             </SelectTrigger>
             <SelectContent className="bg-white border-[var(--chidi-border-default)]">
@@ -1155,6 +1165,7 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
               <SelectItem value="SNOOZED">Snoozed</SelectItem>
             </SelectContent>
           </Select>
+          </div>
         </div>
 
         {/* Live folders strip — auto-grouping chips. Only the live inbox
@@ -1247,9 +1258,11 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
           )
         ) : (
           <>
-            {/* Bulk-actions toolbar — sticky, slides in when count > 0 */}
+            {/* Bulk-actions toolbar — desktop sticks to top; mobile floats
+                from the BOTTOM above the bottom-nav so it's reachable with
+                the thumb without covering the conversation list header. */}
             {selectedIds.size > 0 && (
-              <div className="sticky top-0 z-20 bg-[var(--chidi-win)]/10 border-b border-[var(--chidi-win)]/30 px-4 lg:px-6 py-2 flex items-center justify-between gap-3 chidi-list-in">
+              <div className="hidden md:flex sticky top-0 z-20 bg-[var(--chidi-win)]/10 border-b border-[var(--chidi-win)]/30 px-4 lg:px-6 py-2 items-center justify-between gap-3 chidi-list-in">
                 <div className="flex items-center gap-2">
                   <span className="text-[12px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
                     {selectedIds.size} selected
@@ -1299,6 +1312,80 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
                                 type="button"
                                 onClick={() => handleSnoozePreset(p.id)}
                                 className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md text-[12.5px] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] text-left"
+                              >
+                                <span>{p.label}</span>
+                                {u && (
+                                  <span className="text-[10px] tabular-nums text-[var(--chidi-text-muted)]">
+                                    {formatSnoozeUntil(u)}
+                                  </span>
+                                )}
+                              </button>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </SnoozePopoverContent>
+                  </SnoozePopover>
+                </div>
+              </div>
+            )}
+            {/* Mobile bulk-actions — fixed-bottom sheet, sits above the
+                bottom-nav (4rem). Padded for the iOS home-indicator. */}
+            {selectedIds.size > 0 && (
+              <div
+                className="md:hidden fixed left-0 right-0 z-30 bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] border-t border-[var(--chidi-border-default)] px-4 py-2.5 flex items-center justify-between gap-3 chidi-list-in safe-area-bottom shadow-[0_-4px_18px_-4px_rgba(0,0,0,0.18)]"
+                style={{ bottom: "4rem" }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[12px] font-semibold tabular-nums">
+                    {selectedIds.size} selected
+                  </span>
+                  <button
+                    onClick={clearSelection}
+                    className="opacity-80 hover:opacity-100 p-1 rounded -ml-0.5"
+                    aria-label="Clear selection"
+                  >
+                    <XIcon className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={handleBulkResolve}
+                    disabled={resolveConversation.isPending}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-3 rounded-md text-[12.5px] font-medium hover:bg-white/10 transition-colors disabled:opacity-60"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Resolve
+                  </button>
+                  <SnoozePopover open={snoozePickerOpen} onOpenChange={setSnoozePickerOpen}>
+                    <SnoozePopoverTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setSnoozePickerOpen(true)}
+                        className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-3 rounded-md text-[12.5px] font-medium hover:bg-white/10 transition-colors"
+                      >
+                        <Clock className="w-4 h-4" />
+                        Snooze
+                      </button>
+                    </SnoozePopoverTrigger>
+                    <SnoozePopoverContent
+                      align="end"
+                      side="top"
+                      sideOffset={6}
+                      className="w-60 p-1 bg-white border-[var(--chidi-border-default)] shadow-lg rounded-xl"
+                    >
+                      <p className="px-2.5 pt-2 pb-1.5 text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium">
+                        Quiet for
+                      </p>
+                      <ul className="space-y-0.5">
+                        {SNOOZE_PRESETS.map((p) => {
+                          const u = p.id !== "custom" ? p.resolve() : null
+                          return (
+                            <li key={p.id}>
+                              <button
+                                type="button"
+                                onClick={() => handleSnoozePreset(p.id)}
+                                className="w-full flex items-center justify-between gap-2 px-2.5 py-2.5 rounded-md text-[13px] text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] text-left"
                               >
                                 <span>{p.label}</span>
                                 {u && (

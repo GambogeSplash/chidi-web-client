@@ -422,7 +422,7 @@ function ConfirmPaymentTrigger({
         e.stopPropagation()
         setOpen(true)
       }}
-      className="inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-1.5 rounded-lg bg-[var(--chidi-success)] text-[var(--chidi-success-foreground)] hover:opacity-90 active:scale-[0.97] transition-colors"
+      className="inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg bg-[var(--chidi-success)] text-[var(--chidi-success-foreground)] hover:opacity-90 active:scale-[0.97] transition-colors"
       aria-label={`Confirm payment for order ${order.id.slice(-6).toUpperCase()}`}
     >
       <Wallet className="w-3.5 h-3.5" />
@@ -670,7 +670,7 @@ function SmartOrderCard({
                   onClick={onPrimaryAction}
                   disabled={primaryActionLoading}
                   className={cn(
-                    "inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-1.5 rounded-lg active:scale-[0.97] transition-colors",
+                    "inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg active:scale-[0.97] transition-colors",
                     tone === "warn"
                       ? "bg-[var(--chidi-warning)] text-[var(--chidi-warning-foreground)] hover:opacity-90"
                       : "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] hover:opacity-90",
@@ -687,7 +687,7 @@ function SmartOrderCard({
               {!onPrimaryAction && (
                 <button
                   onClick={() => onOpenOrder(order)}
-                  className="inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-1.5 rounded-lg bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] hover:opacity-90 active:scale-[0.97] transition-colors"
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium font-chidi-voice px-3 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] hover:opacity-90 active:scale-[0.97] transition-colors"
                 >
                   {primaryActionLabel}
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -696,7 +696,7 @@ function SmartOrderCard({
               {order.conversation_id && onOpenConversation && (
                 <button
                   onClick={() => onOpenConversation(order.conversation_id!)}
-                  className="inline-flex items-center gap-1.5 text-[12px] font-chidi-voice px-2.5 py-1.5 rounded-lg text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)] active:scale-[0.97] transition-colors"
+                  className="inline-flex items-center gap-1.5 text-[12px] font-chidi-voice px-2.5 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 rounded-lg text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)] active:scale-[0.97] transition-colors"
                 >
                   <MessageCircle className="w-3.5 h-3.5" />
                   Chat
