@@ -1,12 +1,23 @@
 "use client"
 
 /**
- * CustomersView — the main people surface.
+ * CustomersView + CustomersBody — the main people surface.
  *
- * Composition:
+ * Two exports:
+ *   - <CustomersBody /> — JUST the inner content (snapshot strip, segment chips,
+ *     sortable table, recent broadcasts, broadcast composer modal). Has no
+ *     ChidiPage shell, no page title, no fixed width — drops cleanly into any
+ *     host container (Insights drill-in panel, etc.).
+ *   - <CustomersView /> — the original full-page export. Wraps <CustomersBody />
+ *     in a <ChidiPage> with the "Customers" title + "Send broadcast" header
+ *     action. Kept for backward-compat (and any future standalone use).
+ *
+ * Composition (inside CustomersBody):
  *   1. Snapshot strip — total / new this month / repeat rate / avg LTV
  *      All counts tween from 0 via useCountUp; respects reduced-motion.
- *   2. Segment chip strip + sort dropdown + "Send broadcast" CTA
+ *   2. Segment chip strip + sort dropdown + (optional) "Send broadcast" CTA.
+ *      The CTA renders inline ONLY when no external host action is provided —
+ *      otherwise the host (e.g. Insights) owns the broadcast button placement.
  *   3. Customer table — avatar, name, channel chips, total spend, last order,
  *      "Open conversation" jumps to inbox via a window-level event the
  *      DashboardContent already listens for.
@@ -82,7 +93,14 @@ const VALID_SEGMENTS: SegmentId[] = [
 ]
 const VALID_SORTS: SortKey[] = ["recent", "spend", "name"]
 
-export function CustomersView() {
+/**
+ * Embeddable body — no ChidiPage chrome, no page title. Drops into any host.
+ * Width / padding belong to the parent. The optional `renderHeaderActions`
+ * lets the host position the "Send broadcast" CTA somewhere else (Insights
+ * embeds the body inside its own framed panel, where the inline composer
+ * trigger lives in the segment-strip area instead of a header).
+ */
+export function CustomersBody() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
@@ -214,83 +232,80 @@ export function CustomersView() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <ChidiPage
-        title="Customers"
-        subtitle="Everyone you've sold to."
-        width="wide"
-        actions={
-          customers.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => openComposer(activeSegment)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
-            >
-              <Send className="w-3.5 h-3.5" strokeWidth={2.2} />
-              Send broadcast
-            </button>
-          ) : null
-        }
-      >
-        {customers.length === 0 && !isLoading ? (
-          <EmptyState
-            art="inbox"
-            title="No customers yet."
-            description="Once someone messages you on WhatsApp or Telegram, they'll show up here. You can then segment them and send broadcasts."
+    <>
+      {customers.length === 0 && !isLoading ? (
+        <EmptyState
+          art="inbox"
+          title="No customers yet."
+          description="Once someone messages you on WhatsApp or Telegram, they'll show up here. You can then segment them and send broadcasts."
+        />
+      ) : (
+        <>
+          {/* Snapshot strip */}
+          <SnapshotStrip
+            total={snapshot.total}
+            newThisMonth={snapshot.newThisMonth}
+            repeatRate={snapshot.repeatRate}
+            avgLtv={snapshot.avgLtv}
           />
-        ) : (
-          <>
-            {/* Snapshot strip */}
-            <SnapshotStrip
-              total={snapshot.total}
-              newThisMonth={snapshot.newThisMonth}
-              repeatRate={snapshot.repeatRate}
-              avgLtv={snapshot.avgLtv}
-            />
 
-            {/* Segment chip strip + sort + count */}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <CustomerSegmentPicker
-                  segments={segments}
-                  active={active}
-                  onChange={setActive}
-                  onBroadcast={openComposer}
-                />
-              </div>
-              <SortDropdown value={sortKey} onChange={setSortKey} />
+          {/* Segment chip strip + sort + inline broadcast CTA. The broadcast
+              button used to live in ChidiPage's header actions; with the body
+              now embeddable, it moves inline so hosts (Insights, etc.) don't
+              need to re-implement composer wiring. */}
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <CustomerSegmentPicker
+                segments={segments}
+                active={active}
+                onChange={setActive}
+                onBroadcast={openComposer}
+              />
             </div>
-
-            {/* Result count caption */}
-            <p className="mt-3 text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice">
-              Showing {filtered.length.toLocaleString()} of {customers.length.toLocaleString()} —{" "}
-              <span className="text-[var(--chidi-text-secondary)]">{activeSegment.hint}</span>
-            </p>
-
-            {/* Customer table — Pinned customers render in their own
-                section above the main list (when any survive the active
-                segment), so the merchant always finds their tier-A people
-                first regardless of sort or filter. */}
-            <CustomerTable
-              pinnedCustomers={pinnedCustomers}
-              customers={unpinnedCustomers}
-              totalCount={filtered.length}
-              isLoading={isLoading}
-              onOpenConversation={handleOpenConversation}
-              onTogglePin={handleTogglePinCustomer}
-              onUnpin={handleUnpinCustomer}
-            />
-
-            {/* Recent broadcasts */}
-            {broadcasts.length > 0 && (
-              <RecentBroadcasts broadcasts={broadcasts.slice(0, 3)} />
+            <SortDropdown value={sortKey} onChange={setSortKey} />
+            {customers.length > 0 && (
+              <button
+                type="button"
+                onClick={() => openComposer(activeSegment)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
+              >
+                <Send className="w-3.5 h-3.5" strokeWidth={2.2} />
+                Send broadcast
+              </button>
             )}
-          </>
-        )}
-      </ChidiPage>
+          </div>
 
-      {/* Composer — Dialog auto-converts to bottom sheet on mobile via the
-          existing Dialog primitive's responsive variant. */}
+          {/* Result count caption */}
+          <p className="mt-3 text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice">
+            Showing {filtered.length.toLocaleString()} of {customers.length.toLocaleString()} —{" "}
+            <span className="text-[var(--chidi-text-secondary)]">{activeSegment.hint}</span>
+          </p>
+
+          {/* Customer table — Pinned customers render in their own
+              section above the main list (when any survive the active
+              segment), so the merchant always finds their tier-A people
+              first regardless of sort or filter. */}
+          <CustomerTable
+            pinnedCustomers={pinnedCustomers}
+            customers={unpinnedCustomers}
+            totalCount={filtered.length}
+            isLoading={isLoading}
+            onOpenConversation={handleOpenConversation}
+            onTogglePin={handleTogglePinCustomer}
+            onUnpin={handleUnpinCustomer}
+          />
+
+          {/* Recent broadcasts */}
+          {broadcasts.length > 0 && (
+            <RecentBroadcasts broadcasts={broadcasts.slice(0, 3)} />
+          )}
+        </>
+      )}
+
+      {/* Composer — Dialog. Centers against the viewport regardless of which
+          host renders this body, so embedding inside a framed Insights panel
+          is fine. Auto-converts to a bottom sheet on mobile via the existing
+          Dialog primitive's responsive variant. */}
       {composerSegment && (
         <BroadcastComposer
           open={composerOpen}
@@ -303,6 +318,26 @@ export function CustomersView() {
           onQueued={() => setBroadcasts(listBroadcasts())}
         />
       )}
+    </>
+  )
+}
+
+/**
+ * Standalone full-page export — wraps <CustomersBody /> in the ChidiPage shell
+ * with the canonical title + subtitle. Kept for backward-compat; the main
+ * dashboard now embeds <CustomersBody /> inside the Insights drill-in panel
+ * instead of routing here.
+ */
+export function CustomersView() {
+  return (
+    <div className="flex flex-col h-full">
+      <ChidiPage
+        title="Customers"
+        subtitle="Everyone you've sold to."
+        width="wide"
+      >
+        <CustomersBody />
+      </ChidiPage>
     </div>
   )
 }

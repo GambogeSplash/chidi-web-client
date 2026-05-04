@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
-import { useParams, usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { ArcFace } from "./arc-face"
 import { hapticTap } from "@/lib/chidi/haptics"
 import { PRIMARY_TABS } from "@/lib/chidi/navigation"
 
+// "customers" stays in the union for backward compatibility (other surfaces
+// still reference the legacy id when deep-linking via redirect), but the
+// bottom nav itself no longer renders a customers pill. The full Customers
+// surface lives inside Insights → Customers lens.
 export type TabId = "inbox" | "orders" | "inventory" | "customers" | "insights" | "chidi"
 
 interface BottomNavigationProps {
@@ -58,13 +61,6 @@ function useInputFocused(): boolean {
 
 export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: BottomNavigationProps) {
   const inputFocused = useInputFocused()
-  const router = useRouter()
-  const params = useParams()
-  const pathname = usePathname()
-  const slug = params?.slug as string | undefined
-  // Customers + Playbook live on their own routes (not in-tab) — detect that
-  // pathname so the bottom bar lights up the right pill on those pages.
-  const isOnCustomers = pathname?.includes("/customers")
   return (
     <nav
       className={cn(
@@ -75,10 +71,7 @@ export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: Bot
     >
       <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
         {navItems.map((item) => {
-          const isActive =
-            item.id === "customers"
-              ? !!isOnCustomers
-              : activeTab === item.id && !isOnCustomers
+          const isActive = activeTab === item.id
           const isChidi = item.icon === "chidi-mark"
           const Icon = isChidi ? null : (item.icon as LucideIcon)
 
@@ -87,17 +80,6 @@ export function BottomNavigation({ activeTab, onTabChange, tabCounts = {} }: Bot
               key={item.id}
               onClick={() => {
                 hapticTap()
-                // Customers is its own route — push instead of changing the
-                // dashboard's in-tab state. Same pattern used by Playbook
-                // from the rail's LIBRARY_ENTRIES.
-                if (item.id === "customers") {
-                  if (slug) router.push(`/dashboard/${slug}/customers`)
-                  return
-                }
-                if (isOnCustomers && slug) {
-                  router.push(`/dashboard/${slug}?tab=${item.id}`)
-                  return
-                }
                 onTabChange(item.id)
               }}
               className={cn(

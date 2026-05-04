@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Image from "next/image"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import {
   ArrowUp,
   ArrowDown,
@@ -72,7 +72,6 @@ import {
   useChannelMix,
   useSalesTrend,
   useTopProducts,
-  useCustomers,
 } from "@/lib/hooks/use-analytics"
 import { useOrders } from "@/lib/hooks/use-orders"
 import { formatCurrency } from "@/lib/api/analytics"
@@ -81,6 +80,7 @@ import { CustomerCharacter } from "./customer-character"
 import { ChidiAvatar } from "./chidi-mark"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import { ChidiCard } from "./page-shell"
+import { CustomersBody } from "./customers-view"
 
 // ============================================================================
 // Constants
@@ -163,9 +163,12 @@ function writeDecisionState(map: DecisionStateMap) {
 // InsightsView — top-level
 // ============================================================================
 
+const VALID_LENSES: Lens[] = ["channels", "products", "customers"]
+
 export function InsightsView() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const slug = (params?.slug as string | undefined) ?? "default"
 
   const [period, setPeriod] = usePersistedState<Period>("insights:period", "30d")
@@ -175,6 +178,35 @@ export function InsightsView() {
   )
   const [lens, setLens] = usePersistedState<Lens>("insights:lens", "channels")
 
+  // ?lens=customers (or any valid lens) takes priority over the persisted
+  // value on mount. Used by the legacy /customers route's redirect so a
+  // deep-link to "Insights → Customers" lands on the right tab.
+  useEffect(() => {
+    const raw = searchParams?.get("lens") as Lens | null
+    if (raw && VALID_LENSES.includes(raw) && raw !== lens) {
+      setLens(raw)
+    }
+    // Only react to the URL param itself — we don't want to bounce the lens
+    // back when the user clicks a different tab pill.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // When the lens changes from a click, mirror it into the URL so deep-links
+  // round-trip cleanly. Replace, no scroll, no history bloat.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const current = new URLSearchParams(searchParams?.toString() ?? "")
+    const next = lens === "channels" ? null : lens
+    const existing = current.get("lens")
+    if (next === existing) return
+    if (next === null) current.delete("lens")
+    else current.set("lens", next)
+    const qs = current.toString()
+    const url = qs ? `?${qs}` : window.location.pathname
+    router.replace(url, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lens])
+
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -182,7 +214,8 @@ export function InsightsView() {
   const { data: channelMix, refetch: refetchChannel } = useChannelMix(period)
   const { data: trend, refetch: refetchTrend } = useSalesTrend(period)
   const { data: topProducts, refetch: refetchTop } = useTopProducts(period, 5)
-  const { data: customers, refetch: refetchCust } = useCustomers(undefined, "total_spent", 6)
+  // Customers data now lives inside <CustomersBody /> (embedded as the
+  // "Customers" lens), which manages its own React Query subscription.
   const { data: pendingOrders } = useOrders("PENDING_PAYMENT")
 
   const handleRefresh = async () => {
@@ -192,7 +225,6 @@ export function InsightsView() {
       refetchChannel(),
       refetchTrend(),
       refetchTop(),
-      refetchCust(),
     ])
     setRefreshKey((k) => k + 1)
     setTimeout(() => setRefreshing(false), 700)
@@ -343,10 +375,8 @@ export function InsightsView() {
             channels={channelMix?.channels ?? []}
             channelTotal={channelMix?.totals.revenue ?? 0}
             products={topProducts?.top_products ?? []}
-            customers={customers?.customers ?? []}
             onConfigure={goToSettings}
             onSeeAllInventory={() => goToTab("inventory")}
-            onSeeConvo={() => goToTab("inbox")}
           />
         </section>
       </div>
@@ -1424,10 +1454,8 @@ function DrillInPanel({
   channels,
   channelTotal,
   products,
-  customers,
   onConfigure,
   onSeeAllInventory,
-  onSeeConvo,
 }: {
   lens: Lens
   onLensChange: (l: Lens) => void
@@ -1445,17 +1473,8 @@ function DrillInPanel({
     revenue: number
     image_url?: string | null
   }>
-  customers: Array<{
-    phone: string
-    name: string | null
-    total_spent: number
-    order_count: number
-    last_order: string | null
-    is_vip: boolean
-  }>
   onConfigure: () => void
   onSeeAllInventory: () => void
-  onSeeConvo: () => void
 }) {
   const activeOpt = LENS_OPTIONS.find((o) => o.id === lens) ?? LENS_OPTIONS[0]
 
@@ -1499,9 +1518,12 @@ function DrillInPanel({
       {lens === "products" && (
         <ProductsLens products={products} onSeeAll={onSeeAllInventory} />
       )}
-      {lens === "customers" && (
-        <CustomersLens customers={customers} onSeeConvo={onSeeConvo} />
-      )}
+      {/* Customers lens — embeds the FULL customers surface (snapshot strip,
+          segment chips, sortable table, broadcast composer). The standalone
+          /customers route was retired in favor of this single-home pattern;
+          the lite top-6 list that lived here is gone. The drill-in title row
+          above already labels this section ("Who's spending the most."). */}
+      {lens === "customers" && <CustomersBody />}
     </div>
   )
 }
