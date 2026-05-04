@@ -57,6 +57,32 @@ import {
   type PlaybookPlay,
 } from "@/lib/chidi/playbook-plays"
 import { DECISIONS, type Decision } from "@/lib/chidi/insights-decisions"
+import {
+  markFired,
+  isStale,
+  lastFiredLabel,
+  partitionByStaleness,
+  subscribe as subscribeStaleness,
+} from "@/lib/chidi/play-staleness"
+import { playWin } from "@/lib/chidi/sound"
+
+/**
+ * Decisions in "Today" map loosely to plays in the library. When a decision
+ * is enacted we want to wake up its corresponding play so the staleness
+ * clock resets — otherwise the decision could fire weekly and the play
+ * would still drift into the Quiet section. Best-effort mapping; unmapped
+ * decisions just don't update any play.
+ */
+const DECISION_TO_PLAY_ID: Record<string, string> = {
+  "dec-followup-pending": "play-pending-payment",
+  "dec-restock-wax-print": "play-restock-fast-mover",
+  "dec-pause-iphone-case": "play-clearance-stale",
+  "dec-price-bluetooth": "play-bulk-quote",
+  "dec-promote-saturday": "play-saturday-prep",
+  "dec-vip-checkin": "play-vip-checkin",
+  "dec-channel-mix": "play-morning-brief",
+  "dec-clearance-stale": "play-clearance-stale",
+}
 
 const PlaySheetBody = dynamic(
   () => import("@/components/chidi/play-sandbox").then((m) => m.PlaySheetBody),
@@ -119,6 +145,33 @@ export default function PlaybookPage() {
     [],
   )
   const allPlays = useMemo(() => [...authoredPlays, ...PLAYS], [authoredPlays])
+
+  // ----- Stale-play tracking (Arc-style "tidy as you go") ----------------
+  // Tick bumps on every fire/wake so the partition recomputes and the
+  // Quiet section re-renders without a full reload.
+  const [stalenessTick, setStalenessTick] = useState(0)
+  useEffect(() => {
+    const off = subscribeStaleness(() => setStalenessTick((n) => n + 1))
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "chidi:plays-last-fired") setStalenessTick((n) => n + 1)
+    }
+    window.addEventListener("storage", onStorage)
+    return () => {
+      off()
+      window.removeEventListener("storage", onStorage)
+    }
+  }, [])
+  const { active: activePlays, stale: stalePlays } = useMemo(
+    () => partitionByStaleness(allPlays),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allPlays, stalenessTick],
+  )
+
+  const handleWakePlay = useCallback((id: string) => {
+    markFired(id)
+    playWin()
+    toast.success("Woken up", { description: "Chidi will run this again." })
+  }, [])
 
   // ----- Today's decisions state ----------------------------------------
   const [decisionState, setDecisionState] = usePersistedState<DecisionStateMap>(
@@ -195,6 +248,12 @@ export default function PlaybookPage() {
         ].slice(0, 8),
       )
       setDecisionLifecycle(summary.decisionId, "enacted")
+      // Reset the staleness clock for the corresponding play (best-effort
+      // mapping — see DECISION_TO_PLAY_ID above). Also stamps the decision
+      // id directly so the same store works for both surfaces.
+      const playId = DECISION_TO_PLAY_ID[summary.decisionId]
+      if (playId) markFired(playId)
+      markFired(summary.decisionId)
       toast.success("Play ran", { description: summary.resultLine })
     },
     [setRecentRuns, setDecisionLifecycle],
@@ -360,7 +419,7 @@ export default function PlaybookPage() {
             <div>
               <SectionHeader
                 eyebrow="Always running"
-                count={allPlays.length}
+                count={activePlays.length}
                 tone="win"
               />
               {allPlays.length === 0 ? (
@@ -380,7 +439,7 @@ export default function PlaybookPage() {
                 />
               ) : (
                 <PlaybookAlwaysRunning
-                  plays={allPlays}
+                  plays={activePlays}
                   pausedSet={pausedSet}
                   customMessages={customMessages}
                   onOpen={(id) => setSheetTarget({ kind: "play", id })}
@@ -398,6 +457,15 @@ export default function PlaybookPage() {
                 </button>
               </div>
             </div>
+
+            {/* === QUIET PLAYS — auto-collapse for plays that haven't fired in 30+ days === */}
+            {stalePlays.length > 0 && (
+              <QuietPlaysAccordion
+                plays={stalePlays}
+                onOpen={(id) => setSheetTarget({ kind: "play", id })}
+                onWake={handleWakePlay}
+              />
+            )}
           </div>
         )}
       </ChidiPage>
@@ -694,6 +762,86 @@ function ComposeSheet({
         </button>
       </div>
     </>
+  )
+}
+
+// ===========================================================================
+// Quiet plays — accordion for plays that haven't fired in 30+ days
+// ===========================================================================
+
+function QuietPlaysAccordion({
+  plays,
+  onOpen,
+  onWake,
+}: {
+  plays: PlaybookPlay[]
+  onOpen: (id: string) => void
+  onWake: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="pt-2">
+      <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mb-1.5 px-1">
+        Plays that haven't fired in over 30 days. Wake one up if it should be running.
+      </p>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between py-3 px-3 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)] hover:bg-[var(--card)] text-left transition-colors group"
+      >
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-text-muted)]" />
+          <span className="text-[13px] font-medium text-[var(--chidi-text-primary)]">
+            Quiet plays ({plays.length})
+          </span>
+        </div>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={cn(
+            "text-[var(--chidi-text-muted)] transition-transform motion-reduce:transition-none",
+            open && "rotate-90",
+          )}
+        >
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="mt-2 rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)] divide-y divide-[var(--chidi-border-subtle)] overflow-hidden opacity-95">
+          {plays.map((play) => (
+            <li key={play.id} className="flex items-center gap-3 px-3.5 py-3">
+              <button
+                type="button"
+                onClick={() => onOpen(play.id)}
+                className="flex-1 min-w-0 text-left"
+              >
+                <p className="text-[13px] text-[var(--chidi-text-primary)] truncate font-medium">
+                  {play.title}
+                </p>
+                <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
+                  {lastFiredLabel(play.id)}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => onWake(play.id)}
+                className="flex-shrink-0 inline-flex items-center gap-1 text-[11.5px] font-medium font-chidi-voice px-2.5 py-1.5 rounded-md bg-[var(--chidi-text-primary)] text-[var(--background)] hover:opacity-90 active:scale-[0.97] transition-colors"
+                title="Reset the staleness clock"
+              >
+                Wake it up
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 

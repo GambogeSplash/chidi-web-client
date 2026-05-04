@@ -56,6 +56,7 @@ import {
   restore as restoreOrder,
   subscribe as subscribeArchive,
 } from "@/lib/chidi/orders-archive"
+import { smartOrderTitle, smartOrderSubtitle } from "@/lib/chidi/order-titles"
 import { cn } from "@/lib/utils"
 
 const CHANNEL_COLOR: Record<string, string> = {
@@ -599,12 +600,16 @@ function SmartOrderCard({
                 />
               )}
             </div>
-            <div className="flex-1 min-w-0 flex items-baseline justify-between gap-2 pr-16">
-              <span className="ty-card-title text-[var(--chidi-text-primary)] truncate">
-                {order.customer_name}
+            <div className="flex-1 min-w-0 pr-16">
+              {/* Smart auto-rename — "Tola, Wax print dress, ₦12,500" — replaces
+                  the bare customer line with a one-glance summary the merchant
+                  can read like a story. Order ID drops to a quiet mono subtitle
+                  so traceability survives. */}
+              <span className="ty-card-title text-[var(--chidi-text-primary)] truncate block">
+                {smartOrderTitle(order)}
               </span>
-              <span className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums flex-shrink-0">
-                {orderNumber}
+              <span className="text-[10px] text-[var(--chidi-text-muted)] font-mono tabular-nums">
+                {smartOrderSubtitle(order)}
               </span>
             </div>
           </div>
@@ -1195,10 +1200,10 @@ function ArchivedRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm text-[var(--chidi-text-primary)] truncate">
-              {order.customer_name}
+              {smartOrderTitle(order)}
             </span>
-            <span className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
-              {orderNumber}
+            <span className="text-[10px] text-[var(--chidi-text-muted)] font-mono tabular-nums">
+              {smartOrderSubtitle(order)}
             </span>
           </div>
           {fulfilledDate && (
@@ -1272,10 +1277,10 @@ function FulfilledRow({
 
             <div className="flex-1 min-w-0 flex items-center gap-2">
               <span className="text-sm text-[var(--chidi-text-primary)] truncate">
-                {order.customer_name}
+                {smartOrderTitle(order)}
               </span>
-              <span className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
-                {orderNumber}
+              <span className="text-[10px] text-[var(--chidi-text-muted)] font-mono tabular-nums">
+                {smartOrderSubtitle(order)}
               </span>
             </div>
 

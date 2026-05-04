@@ -37,6 +37,7 @@ import {
 } from "@/lib/hooks/use-orders"
 import { CurrencyAmount } from "./currency-amount"
 import { ReceiptPreview } from "./receipt-preview"
+import { smartOrderTitle, smartOrderSubtitle } from "@/lib/chidi/order-titles"
 import { chidiWin } from "@/lib/chidi/ai-toast"
 import { playWin } from "@/lib/chidi/sound"
 import { hapticWin } from "@/lib/chidi/haptics"
@@ -394,10 +395,18 @@ export function OrdersView({ initialOrderId, onOrderSelected, onOpenConversation
                 Orders
               </button>
               
-              <div className="flex-1 md:flex-none text-center md:text-left">
-                <h2 className="font-semibold text-[var(--chidi-text-primary)]">Order Details</h2>
-                <p className="text-xs text-[var(--chidi-text-muted)] mt-0.5 hidden md:block">
-                  {formatDate(selectedOrder.created_at)}
+              <div className="flex-1 md:flex-none text-center md:text-left min-w-0">
+                {/* Smart title in the detail-panel chrome — same auto-rename
+                    treatment used in the list rows so the merchant's eye
+                    locks onto the same phrase across surfaces. Order ID
+                    drops to a quiet mono subtitle for traceability. */}
+                <h2 className="font-semibold text-[var(--chidi-text-primary)] truncate">
+                  {smartOrderTitle(selectedOrder)}
+                </h2>
+                <p className="text-[11px] text-[var(--chidi-text-muted)] mt-0.5 hidden md:flex items-center gap-2">
+                  <span className="font-mono tabular-nums">{smartOrderSubtitle(selectedOrder)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatDate(selectedOrder.created_at)}</span>
                 </p>
               </div>
               

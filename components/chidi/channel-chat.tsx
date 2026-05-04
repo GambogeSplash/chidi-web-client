@@ -9,6 +9,7 @@ import {
   CheckCircle,
   RefreshCw,
   Columns2,
+  Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,6 +58,7 @@ import { draftReply } from '@/lib/chidi/draft-reply'
 import { playTap } from '@/lib/chidi/sound'
 import { BoostsPanel } from '@/components/chidi/boosts-panel'
 import { ChatSplitView } from '@/components/chidi/chat-split-view'
+import { ChatSummarySheet } from '@/components/chidi/chat-summary-sheet'
 import {
   applyBoosts,
   countActive as countActiveBoosts,
@@ -106,6 +108,9 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
   // Split view (Arc-style "split with order"). Toggles a side-by-side
   // panel showing the linked order. Only enabled when an order exists.
   const [splitOpen, setSplitOpen] = useState(false)
+
+  // Chidi-summarized recap sheet — Arc-style "summarize this thread."
+  const [summaryOpen, setSummaryOpen] = useState(false)
 
   // Per-customer boost count — drives the "N boosts active" chip above the
   // input. Hydrated from store + kept in sync via subscribe.
@@ -437,6 +442,21 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
               <span className="hidden sm:inline">
                 {splitOpen ? 'Close split' : 'Split with order'}
               </span>
+            </Button>
+          )}
+          {/* Summarize — Arc-style recap. Only enabled when there are
+              messages to summarize (otherwise the sheet would be empty). */}
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSummaryOpen(true)}
+              aria-label="Summarize conversation"
+              title="Summarize conversation"
+              className="h-8 px-2 gap-1.5 text-[12px] font-chidi-voice text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Summarize</span>
             </Button>
           )}
           <Button
@@ -864,6 +884,29 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
       </div>
       </div>
       </ChatSplitView>
+
+      {/* Chidi-summarized recap — opens from the Summarize button in the
+          chat header. Deterministic algo lives in lib/chidi/chat-summary.ts;
+          AI swap is a phase-2 backend job. */}
+      <ChatSummarySheet
+        open={summaryOpen}
+        onOpenChange={setSummaryOpen}
+        conversation={conversation}
+        messages={messages}
+        linkedOrder={pendingOrder ?? null}
+        onAction={(kind) => {
+          // Wire the suggested CTA to existing surfaces. The summary sheet
+          // closes itself on tap, so we just need to land the merchant on
+          // the right widget here.
+          if (kind === 'confirm_payment' && pendingOrder) {
+            setPaymentSheetOpen(true)
+          } else if (kind === 'reply_now' || kind === 'send_delivery_update') {
+            // Focus the reply input — the merchant lands ready to type.
+            window.setTimeout(() => replyInputRef.current?.focus(), 50)
+          }
+          // follow_up / wrap_up → no-op (informational summaries)
+        }}
+      />
 
       {/* Customer profile rail — desktop only (xl+), shows accumulated context */}
       <CustomerProfileRail
