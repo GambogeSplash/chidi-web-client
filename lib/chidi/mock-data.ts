@@ -22,39 +22,74 @@ const ONE_DAY = 24 * ONE_HOUR
 const isoMinusHours = (h: number) => new Date(NOW - h * ONE_HOUR).toISOString()
 const isoMinusDays = (d: number) => new Date(NOW - d * ONE_DAY).toISOString()
 
-// ---- Products (Lagos fashion + electronics shop) -----------------------------
+// ---- Products (multi-brand Lagos boutique) ----------------------------------
 
-// Real Pexels CDN URLs — all verified 200 OK + free for commercial use without
-// attribution. Sized 400x400 cropped to feel like product shots.
-const px = (id: string) =>
-  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&fit=crop`
+// The shop carries seven Lagos/Nigerian designers across swim, resort,
+// occasion, bridal, couture, bags, shoes, and beauty. SKUs are price-laddered
+// from ₦8K (lipstick) up to ₦450K (couture bridal) so segment chips populate
+// naturally across tiers. Empty `image` falls through to the tinted-letter
+// placeholder rendered by the existing product-thumb component.
+const LOCAL_DRESS = "/blue-ankara-dress.png"
+const LOCAL_SNEAKER = "/casual-sneakers.png"
+const LOCAL_HANDBAG = "/leather-handbag.png"
 
 const PRODUCTS = [
-  { id: "p-1", name: "Red Adidas Sneakers, Size 42", category: "sneakers", cost: 12000, sell: 18000, stock: 4, reorder: 5, image: px("31688982"), sku: "BFS-SNK-0001" },
-  { id: "p-2", name: "Matte Lipstick Set (5 colors)", category: "beauty", cost: 4200, sell: 7500, stock: 22, reorder: 8, image: px("7256082"), sku: "BFS-BTY-0002" },
-  { id: "p-3", name: "African Wax Print Fabric (per yard)", category: "fabric", cost: 1800, sell: 3200, stock: 38, reorder: 12, image: px("8655018"), sku: "BFS-FAB-0003" },
-  { id: "p-4", name: "iPhone 14 Clear Case", category: "accessories", cost: 1500, sell: 4500, stock: 0, reorder: 6, image: px("7360460"), sku: "BFS-ACC-0004" },
-  { id: "p-5", name: "Headwrap, Ankara assorted", category: "fashion", cost: 1200, sell: 3500, stock: 14, reorder: 6, image: px("8559848"), sku: "BFS-FSH-0005" },
-  { id: "p-6", name: "Bluetooth Earbuds (Pro)", category: "electronics", cost: 8500, sell: 18500, stock: 7, reorder: 4, image: px("33298188"), sku: "BFS-ELC-0006" },
-  { id: "p-7", name: "Shea Butter, 250g jar", category: "beauty", cost: 1500, sell: 3800, stock: 18, reorder: 8, image: px("11284698"), sku: "BFS-BTY-0007" },
-  { id: "p-8", name: "Kente Tote Bag", category: "fashion", cost: 3500, sell: 9500, stock: 6, reorder: 4, image: px("9393350"), sku: "BFS-FSH-0008" },
-  { id: "p-9", name: "Powerbank 20000mAh", category: "electronics", cost: 6800, sell: 14500, stock: 11, reorder: 5, image: px("3921718"), sku: "BFS-ELC-0009" },
-  { id: "p-10", name: "Lagos Tee, White Unisex", category: "fashion", cost: 2800, sell: 6500, stock: 3, reorder: 6, image: px("12025472"), sku: "BFS-FSH-0010" },
-  { id: "p-11", name: "Hair Bonnet, Silk-feel", category: "beauty", cost: 800, sell: 2500, stock: 26, reorder: 10, image: px("7897135"), sku: "BFS-BTY-0011" },
-  { id: "p-12", name: "Beaded Necklace, Coral", category: "fashion", cost: 2200, sell: 5800, stock: 9, reorder: 5, image: px("33539866"), sku: "BFS-FSH-0012" },
-  { id: "p-13", name: "Ankara Two-Piece Set, Size M", category: "fashion", cost: 5500, sell: 14500, stock: 5, reorder: 4, image: px("8475594"), sku: "BFS-FSH-0013" },
-  { id: "p-14", name: "Black Wireless Mouse", category: "electronics", cost: 2200, sell: 5500, stock: 16, reorder: 6, image: px("4498151"), sku: "BFS-ELC-0014" },
-  { id: "p-15", name: "Body Lotion, Cocoa & Honey", category: "beauty", cost: 2400, sell: 5800, stock: 12, reorder: 6, image: px("4202926"), sku: "BFS-BTY-0015" },
-  { id: "p-16", name: "Aso-Oke Gele, Royal Blue", category: "fashion", cost: 4800, sell: 11500, stock: 8, reorder: 4, image: px("7691125"), sku: "BFS-FSH-0016" },
-  { id: "p-17", name: "USB-C Fast Charger 25W", category: "electronics", cost: 1800, sell: 4800, stock: 1, reorder: 8, image: px("4071882"), sku: "BFS-ELC-0017" },
-  { id: "p-18", name: "Gold Hoop Earrings, Pair", category: "fashion", cost: 1400, sell: 4200, stock: 19, reorder: 6, image: px("9428825"), sku: "BFS-FSH-0018" },
-  { id: "p-19", name: "Adire Fabric Bundle (3 yards)", category: "fabric", cost: 4500, sell: 9800, stock: 11, reorder: 4, image: px("6760143"), sku: "BFS-FAB-0019" },
-  { id: "p-20", name: "Nike Air Force, Size 41", category: "sneakers", cost: 28000, sell: 42000, stock: 2, reorder: 3, image: px("19090/pexels-photo"), sku: "BFS-SNK-0020" },
-  { id: "p-21", name: "Eyelash Set, Mink Style", category: "beauty", cost: 600, sell: 1800, stock: 34, reorder: 12, image: px("4750247"), sku: "BFS-BTY-0021" },
-  { id: "p-22", name: "Beach Tote, Raffia", category: "fashion", cost: 3200, sell: 8500, stock: 7, reorder: 4, image: px("7679720"), sku: "BFS-FSH-0022" },
-  { id: "p-23", name: "Phone Tripod Stand", category: "electronics", cost: 2600, sell: 6500, stock: 13, reorder: 5, image: px("5081397"), sku: "BFS-ELC-0023" },
-  { id: "p-24", name: "Black Soap Bar, 100g", category: "beauty", cost: 450, sell: 1500, stock: 42, reorder: 15, image: px("6621335"), sku: "BFS-BTY-0024" },
-  { id: "p-25", name: "Crochet Crop Top, One Size", category: "fashion", cost: 2900, sell: 7800, stock: 0, reorder: 5, image: px("8533218"), sku: "BFS-FSH-0025" },
+  // ---- Andrea Iyamah (swim + resort) — 9 SKUs ------------------------------
+  { id: "p-1", name: "Reni One-Piece Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 68000, stock: 6, reorder: 3, image: "", sku: "AI-SWM-0001" },
+  { id: "p-2", name: "Adunni Cut-Out Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 30000, sell: 64000, stock: 4, reorder: 3, image: "", sku: "AI-SWM-0002" },
+  { id: "p-3", name: "Ada Ankle-Tie Cover-Up", brand: "Andrea Iyamah", category: "Resort", cost: 28000, sell: 58000, stock: 7, reorder: 3, image: "", sku: "AI-RST-0003" },
+  { id: "p-4", name: "Ifeoma Resort Kaftan", brand: "Andrea Iyamah", category: "Resort", cost: 42000, sell: 95000, stock: 3, reorder: 2, image: "", sku: "AI-RST-0004" },
+  { id: "p-5", name: "Tani Bandeau Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 56000, stock: 9, reorder: 4, image: "", sku: "AI-SWM-0005" },
+  { id: "p-6", name: "Lola High-Waist Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 28000, sell: 60000, stock: 5, reorder: 3, image: "", sku: "AI-SWM-0006" },
+  { id: "p-7", name: "Sade Resort Maxi Dress", brand: "Andrea Iyamah", category: "Resort", cost: 38000, sell: 82000, stock: 4, reorder: 3, image: LOCAL_DRESS, sku: "AI-RST-0007" },
+  { id: "p-8", name: "Yemi Pareo Wrap Skirt", brand: "Andrea Iyamah", category: "Resort", cost: 22000, sell: 48000, stock: 8, reorder: 4, image: "", sku: "AI-RST-0008" },
+  { id: "p-9", name: "Bisi Plunge Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 30000, sell: 64000, stock: 0, reorder: 3, image: "", sku: "AI-SWM-0009" },
+
+  // ---- Style Temple (occasion dresses) — 7 SKUs ----------------------------
+  { id: "p-10", name: "Adamma Statement Gown", brand: "Style Temple", category: "Occasion", cost: 65000, sell: 145000, stock: 3, reorder: 2, image: "", sku: "ST-OCC-0010" },
+  { id: "p-11", name: "Yetunde Pleated Dress", brand: "Style Temple", category: "Occasion", cost: 48000, sell: 98000, stock: 5, reorder: 3, image: LOCAL_DRESS, sku: "ST-OCC-0011" },
+  { id: "p-12", name: "Funmi Off-Shoulder Midi", brand: "Style Temple", category: "Occasion", cost: 42000, sell: 88000, stock: 6, reorder: 3, image: "", sku: "ST-OCC-0012" },
+  { id: "p-13", name: "Ngozi Cape-Sleeve Gown", brand: "Style Temple", category: "Occasion", cost: 78000, sell: 165000, stock: 2, reorder: 2, image: "", sku: "ST-OCC-0013" },
+  { id: "p-14", name: "Iretiola Drape Mini", brand: "Style Temple", category: "Occasion", cost: 36000, sell: 78000, stock: 7, reorder: 3, image: "", sku: "ST-OCC-0014" },
+  { id: "p-15", name: "Olamide Asymmetric Dress", brand: "Style Temple", category: "Occasion", cost: 55000, sell: 118000, stock: 4, reorder: 3, image: "", sku: "ST-OCC-0015" },
+  { id: "p-16", name: "Damilola Sequin Gown", brand: "Style Temple", category: "Occasion", cost: 85000, sell: 178000, stock: 0, reorder: 2, image: "", sku: "ST-OCC-0016" },
+
+  // ---- Veekee James (modern bridal/occasion) — 5 SKUs ----------------------
+  { id: "p-17", name: "Lara Bridal Set", brand: "Veekee James", category: "Bridal", cost: 145000, sell: 320000, stock: 2, reorder: 1, image: "", sku: "VJ-BRD-0017" },
+  { id: "p-18", name: "Chioma Engagement Dress", brand: "Veekee James", category: "Bridal", cost: 95000, sell: 215000, stock: 3, reorder: 2, image: "", sku: "VJ-BRD-0018" },
+  { id: "p-19", name: "Tomi Civil Wedding Dress", brand: "Veekee James", category: "Bridal", cost: 78000, sell: 175000, stock: 4, reorder: 2, image: "", sku: "VJ-BRD-0019" },
+  { id: "p-20", name: "Zara Reception Gown", brand: "Veekee James", category: "Occasion", cost: 88000, sell: 195000, stock: 3, reorder: 2, image: "", sku: "VJ-OCC-0020" },
+  { id: "p-21", name: "Kemi Bridesmaid Dress", brand: "Veekee James", category: "Occasion", cost: 52000, sell: 115000, stock: 6, reorder: 3, image: "", sku: "VJ-OCC-0021" },
+
+  // ---- Lisa Folawiyo (couture statement) — 5 SKUs --------------------------
+  { id: "p-22", name: "Aso-Ebi Beaded Top", brand: "Lisa Folawiyo", category: "Couture", cost: 95000, sell: 215000, stock: 4, reorder: 2, image: "", sku: "LF-COU-0022" },
+  { id: "p-23", name: "Jewel Print Coat", brand: "Lisa Folawiyo", category: "Couture", cost: 145000, sell: 325000, stock: 2, reorder: 1, image: "", sku: "LF-COU-0023" },
+  { id: "p-24", name: "Embellished Ankara Gown", brand: "Lisa Folawiyo", category: "Couture", cost: 185000, sell: 420000, stock: 1, reorder: 1, image: "", sku: "LF-COU-0024" },
+  { id: "p-25", name: "Crystal Trim Wrap Dress", brand: "Lisa Folawiyo", category: "Couture", cost: 125000, sell: 285000, stock: 3, reorder: 2, image: "", sku: "LF-COU-0025" },
+  { id: "p-26", name: "Sequin Statement Skirt", brand: "Lisa Folawiyo", category: "Couture", cost: 78000, sell: 175000, stock: 4, reorder: 2, image: "", sku: "LF-COU-0026" },
+
+  // ---- Zashadu (bags) — 6 SKUs ---------------------------------------------
+  { id: "p-27", name: "Yenagoa Mini Bag", brand: "Zashadu", category: "Bags", cost: 38000, sell: 88000, stock: 5, reorder: 3, image: LOCAL_HANDBAG, sku: "ZH-BAG-0027" },
+  { id: "p-28", name: "Lagos Tote", brand: "Zashadu", category: "Bags", cost: 52000, sell: 118000, stock: 4, reorder: 2, image: LOCAL_HANDBAG, sku: "ZH-BAG-0028" },
+  { id: "p-29", name: "Cross-Body Clutch", brand: "Zashadu", category: "Bags", cost: 32000, sell: 72000, stock: 8, reorder: 4, image: "", sku: "ZH-BAG-0029" },
+  { id: "p-30", name: "Ife Sculpted Top-Handle", brand: "Zashadu", category: "Bags", cost: 65000, sell: 148000, stock: 3, reorder: 2, image: "", sku: "ZH-BAG-0030" },
+  { id: "p-31", name: "Sahara Bucket Bag", brand: "Zashadu", category: "Bags", cost: 42000, sell: 95000, stock: 6, reorder: 3, image: "", sku: "ZH-BAG-0031" },
+  { id: "p-32", name: "Eko Evening Pouch", brand: "Zashadu", category: "Bags", cost: 28000, sell: 64000, stock: 9, reorder: 4, image: "", sku: "ZH-BAG-0032" },
+
+  // ---- Shekudo (shoes) — 6 SKUs --------------------------------------------
+  { id: "p-33", name: "Akwete Mule", brand: "Shekudo", category: "Shoes", cost: 28000, sell: 62000, stock: 7, reorder: 3, image: LOCAL_SNEAKER, sku: "SK-SHO-0033" },
+  { id: "p-34", name: "Adire Sandal", brand: "Shekudo", category: "Shoes", cost: 22000, sell: 52000, stock: 9, reorder: 4, image: "", sku: "SK-SHO-0034" },
+  { id: "p-35", name: "Wax Print Heel", brand: "Shekudo", category: "Shoes", cost: 32000, sell: 72000, stock: 4, reorder: 3, image: "", sku: "SK-SHO-0035" },
+  { id: "p-36", name: "Raffia Slide", brand: "Shekudo", category: "Shoes", cost: 18000, sell: 42000, stock: 11, reorder: 5, image: "", sku: "SK-SHO-0036" },
+  { id: "p-37", name: "Block-Heel Mary Jane", brand: "Shekudo", category: "Shoes", cost: 26000, sell: 58000, stock: 0, reorder: 3, image: "", sku: "SK-SHO-0037" },
+  { id: "p-38", name: "Statement Platform", brand: "Shekudo", category: "Shoes", cost: 35000, sell: 78000, stock: 5, reorder: 3, image: "", sku: "SK-SHO-0038" },
+
+  // ---- House of Tara (beauty) — 5 SKUs -------------------------------------
+  { id: "p-39", name: "Liquid Matte Lipstick", brand: "House of Tara", category: "Beauty", cost: 3500, sell: 8500, stock: 28, reorder: 12, image: "", sku: "HT-BTY-0039" },
+  { id: "p-40", name: "Foundation Stick", brand: "House of Tara", category: "Beauty", cost: 6800, sell: 15500, stock: 18, reorder: 8, image: "", sku: "HT-BTY-0040" },
+  { id: "p-41", name: "Brow Pomade", brand: "House of Tara", category: "Beauty", cost: 4200, sell: 9800, stock: 22, reorder: 10, image: "", sku: "HT-BTY-0041" },
+  { id: "p-42", name: "Setting Powder", brand: "House of Tara", category: "Beauty", cost: 5500, sell: 12500, stock: 15, reorder: 8, image: "", sku: "HT-BTY-0042" },
+  { id: "p-43", name: "Lip Gloss Trio", brand: "House of Tara", category: "Beauty", cost: 4800, sell: 11000, stock: 20, reorder: 8, image: "", sku: "HT-BTY-0043" },
 ]
 
 const toBackendProduct = (p: typeof PRODUCTS[number]) => ({
@@ -65,7 +100,7 @@ const toBackendProduct = (p: typeof PRODUCTS[number]) => ({
   description: undefined,
   category: p.category,
   subcategory: undefined,
-  brand: undefined,
+  brand: p.brand,
   tags: [],
   cost_price: p.cost,
   selling_price: p.sell,
@@ -129,35 +164,35 @@ const CUSTOMERS = [
 
 const CONV_PREVIEWS = [
   "Yes, I'll send the transfer this evening",
-  "Do you still have the red Adidas size 42?",
-  "Wholesale prices for 20+ yards?",
-  "The item I got yesterday, wrong size",
-  "Thanks, my sister loved it",
-  "Are the powerbanks original?",
+  "Do you still have the Reni one-piece in M?",
+  "Stylist asking — bridal trial Friday possible?",
+  "The Style Temple gown, can I exchange size?",
+  "Thanks, the Lara set was perfect for the party",
+  "Is the Lisa Folawiyo coat true to size?",
   "Delivery to Nairobi possible?",
   "Send me your account details please",
-  "How much for 5 lipstick sets?",
-  "Can I exchange for a different size?",
+  "How much for 3 Liquid Matte Lipsticks?",
+  "Can I see the Yenagoa Mini in another colour?",
   "Are you open on Sundays?",
   "Just placed the order, sending now",
-  "Loved the bonnet, thank you",
+  "Loved the Akwete mules, thank you",
   "Do you ship to Abuja?",
-  "Need it before Saturday, possible?",
-  "What sizes do you have for the tee?",
-  "Beaded necklace, do you have blue?",
-  "Powerbank not charging fully",
-  "Picture of the fabric please?",
-  "I'll come pick up tomorrow",
-  "How much is the headwrap?",
-  "Earbuds came clean, thank you",
-  "Do you have larger jars?",
-  "Can you reserve for me till Friday?",
-  "Refund processed yet?",
-  "Discount on bulk orders?",
-  "Need three of those tees, white",
-  "Sending payment now",
-  "Issue with delivery, where is my order?",
-  "Just looking, thanks for now",
+  "Need it before Saturday for my engagement",
+  "What sizes for the Ifeoma kaftan?",
+  "Cross-Body Clutch — do you have black?",
+  "Foundation Stick shade match for me?",
+  "Picture of the Jewel Print Coat please?",
+  "I'll come pick up tomorrow at the studio",
+  "How much is the Adire Sandal?",
+  "Setting Powder came perfect, thank you",
+  "Do you carry larger sizes for the Adamma gown?",
+  "Can you reserve the Lagos Tote till Friday?",
+  "Refund for the cancelled couture order?",
+  "Discount for buying 3 swim pieces?",
+  "Three Liquid Matte Lipsticks, all in red please",
+  "Sending payment now for the bridal set",
+  "Issue with delivery — where is my Yenagoa Mini?",
+  "Just browsing the new Andrea Iyamah drop",
 ]
 
 const CONV_HOURS = [0.04, 0.13, 1, 3, 28, 2, 5, 0.5, 0.25, 4, 7, 36, 12, 0.08, 1.5, 9, 24, 6, 18, 0.7, 50, 0.4, 11, 16, 72, 2.5, 8, 0.6, 30, 96]
@@ -194,60 +229,62 @@ const NEEDS_HUMAN_COUNT = CONVERSATIONS.filter((c) => c.status === "NEEDS_HUMAN"
 
 const ORDERS = [
   // ========= PENDING PAYMENTS (8) — drives Morning Brief "X waiting on payment"
-  { customerIdx: 0, status: "PENDING_PAYMENT", items: [["p-1", 1, 18000]], hoursAgo: 0.5 },
-  { customerIdx: 3, status: "PENDING_PAYMENT", items: [["p-7", 2, 3800]], hoursAgo: 4 },
-  { customerIdx: 6, status: "PENDING_PAYMENT", items: [["p-3", 12, 3200]], hoursAgo: 22 },
-  { customerIdx: 8, status: "PENDING_PAYMENT", items: [["p-13", 1, 14500]], hoursAgo: 1.5 },
-  { customerIdx: 11, status: "PENDING_PAYMENT", items: [["p-20", 1, 42000]], hoursAgo: 8 },
-  { customerIdx: 17, status: "PENDING_PAYMENT", items: [["p-19", 1, 9800], ["p-16", 1, 11500]], hoursAgo: 15 },
-  { customerIdx: 22, status: "PENDING_PAYMENT", items: [["p-2", 3, 7500]], hoursAgo: 36 },
-  { customerIdx: 28, status: "PENDING_PAYMENT", items: [["p-22", 2, 8500]], hoursAgo: 48 },
+  // Mix of impulse-beauty buys, swim resort prep, and high-ticket bridal so
+  // the "Need you" tab shows the full range of what's parked at the door.
+  { customerIdx: 0, status: "PENDING_PAYMENT", items: [["p-1", 1, 68000]], hoursAgo: 0.5 },
+  { customerIdx: 3, status: "PENDING_PAYMENT", items: [["p-39", 2, 8500]], hoursAgo: 4 },
+  { customerIdx: 6, status: "PENDING_PAYMENT", items: [["p-3", 1, 58000]], hoursAgo: 22 },
+  { customerIdx: 8, status: "PENDING_PAYMENT", items: [["p-11", 1, 98000]], hoursAgo: 1.5 },
+  { customerIdx: 11, status: "PENDING_PAYMENT", items: [["p-17", 1, 320000]], hoursAgo: 8 },
+  { customerIdx: 17, status: "PENDING_PAYMENT", items: [["p-22", 1, 215000], ["p-29", 1, 72000]], hoursAgo: 15 },
+  { customerIdx: 22, status: "PENDING_PAYMENT", items: [["p-40", 1, 15500], ["p-41", 1, 9800]], hoursAgo: 36 },
+  { customerIdx: 28, status: "PENDING_PAYMENT", items: [["p-33", 1, 62000]], hoursAgo: 48 },
 
   // ========= CONFIRMED (waiting fulfillment) (12)
-  { customerIdx: 2, status: "CONFIRMED", items: [["p-3", 20, 3200], ["p-5", 4, 3500]], hoursAgo: 6 },
-  { customerIdx: 4, status: "CONFIRMED", items: [["p-2", 1, 7500]], hoursAgo: 11 },
-  { customerIdx: 7, status: "CONFIRMED", items: [["p-12", 1, 5800]], hoursAgo: 14 },
-  { customerIdx: 5, status: "CONFIRMED", items: [["p-9", 1, 14500]], hoursAgo: 30 },
-  { customerIdx: 9, status: "CONFIRMED", items: [["p-15", 2, 5800]], hoursAgo: 18 },
-  { customerIdx: 12, status: "CONFIRMED", items: [["p-13", 1, 14500], ["p-18", 1, 4200]], hoursAgo: 24 },
-  { customerIdx: 14, status: "CONFIRMED", items: [["p-6", 1, 18500]], hoursAgo: 9 },
-  { customerIdx: 19, status: "CONFIRMED", items: [["p-19", 2, 9800]], hoursAgo: 33 },
-  { customerIdx: 21, status: "CONFIRMED", items: [["p-3", 15, 3200]], hoursAgo: 42 },
-  { customerIdx: 24, status: "CONFIRMED", items: [["p-22", 1, 8500], ["p-21", 2, 1800]], hoursAgo: 16 },
-  { customerIdx: 26, status: "CONFIRMED", items: [["p-23", 1, 6500]], hoursAgo: 50 },
-  { customerIdx: 29, status: "CONFIRMED", items: [["p-7", 3, 3800], ["p-24", 5, 1500]], hoursAgo: 7 },
+  { customerIdx: 2, status: "CONFIRMED", items: [["p-7", 1, 82000], ["p-8", 1, 48000]], hoursAgo: 6 },
+  { customerIdx: 4, status: "CONFIRMED", items: [["p-43", 1, 11000]], hoursAgo: 11 },
+  { customerIdx: 7, status: "CONFIRMED", items: [["p-32", 1, 64000]], hoursAgo: 14 },
+  { customerIdx: 5, status: "CONFIRMED", items: [["p-15", 1, 118000]], hoursAgo: 30 },
+  { customerIdx: 9, status: "CONFIRMED", items: [["p-39", 3, 8500]], hoursAgo: 18 },
+  { customerIdx: 12, status: "CONFIRMED", items: [["p-18", 1, 215000], ["p-21", 2, 115000]], hoursAgo: 24 },
+  { customerIdx: 14, status: "CONFIRMED", items: [["p-34", 1, 52000]], hoursAgo: 9 },
+  { customerIdx: 19, status: "CONFIRMED", items: [["p-31", 1, 95000]], hoursAgo: 33 },
+  { customerIdx: 21, status: "CONFIRMED", items: [["p-12", 1, 88000]], hoursAgo: 42 },
+  { customerIdx: 24, status: "CONFIRMED", items: [["p-29", 1, 72000], ["p-41", 1, 9800]], hoursAgo: 16 },
+  { customerIdx: 26, status: "CONFIRMED", items: [["p-36", 1, 42000]], hoursAgo: 50 },
+  { customerIdx: 29, status: "CONFIRMED", items: [["p-39", 2, 8500], ["p-43", 1, 11000]], hoursAgo: 7 },
 
   // ========= FULFILLED (24) — drives weekly + monthly revenue
-  { customerIdx: 0, status: "FULFILLED", items: [["p-2", 1, 7500], ["p-11", 2, 2500]], hoursAgo: 36 },
-  { customerIdx: 1, status: "FULFILLED", items: [["p-6", 1, 18500]], hoursAgo: 48 },
-  { customerIdx: 4, status: "FULFILLED", items: [["p-8", 1, 9500]], hoursAgo: 60 },
-  { customerIdx: 7, status: "FULFILLED", items: [["p-1", 1, 18000]], hoursAgo: 72 },
-  { customerIdx: 5, status: "FULFILLED", items: [["p-3", 6, 3200]], hoursAgo: 96 },
-  { customerIdx: 0, status: "FULFILLED", items: [["p-10", 2, 6500]], hoursAgo: 110 },
-  { customerIdx: 2, status: "FULFILLED", items: [["p-7", 4, 3800]], hoursAgo: 130 },
-  { customerIdx: 6, status: "FULFILLED", items: [["p-3", 8, 3200], ["p-5", 2, 3500]], hoursAgo: 150 },
-  { customerIdx: 10, status: "FULFILLED", items: [["p-13", 1, 14500]], hoursAgo: 90 },
-  { customerIdx: 13, status: "FULFILLED", items: [["p-2", 1, 7500], ["p-21", 1, 1800]], hoursAgo: 75 },
-  { customerIdx: 15, status: "FULFILLED", items: [["p-14", 2, 5500]], hoursAgo: 120 },
-  { customerIdx: 16, status: "FULFILLED", items: [["p-3", 10, 3200]], hoursAgo: 144 },
-  { customerIdx: 18, status: "FULFILLED", items: [["p-22", 1, 8500]], hoursAgo: 200 },
-  { customerIdx: 20, status: "FULFILLED", items: [["p-15", 3, 5800]], hoursAgo: 168 },
-  { customerIdx: 23, status: "FULFILLED", items: [["p-7", 2, 3800], ["p-24", 4, 1500]], hoursAgo: 220 },
-  { customerIdx: 25, status: "FULFILLED", items: [["p-6", 1, 18500], ["p-9", 1, 14500]], hoursAgo: 250 },
-  { customerIdx: 27, status: "FULFILLED", items: [["p-18", 3, 4200]], hoursAgo: 280 },
-  { customerIdx: 11, status: "FULFILLED", items: [["p-3", 4, 3200], ["p-2", 1, 7500]], hoursAgo: 310 },
-  { customerIdx: 8, status: "FULFILLED", items: [["p-23", 1, 6500]], hoursAgo: 340 },
-  { customerIdx: 14, status: "FULFILLED", items: [["p-9", 1, 14500]], hoursAgo: 380 },
-  { customerIdx: 0, status: "FULFILLED", items: [["p-3", 5, 3200], ["p-7", 1, 3800]], hoursAgo: 420 },
-  { customerIdx: 4, status: "FULFILLED", items: [["p-21", 2, 1800], ["p-24", 3, 1500]], hoursAgo: 460 },
-  { customerIdx: 21, status: "FULFILLED", items: [["p-19", 1, 9800]], hoursAgo: 500 },
-  { customerIdx: 17, status: "FULFILLED", items: [["p-22", 1, 8500], ["p-18", 1, 4200]], hoursAgo: 540 },
+  { customerIdx: 0, status: "FULFILLED", items: [["p-39", 2, 8500], ["p-41", 1, 9800]], hoursAgo: 36 },
+  { customerIdx: 1, status: "FULFILLED", items: [["p-33", 1, 62000]], hoursAgo: 48 },
+  { customerIdx: 4, status: "FULFILLED", items: [["p-27", 1, 88000]], hoursAgo: 60 },
+  { customerIdx: 7, status: "FULFILLED", items: [["p-5", 1, 56000]], hoursAgo: 72 },
+  { customerIdx: 5, status: "FULFILLED", items: [["p-14", 1, 78000]], hoursAgo: 96 },
+  { customerIdx: 0, status: "FULFILLED", items: [["p-10", 1, 145000]], hoursAgo: 110 },
+  { customerIdx: 2, status: "FULFILLED", items: [["p-40", 1, 15500], ["p-42", 1, 12500]], hoursAgo: 130 },
+  { customerIdx: 6, status: "FULFILLED", items: [["p-3", 1, 58000], ["p-8", 1, 48000]], hoursAgo: 150 },
+  { customerIdx: 10, status: "FULFILLED", items: [["p-11", 1, 98000]], hoursAgo: 90 },
+  { customerIdx: 13, status: "FULFILLED", items: [["p-43", 1, 11000], ["p-39", 1, 8500]], hoursAgo: 75 },
+  { customerIdx: 15, status: "FULFILLED", items: [["p-35", 1, 72000]], hoursAgo: 120 },
+  { customerIdx: 16, status: "FULFILLED", items: [["p-2", 1, 64000]], hoursAgo: 144 },
+  { customerIdx: 18, status: "FULFILLED", items: [["p-30", 1, 148000]], hoursAgo: 200 },
+  { customerIdx: 20, status: "FULFILLED", items: [["p-26", 1, 175000]], hoursAgo: 168 },
+  { customerIdx: 23, status: "FULFILLED", items: [["p-40", 1, 15500], ["p-42", 1, 12500]], hoursAgo: 220 },
+  { customerIdx: 25, status: "FULFILLED", items: [["p-19", 1, 175000], ["p-21", 1, 115000]], hoursAgo: 250 },
+  { customerIdx: 27, status: "FULFILLED", items: [["p-36", 2, 42000]], hoursAgo: 280 },
+  { customerIdx: 11, status: "FULFILLED", items: [["p-12", 1, 88000], ["p-39", 2, 8500]], hoursAgo: 310 },
+  { customerIdx: 8, status: "FULFILLED", items: [["p-28", 1, 118000]], hoursAgo: 340 },
+  { customerIdx: 14, status: "FULFILLED", items: [["p-34", 1, 52000]], hoursAgo: 380 },
+  { customerIdx: 0, status: "FULFILLED", items: [["p-7", 1, 82000], ["p-39", 2, 8500]], hoursAgo: 420 },
+  { customerIdx: 4, status: "FULFILLED", items: [["p-41", 2, 9800], ["p-42", 1, 12500]], hoursAgo: 460 },
+  { customerIdx: 21, status: "FULFILLED", items: [["p-31", 1, 95000]], hoursAgo: 500 },
+  { customerIdx: 17, status: "FULFILLED", items: [["p-29", 1, 72000], ["p-32", 1, 64000]], hoursAgo: 540 },
 
   // ========= CANCELLED (4)
-  { customerIdx: 3, status: "CANCELLED", items: [["p-4", 1, 4500]], hoursAgo: 80 },
-  { customerIdx: 1, status: "CANCELLED", items: [["p-12", 1, 5800]], hoursAgo: 192 },
-  { customerIdx: 19, status: "CANCELLED", items: [["p-25", 1, 7800]], hoursAgo: 110 },
-  { customerIdx: 25, status: "CANCELLED", items: [["p-17", 2, 4800]], hoursAgo: 230 },
+  { customerIdx: 3, status: "CANCELLED", items: [["p-9", 1, 64000]], hoursAgo: 80 },
+  { customerIdx: 1, status: "CANCELLED", items: [["p-37", 1, 58000]], hoursAgo: 192 },
+  { customerIdx: 19, status: "CANCELLED", items: [["p-16", 1, 178000]], hoursAgo: 110 },
+  { customerIdx: 25, status: "CANCELLED", items: [["p-25", 1, 285000]], hoursAgo: 230 },
 ]
 
 const buildOrders = () =>
@@ -360,17 +397,19 @@ const buildSalesTrend = (period: string) => {
 const buildTopProducts = (period: string, limit: number) => {
   const scale = periodDays(period) / 30
   const lookup = (id: string) => PRODUCTS.find((p) => p.id === id)
+  // Bestsellers seeded across the four "engine" categories — beauty
+  // velocity, swim/resort breadth, occasion volume, and bag heroes.
   const seed = [
-    { product_id: "p-3", units_sold: Math.round(82 * scale), revenue: Math.round(262_400 * scale) },
-    { product_id: "p-6", units_sold: Math.round(8 * scale), revenue: Math.round(148_000 * scale) },
-    { product_id: "p-13", units_sold: Math.round(6 * scale), revenue: Math.round(87_000 * scale) },
-    { product_id: "p-9", units_sold: Math.round(5 * scale), revenue: Math.round(72_500 * scale) },
-    { product_id: "p-19", units_sold: Math.round(6 * scale), revenue: Math.round(58_800 * scale) },
-    { product_id: "p-15", units_sold: Math.round(8 * scale), revenue: Math.round(46_400 * scale) },
-    { product_id: "p-22", units_sold: Math.round(5 * scale), revenue: Math.round(42_500 * scale) },
-    { product_id: "p-2", units_sold: Math.round(5 * scale), revenue: Math.round(37_500 * scale) },
-    { product_id: "p-5", units_sold: Math.round(10 * scale), revenue: Math.round(35_000 * scale) },
-    { product_id: "p-7", units_sold: Math.round(8 * scale), revenue: Math.round(30_400 * scale) },
+    { product_id: "p-39", units_sold: Math.round(28 * scale), revenue: Math.round(238_000 * scale) },
+    { product_id: "p-1", units_sold: Math.round(6 * scale), revenue: Math.round(408_000 * scale) },
+    { product_id: "p-11", units_sold: Math.round(4 * scale), revenue: Math.round(392_000 * scale) },
+    { product_id: "p-27", units_sold: Math.round(5 * scale), revenue: Math.round(440_000 * scale) },
+    { product_id: "p-3", units_sold: Math.round(7 * scale), revenue: Math.round(406_000 * scale) },
+    { product_id: "p-33", units_sold: Math.round(6 * scale), revenue: Math.round(372_000 * scale) },
+    { product_id: "p-22", units_sold: Math.round(2 * scale), revenue: Math.round(430_000 * scale) },
+    { product_id: "p-7", units_sold: Math.round(4 * scale), revenue: Math.round(328_000 * scale) },
+    { product_id: "p-12", units_sold: Math.round(3 * scale), revenue: Math.round(264_000 * scale) },
+    { product_id: "p-21", units_sold: Math.round(3 * scale), revenue: Math.round(345_000 * scale) },
   ]
   const all = seed.map((s) => {
     const p = lookup(s.product_id)
@@ -386,11 +425,11 @@ const buildTopProducts = (period: string, limit: number) => {
     period,
     top_products: all.slice(0, limit),
     stale_products: [
-      { id: "p-4", name: "iPhone 14 Clear Case", sku: "BFS-ACC-0004", selling_price: 4500, stock_quantity: 0, last_restocked: isoMinusDays(45) },
-      { id: "p-12", name: "Beaded Necklace, Coral", sku: "BFS-FSH-0012", selling_price: 5800, stock_quantity: 9, last_restocked: isoMinusDays(52) },
-      { id: "p-11", name: "Hair Bonnet, Silk-feel", sku: "BFS-BTY-0011", selling_price: 2500, stock_quantity: 26, last_restocked: isoMinusDays(38) },
-      { id: "p-21", name: "Eyelash Set, Mink Style", sku: "BFS-BTY-0021", selling_price: 1800, stock_quantity: 34, last_restocked: isoMinusDays(60) },
-      { id: "p-24", name: "Black Soap Bar, 100g", sku: "BFS-BTY-0024", selling_price: 1500, stock_quantity: 42, last_restocked: isoMinusDays(70) },
+      { id: "p-9", name: "Bisi Plunge Swimsuit", sku: "AI-SWM-0009", selling_price: 64000, stock_quantity: 0, last_restocked: isoMinusDays(45) },
+      { id: "p-16", name: "Damilola Sequin Gown", sku: "ST-OCC-0016", selling_price: 178000, stock_quantity: 0, last_restocked: isoMinusDays(52) },
+      { id: "p-37", name: "Block-Heel Mary Jane", sku: "SK-SHO-0037", selling_price: 58000, stock_quantity: 0, last_restocked: isoMinusDays(38) },
+      { id: "p-25", name: "Crystal Trim Wrap Dress", sku: "LF-COU-0025", selling_price: 285000, stock_quantity: 3, last_restocked: isoMinusDays(60) },
+      { id: "p-42", name: "Setting Powder", sku: "HT-BTY-0042", selling_price: 12500, stock_quantity: 15, last_restocked: isoMinusDays(70) },
     ],
     generated_at: new Date().toISOString(),
   }
@@ -550,8 +589,8 @@ const MEMORIES = [
   },
   {
     id: "mem-3",
-    content: "African Wax Print Fabric is your top-grossing product in the current period.",
-    summary: "Wax print leads top sellers.",
+    content: "Andrea Iyamah swim and resort pieces lead your revenue this period.",
+    summary: "Andrea Iyamah leads sales.",
     memory_type: "semantic" as const,
     importance_score: 0.85,
     access_count: 7,
@@ -598,9 +637,9 @@ const buildMemoriesList = (params: { limit?: string; offset?: string; memory_typ
 // ---- Notifications -----------------------------------------------------------
 
 const NOTIFICATIONS = [
-  { id: "n-1", type: "stock", title: "Low stock alert", message: "Lagos Tee — White is down to 3 units", priority: "HIGH", read: false, created_at: isoMinusHours(0.2), reference_type: "product", reference_id: "p-10" },
-  { id: "n-2", type: "stock", title: "Out of stock", message: "iPhone 14 Clear Case is sold out", priority: "HIGH", read: false, created_at: isoMinusHours(2), reference_type: "product", reference_id: "p-4" },
-  { id: "n-3", type: "system", title: "Payment received", message: "Tunde Bakare paid ₦18,500 for Bluetooth Earbuds", priority: "MEDIUM", read: false, created_at: isoMinusHours(4) },
+  { id: "n-1", type: "stock", title: "Low stock alert", message: "Lara Bridal Set is down to 2 units", priority: "HIGH", read: false, created_at: isoMinusHours(0.2), reference_type: "product", reference_id: "p-17" },
+  { id: "n-2", type: "stock", title: "Out of stock", message: "Bisi Plunge Swimsuit is sold out", priority: "HIGH", read: false, created_at: isoMinusHours(2), reference_type: "product", reference_id: "p-9" },
+  { id: "n-3", type: "system", title: "Payment received", message: "Tunde Bakare paid ₦62,000 for the Akwete Mule", priority: "MEDIUM", read: false, created_at: isoMinusHours(4) },
   { id: "n-4", type: "activity", title: "New customer", message: "Wanjiru Mwangi sent her first message", priority: "LOW", read: true, created_at: isoMinusHours(8) },
 ]
 

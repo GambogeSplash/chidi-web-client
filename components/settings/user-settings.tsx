@@ -23,6 +23,10 @@ import {
   Brain,
   Landmark,
   BadgeCheck,
+  Bike,
+  Plus,
+  Trash2,
+  Truck,
 } from "lucide-react"
 import { BusinessAvatar, useBusinessAvatarSeed } from "@/components/chidi/business-avatar"
 import { BusinessAvatarPicker } from "@/components/chidi/business-avatar-picker"
@@ -59,6 +63,7 @@ import {
 import { HelpSheet } from "./help-sheet"
 import { SettingsSectionCard } from "./settings-section-card"
 import { usePersistedState, hasDraft } from "@/lib/hooks/use-persisted-state"
+import { cn } from "@/lib/utils"
 
 interface UserSettingsProps {
   onClose?: () => void
@@ -129,6 +134,30 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
     account_name: "",
     account_number: "",
     payment_instructions: "",
+  })
+
+  // Delivery partners — couriers + on-demand bikes + in-house riders.
+  // Persisted to chidi:delivery-settings (separate from chidi:deliveries
+  // which tracks per-order records). Phase-1 capture; the toggles drive
+  // courier visibility in DeliveryHandoffPanel pickers downstream.
+  type DeliveryRider = { id: string; name: string; phone: string; bike: string }
+  type DeliverySettings = {
+    couriers: { gig: boolean; sendbox: boolean; kwik: boolean; faramove: boolean }
+    onDemand: boolean
+    riders: DeliveryRider[]
+  }
+  const [deliverySettings, setDeliverySettings] = usePersistedState<DeliverySettings>(
+    'chidi:delivery-settings',
+    {
+      couriers: { gig: true, sendbox: true, kwik: false, faramove: false },
+      onDemand: false,
+      riders: [],
+    },
+  )
+  const [riderDraft, setRiderDraft] = useState<{ name: string; phone: string; bike: string }>({
+    name: "",
+    phone: "",
+    bike: "",
   })
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -262,6 +291,45 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
       }
     )
   }
+
+  // Delivery — toggle helpers + rider mutators. All writes round-trip through
+  // setDeliverySettings so localStorage stays the single source of truth.
+  const toggleCourier = useCallback(
+    (key: 'gig' | 'sendbox' | 'kwik' | 'faramove', value: boolean) => {
+      setDeliverySettings({
+        ...deliverySettings,
+        couriers: { ...deliverySettings.couriers, [key]: value },
+      })
+    },
+    [deliverySettings, setDeliverySettings],
+  )
+  const toggleOnDemand = useCallback(
+    (value: boolean) => {
+      setDeliverySettings({ ...deliverySettings, onDemand: value })
+    },
+    [deliverySettings, setDeliverySettings],
+  )
+  const handleAddRider = useCallback(() => {
+    const name = riderDraft.name.trim()
+    const phone = riderDraft.phone.trim()
+    const bike = riderDraft.bike.trim()
+    if (!name) return
+    const id = `rider-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    setDeliverySettings({
+      ...deliverySettings,
+      riders: [...deliverySettings.riders, { id, name, phone, bike }],
+    })
+    setRiderDraft({ name: "", phone: "", bike: "" })
+  }, [deliverySettings, riderDraft, setDeliverySettings])
+  const handleRemoveRider = useCallback(
+    (id: string) => {
+      setDeliverySettings({
+        ...deliverySettings,
+        riders: deliverySettings.riders.filter((r) => r.id !== id),
+      })
+    },
+    [deliverySettings, setDeliverySettings],
+  )
 
   const handleSavePaymentSettings = () => {
     if (!businessId) {
@@ -540,6 +608,154 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
                   </span>
                 )}
               </button>
+            </div>
+          </SettingsSectionCard>
+        </section>
+
+        {/* DELIVERY — couriers + on-demand bikes + in-house rider roster.
+            Sits in the Profile family because "how orders reach customers"
+            is part of the shop's identity. Persists to chidi:delivery-settings. */}
+        <section id="settings-profile-delivery" className="scroll-mt-20">
+          <SettingsSectionCard
+            eyebrow="Delivery"
+            title="How orders get to your customers."
+          >
+            {/* Couriers — four toggles for the major NG carriers. Brand
+                colors stay subtle (the dot, not the whole row) so the
+                section reads as one settings card, not a logo wall. */}
+            <div className="space-y-1 -mx-1">
+              {([
+                { key: 'gig' as const, label: 'GIG Logistics', dot: '#FFC107' },
+                { key: 'sendbox' as const, label: 'Sendbox', dot: '#0F62FE' },
+                { key: 'kwik' as const, label: 'Kwik', dot: '#FF6F00' },
+                { key: 'faramove' as const, label: 'Faramove', dot: '#1F9D55' },
+              ]).map((c, i) => (
+                <div
+                  key={c.key}
+                  className={cn(
+                    'px-1 py-3 flex items-center justify-between',
+                    i > 0 && 'border-t border-[var(--chidi-border-subtle)]',
+                  )}
+                >
+                  <div className="flex items-center gap-3 min-w-0 pr-3">
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: c.dot }}
+                      aria-hidden
+                    />
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)] truncate">
+                      {c.label}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={deliverySettings.couriers[c.key]}
+                    onCheckedChange={(v) => toggleCourier(c.key, v)}
+                  />
+                </div>
+              ))}
+
+              {/* On-demand bikes — a single composite toggle. Glovo / Bolt /
+                  Faramove on-demand are bucketed because the merchant rarely
+                  thinks of them individually; the choice is "use bikes or not". */}
+              <div className="px-1 py-3 flex items-center justify-between border-t border-[var(--chidi-border-subtle)]">
+                <div className="flex items-center gap-3 min-w-0 pr-3">
+                  <Bike
+                    className="w-4 h-4 text-[var(--chidi-text-muted)] flex-shrink-0"
+                    strokeWidth={1.8}
+                  />
+                  <div className="min-w-0">
+                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)] truncate">
+                      Use on-demand bikes
+                    </p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">
+                      Glovo, Bolt, Faramove
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={deliverySettings.onDemand}
+                  onCheckedChange={toggleOnDemand}
+                />
+              </div>
+            </div>
+
+            {/* In-house riders — name + phone + bike number rows with
+                inline-add. No save button: edits commit immediately to
+                localStorage so the merchant can leave the page mid-flow. */}
+            <div className="mt-4 pt-4 border-t border-[var(--chidi-border-subtle)]">
+              <div className="flex items-center gap-2 mb-2.5">
+                <Truck
+                  className="w-4 h-4 text-[var(--chidi-text-muted)]"
+                  strokeWidth={1.8}
+                />
+                <p className="font-medium text-[13px] text-[var(--chidi-text-primary)]">
+                  In-house riders
+                </p>
+                <span className="text-[11px] text-[var(--chidi-text-muted)] tabular-nums ml-auto">
+                  {deliverySettings.riders.length}
+                </span>
+              </div>
+
+              {deliverySettings.riders.length > 0 && (
+                <ul className="space-y-1.5 mb-3">
+                  {deliverySettings.riders.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--chidi-surface)]/50 border border-[var(--chidi-border-subtle)]"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-[var(--chidi-text-primary)] truncate">
+                          {r.name}
+                        </p>
+                        <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums truncate">
+                          {[r.phone, r.bike].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRider(r.id)}
+                        aria-label={`Remove ${r.name}`}
+                        className="flex-shrink-0 p-1.5 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-warning)] hover:bg-[var(--chidi-warning)]/10 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" strokeWidth={1.8} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Input
+                  value={riderDraft.name}
+                  onChange={(e) => setRiderDraft({ ...riderDraft, name: e.target.value })}
+                  placeholder="Name"
+                  className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)]"
+                />
+                <Input
+                  value={riderDraft.phone}
+                  onChange={(e) => setRiderDraft({ ...riderDraft, phone: e.target.value })}
+                  placeholder="Phone"
+                  className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)]"
+                />
+                <Input
+                  value={riderDraft.bike}
+                  onChange={(e) => setRiderDraft({ ...riderDraft, bike: e.target.value })}
+                  placeholder="Bike #"
+                  className="bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)]"
+                />
+              </div>
+              <div className="flex justify-end mt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAddRider}
+                  disabled={!riderDraft.name.trim()}
+                  className="btn-cta min-h-[36px]"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1.5" strokeWidth={2} />
+                  Add rider
+                </Button>
+              </div>
             </div>
           </SettingsSectionCard>
         </section>

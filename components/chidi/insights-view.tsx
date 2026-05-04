@@ -57,7 +57,6 @@ import {
 import { formatCurrency } from "@/lib/api/analytics"
 import { useCountUp } from "@/lib/chidi/use-count-up"
 import { ChidiCard } from "./page-shell"
-import { CustomersBody } from "./customers-view"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 
 // ============================================================================
@@ -88,11 +87,12 @@ const CHANNEL_LABEL: Record<string, string> = {
 }
 
 // Drill-in lens tabs. No subtitles — the tab name is the section name.
-type Lens = "channels" | "products" | "customers"
+// Customers lens lives on the Orders page now (top-level Customers tab),
+// so Insights stays focused on Channels + Bestsellers analytics.
+type Lens = "channels" | "products"
 const LENS_OPTIONS: Array<{ id: Lens; label: string }> = [
   { id: "channels", label: "Channels" },
   { id: "products", label: "Bestsellers" },
-  { id: "customers", label: "Customers" },
 ]
 
 // Revenue-trend bucket toggle.
@@ -107,7 +107,7 @@ const BUCKET_OPTIONS: Array<{ id: Bucket; label: string }> = [
 // InsightsView — top-level
 // ============================================================================
 
-const VALID_LENSES: Lens[] = ["channels", "products", "customers"]
+const VALID_LENSES: Lens[] = ["channels", "products"]
 
 export function InsightsView() {
   const router = useRouter()
@@ -122,9 +122,9 @@ export function InsightsView() {
   )
   const [lens, setLens] = usePersistedState<Lens>("insights:lens", "channels")
 
-  // ?lens=customers (or any valid lens) takes priority over the persisted
-  // value on mount. Used by the legacy /customers route's redirect so a
-  // deep-link to "Insights → Customers" lands on the right tab.
+  // ?lens=<id> takes priority over the persisted value on mount, so a
+  // deep-link from elsewhere in the app lands on the right tab (channels
+  // or products). Customers is no longer a lens here — it lives on Orders.
   useEffect(() => {
     const raw = searchParams?.get("lens") as Lens | null
     if (raw && VALID_LENSES.includes(raw) && raw !== lens) {
@@ -1060,8 +1060,6 @@ function DrillInPanel({
       {lens === "products" && (
         <ProductsLens products={products} onRowClick={onProductRowClick} />
       )}
-      {/* Customers lens — embeds the FULL customers surface. */}
-      {lens === "customers" && <CustomersBody />}
     </div>
   )
 }

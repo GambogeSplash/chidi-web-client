@@ -38,6 +38,11 @@ import {
 } from '@/lib/hooks/use-orders'
 import { OrderVerificationWidget } from '@/components/chidi/order-verification-widget'
 import { PaymentConfirmationWidget } from '@/components/chidi/payment-confirmation-widget'
+import { DeliveryTrackingWidget } from '@/components/chidi/delivery-tracking-widget'
+import {
+  DELIVERY_CHANGED_EVENT,
+  getDelivery,
+} from '@/lib/chidi/deliveries'
 import {
   PAYMENT_CONFIRMED_EVENT,
   formatConfirmedAgo,
@@ -87,6 +92,10 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
   // React Query hooks
   const { data: messagesData, isLoading: loadingMessages, isRefetching } = useConversationMessages(conversation.id)
   const { data: pendingOrder } = useOrderByConversation(conversation.id, 'PENDING_PAYMENT')
+  // Any order linked to the conversation (no status filter) — used to look
+  // up an active delivery for the in-chat tracking widget. Falls back to the
+  // pendingOrder so we never query when nothing exists.
+  const { data: anyOrder } = useOrderByConversation(conversation.id)
   
   const markAsRead = useMarkConversationRead()
   const sendReply = useSendReply()
@@ -111,6 +120,37 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
 
   // Chidi-summarized recap sheet — Arc-style "summarize this thread."
   const [summaryOpen, setSummaryOpen] = useState(false)
+
+  // Active-delivery flag for the linked order — drives whether the in-chat
+  // DeliveryTrackingWidget mounts. Recomputes on `chidi:delivery-changed`.
+  const trackedOrderId = anyOrder?.id ?? pendingOrder?.id ?? null
+  const [hasActiveDelivery, setHasActiveDelivery] = useState<boolean>(() => {
+    if (!trackedOrderId) return false
+    const d = getDelivery(trackedOrderId)
+    return !!d && d.status === 'out_for_delivery'
+  })
+  useEffect(() => {
+    const recompute = () => {
+      if (!trackedOrderId) {
+        setHasActiveDelivery(false)
+        return
+      }
+      const d = getDelivery(trackedOrderId)
+      setHasActiveDelivery(!!d && d.status === 'out_for_delivery')
+    }
+    recompute()
+    if (typeof window === 'undefined') return
+    const onChanged = () => recompute()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'chidi:deliveries') recompute()
+    }
+    window.addEventListener(DELIVERY_CHANGED_EVENT, onChanged as EventListener)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener(DELIVERY_CHANGED_EVENT, onChanged as EventListener)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [trackedOrderId])
 
   // Per-customer boost count — drives the "N boosts active" chip above the
   // input. Hydrated from store + kept in sync via subscribe.
@@ -581,6 +621,17 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
             </div>
           )}
         </div>
+      )}
+
+      {/* Delivery tracking — sits just below the payment banner once the
+          merchant has dispatched the order. Self-hides until the linked
+          order's delivery status is "out_for_delivery". */}
+      {hasActiveDelivery && trackedOrderId && (
+        <DeliveryTrackingWidget
+          orderId={trackedOrderId}
+          conversationId={conversation.id}
+          customerName={conversation.customer_name}
+        />
       )}
 
       {/* Messages */}
