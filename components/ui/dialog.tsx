@@ -71,7 +71,10 @@ function DialogContent({
           // Fix: use bottom-positioning for mobile (no left/right needed) and
           // 50%-translated for desktop. Single source of truth per breakpoint.
           'fixed bottom-0 left-0 right-0 translate-y-0',
-          'w-full max-w-full max-h-[92vh] rounded-t-2xl rounded-b-none p-5 pt-4',
+          // pb-[calc(...)] honors the iOS home-indicator safe-area so the
+          // sheet's bottom CTA never hides under the gesture zone. min(20px)
+          // floor keeps android & web sane (env() returns 0 there).
+          'w-full max-w-full max-h-[92vh] rounded-t-2xl rounded-b-none p-5 pt-4 pb-[max(env(safe-area-inset-bottom),1.25rem)]',
           'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
           // Desktop (sm+): pinned to viewport center via 50% top/left + -50% translate.
           'sm:!top-1/2 sm:!left-1/2 sm:!right-auto sm:!bottom-auto',

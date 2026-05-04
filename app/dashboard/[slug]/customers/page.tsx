@@ -20,6 +20,7 @@ import { useParams, useRouter } from "next/navigation"
 import { AppHeader } from "@/components/chidi/app-header"
 import { NavRail } from "@/components/chidi/nav-rail"
 import { CustomersView } from "@/components/chidi/customers-view"
+import { LibraryBottomNav } from "@/components/chidi/library-bottom-nav"
 import { useRailCollapsed } from "@/lib/chidi/use-rail-collapsed"
 import { cn } from "@/lib/utils"
 
@@ -39,7 +40,10 @@ export default function CustomersPage() {
   return (
     <div
       className={cn(
-        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200",
+        // pb-16 reserves space for the mobile BottomNavigation (h-16) so
+        // the table's last row + the broadcast strip never live under the
+        // bar; lg:pb-0 unwinds it on desktop where the bottom nav is hidden.
+        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200 pb-16 lg:pb-0",
         railCollapsed ? "lg:pl-[64px]" : "lg:pl-[224px]",
       )}
     >
@@ -48,12 +52,19 @@ export default function CustomersPage() {
         onTabChange={(tab) => router.push(`/dashboard/${slug}?tab=${tab}`)}
       />
       <div className="lg:hidden">
-        <AppHeader showSettings={false} />
+        <AppHeader
+          showSettings={false}
+          back={{ label: "Customers", fallback: `/dashboard/${slug}` }}
+        />
       </div>
 
       {/* CustomersView already wraps its body in <ChidiPage> with the canonical
           title/subtitle, so no second shell here. */}
       <CustomersView />
+
+      {/* Mobile bottom nav — Library routes mount it directly so the merchant
+          keeps tab access without first popping back to the dashboard. */}
+      <LibraryBottomNav />
     </div>
   )
 }

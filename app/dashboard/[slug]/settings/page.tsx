@@ -18,6 +18,7 @@ import { AppHeader } from '@/components/chidi/app-header'
 import { NavRail } from '@/components/chidi/nav-rail'
 import { ChidiMark } from '@/components/chidi/chidi-mark'
 import { ChidiPreferences } from '@/components/chidi/chidi-preferences'
+import { LibraryBottomNav } from '@/components/chidi/library-bottom-nav'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
 import { useRailCollapsed } from '@/lib/chidi/use-rail-collapsed'
 import { cn } from '@/lib/utils'
@@ -79,7 +80,11 @@ export default function SettingsPage() {
   return (
     <div
       className={cn(
-        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200",
+        // pb-16 reserves space for the mobile BottomNavigation (h-16). Without
+        // it, the bottom of the long settings list lives behind the bar and
+        // the merchant can't see / tap "Sign out". lg:pb-0 unwinds it on
+        // desktop where the bottom nav is hidden.
+        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200 pb-16 lg:pb-0",
         railCollapsed ? "lg:pl-[64px]" : "lg:pl-[224px]",
       )}
     >
@@ -89,9 +94,15 @@ export default function SettingsPage() {
         onTabChange={(tab) => router.push(`/dashboard/${slug}?tab=${tab}`)}
       />
 
-      {/* Mobile header */}
+      {/* Mobile header — back button (was the user's #1 complaint: no back
+          button on Settings on mobile) and a "Settings" label. The Spaces
+          switcher that normally sits here is reachable via Settings → Profile
+          → Switch shop, so we sacrifice it for the back path. */}
       <div className="lg:hidden">
-        <AppHeader showSettings={false} />
+        <AppHeader
+          showSettings={false}
+          back={{ label: "Settings", fallback: `/dashboard/${slug}` }}
+        />
       </div>
 
       {/* Page header — single source */}
@@ -197,6 +208,11 @@ export default function SettingsPage() {
           <UserSettings onClose={handleClose} scrollToSection={section} />
         </div>
       </div>
+
+      {/* Mobile bottom nav — was missing on /settings, leaving the merchant
+          with no way to jump tabs without first hitting the back button.
+          No tab marked active because settings sits off the primary-tab axis. */}
+      <LibraryBottomNav />
     </div>
   )
 }

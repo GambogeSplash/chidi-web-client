@@ -46,6 +46,7 @@ import { toast } from "sonner"
 import { AppHeader } from "@/components/chidi/app-header"
 import { NavRail } from "@/components/chidi/nav-rail"
 import { ChidiPage } from "@/components/chidi/page-shell"
+import { LibraryBottomNav } from "@/components/chidi/library-bottom-nav"
 import { ArcFace } from "@/components/chidi/arc-face"
 import { PlaybookRow, type PlaybookRowState } from "@/components/chidi/playbook-row"
 import { cn } from "@/lib/utils"
@@ -346,7 +347,10 @@ export default function PlaybookPage() {
   return (
     <div
       className={cn(
-        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200",
+        // pb-16 reserves space for the mobile BottomNavigation (h-16) so the
+        // last play row never lives under the bar; lg:pb-0 unwinds it on
+        // desktop where the bottom nav is hidden.
+        "flex flex-col min-h-screen bg-[var(--background)] transition-[padding] duration-200 pb-16 lg:pb-0",
         railCollapsed ? "lg:pl-[64px]" : "lg:pl-[224px]",
       )}
     >
@@ -355,7 +359,10 @@ export default function PlaybookPage() {
         onTabChange={(tab) => router.push(`/dashboard/${slug}?tab=${tab}`)}
       />
       <div className="lg:hidden">
-        <AppHeader showSettings={false} />
+        <AppHeader
+          showSettings={false}
+          back={{ label: "Playbook", fallback: `/dashboard/${slug}` }}
+        />
       </div>
 
       <ChidiPage eyebrow="Playbook" title="Playbook" voice width="default">
@@ -440,6 +447,11 @@ export default function PlaybookPage() {
           )}
         </Sheet>
       )}
+
+      {/* Mobile bottom nav — same primitive the dashboard root uses, with
+          no tab marked active (this is a Library route, off the primary-tab
+          axis). Tapping a tab routes back to /dashboard/[slug]?tab=X. */}
+      <LibraryBottomNav />
     </div>
   )
 }
