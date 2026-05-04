@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal, Check, Pin, PinOff } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, ChevronRight, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal, Check, Pin, PinOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -1297,6 +1297,70 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           </ul>
         </SheetContent>
       </Sheet>
+
+      {/* Add product chooser — single-step modal that asks the merchant
+          how they want to add. Closes itself before firing the handler so
+          the picker disappears as the chosen surface opens. */}
+      <Dialog open={addChooserOpen} onOpenChange={setAddChooserOpen}>
+        <DialogContent
+          className={cn(
+            "sm:!w-[min(440px,calc(100vw-3rem))] sm:!max-w-none",
+            "sm:!left-[50%] sm:!top-[50%] sm:!translate-x-[-50%] sm:!translate-y-[-50%]",
+            "p-0 overflow-hidden",
+          )}
+        >
+          <DialogHeader className="px-5 pt-5 pb-2">
+            <DialogTitle className="ty-page-title text-[var(--chidi-text-primary)]">
+              Add a product
+            </DialogTitle>
+            <DialogDescription className="text-[13px] text-[var(--chidi-text-secondary)]">
+              How do you want to add this one?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-5 pb-5 pt-2 grid gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                setAddChooserOpen(false)
+                onAddProduct()
+              }}
+              className="text-left p-4 rounded-xl border border-[var(--chidi-border-default)] hover:border-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]/40 transition-colors active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-[var(--chidi-surface)] flex items-center justify-center">
+                  <Plus className="w-4 h-4 text-[var(--chidi-text-primary)]" strokeWidth={2} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[var(--chidi-text-primary)]">Add manually</p>
+                  <p className="text-[12px] text-[var(--chidi-text-muted)] mt-0.5">Type out the details yourself.</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)] mt-2.5 flex-shrink-0" />
+              </div>
+            </button>
+            {onBulkImport && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAddChooserOpen(false)
+                  onBulkImport()
+                }}
+                className="text-left p-4 rounded-xl border border-[var(--chidi-border-default)] hover:border-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]/40 transition-colors active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-[var(--chidi-surface)] flex items-center justify-center">
+                    <Upload className="w-4 h-4 text-[var(--chidi-text-primary)]" strokeWidth={2} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-medium text-[var(--chidi-text-primary)]">Import a list</p>
+                    <p className="text-[12px] text-[var(--chidi-text-muted)] mt-0.5">Drag in a CSV or pick a file from your device.</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)] mt-2.5 flex-shrink-0" />
+                </div>
+              </button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

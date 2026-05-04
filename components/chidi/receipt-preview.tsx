@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Printer, Download, Loader2 } from "lucide-react"
 import { ChidiMark } from "./chidi-mark"
 import { formatCurrency } from "@/lib/utils/currency"
+import { cn } from "@/lib/utils"
 import type { Order } from "@/lib/api/orders"
 
 interface ReceiptPreviewProps {
@@ -84,7 +85,16 @@ export function ReceiptPreview({ order, businessName, open, onClose }: ReceiptPr
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[360px] p-0 bg-transparent border-0 shadow-none">
+      <DialogContent
+        className={cn(
+          // Override the Dialog primitive defaults to lock to a perfectly centered
+          // 360-wide card on desktop. The base primitive sets a max-width that
+          // doesn't shrink to content; force the size and re-pin to viewport center.
+          "sm:!w-[360px] sm:!max-w-none",
+          "sm:!left-[50%] sm:!top-[50%] sm:!translate-x-[-50%] sm:!translate-y-[-50%]",
+          "p-0 bg-transparent border-0 shadow-none",
+        )}
+      >
         <DialogTitle className="sr-only">Customer receipt preview</DialogTitle>
 
         {/* Receipt itself — mock paper with jagged perforated top + bottom */}

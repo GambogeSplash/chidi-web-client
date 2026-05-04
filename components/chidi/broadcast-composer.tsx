@@ -165,9 +165,11 @@ export function BroadcastComposer({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          // Lock the content to a centered card on desktop. The bottom-sheet
-          // override on mobile (Dialog primitive) handles narrow viewports.
+          // Lock the content to a perfectly centered card on desktop. Override
+          // the Dialog primitive's positioning so it can't drift (had reports of
+          // off-center placement). Mobile bottom-sheet override still applies.
           "sm:!w-[min(640px,calc(100vw-3rem))] sm:!max-w-none sm:!max-h-[88vh]",
+          "sm:!left-[50%] sm:!top-[50%] sm:!translate-x-[-50%] sm:!translate-y-[-50%]",
           "flex flex-col gap-0 p-0 overflow-hidden",
           "max-h-[92vh]",
         )}
