@@ -6,6 +6,9 @@
  * Mental model: a tactical book a coach hands a player. Not "things I noticed."
  */
 
+import type { PlayTrigger } from "./play-triggers"
+import type { PlayAudience } from "./play-audiences"
+
 export type PlayCategory =
   | "recovery"
   | "conversion"
@@ -66,6 +69,16 @@ export interface PlaybookPlay {
   cover_image?: string
   /** When true, this play is eligible to be the "Play of the moment" hero. */
   featured?: boolean
+  /** When true, this play was authored by the merchant (saved from a chat,
+   *  not a stock play). Drives the "Authored" badge in the playbook list. */
+  authored?: boolean
+  /** Structured event-based trigger. Replaces the free-text `trigger` for
+   *  new plays; surfaces fall back to `trigger` when this is missing.
+   *  Authored in `lib/chidi/play-triggers.ts`. */
+  trigger_v2?: PlayTrigger
+  /** Customer-segment scope for the play. Defaults to "all" when missing.
+   *  Authored in `lib/chidi/play-audiences.ts`. */
+  audience?: PlayAudience
 }
 
 export const PLAY_CATEGORY_LABEL: Record<PlayCategory, string> = {
@@ -122,6 +135,8 @@ export const PLAYS: PlaybookPlay[] = [
     affected_customers: ["Tunde Bakare", "Folake Olamide", "Aisha Mohammed", "Bola Tinubu-Lewis", "Ngozi Iweala"],
     cover_image: "https://images.pexels.com/photos/4549408/pexels-photo-4549408.jpeg?auto=compress&cs=tinysrgb&w=1200&h=600&fit=crop",
     featured: true,
+    trigger_v2: { kind: "order_pending_payment", hoursThreshold: 24 },
+    audience: { kind: "all" },
   },
   {
     id: "play-cart-abandon",
@@ -150,6 +165,8 @@ export const PLAYS: PlaybookPlay[] = [
     sample_message:
       "Hi! Those Bluetooth Earbuds you asked about — still here at ₦18,500. I can hold a pair till end of day if you want.",
     affected_customers: ["Yemi Aluko", "Hassan Sule", "Blessing Okoro", "Damilola Owolabi"],
+    trigger_v2: { kind: "cart_abandoned" },
+    audience: { kind: "all" },
   },
 
   // ---- CONVERSION ----------------------------------------------------------
@@ -180,6 +197,8 @@ export const PLAYS: PlaybookPlay[] = [
     sample_message:
       "For 20 yards, I can do ₦2,720/yard (10% off). Total ₦54,400. Want me to lock it in and send the bank details now?",
     affected_customers: ["Ifeoma Eze", "Folake Olamide", "Damilola Owolabi"],
+    trigger_v2: { kind: "manual" },
+    audience: { kind: "repeat" },
   },
   {
     id: "play-upsell-bundle",
@@ -212,6 +231,8 @@ export const PLAYS: PlaybookPlay[] = [
       "https://images.pexels.com/photos/7897135/pexels-photo-7897135.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop",
       "https://images.pexels.com/photos/4202926/pexels-photo-4202926.jpeg?auto=compress&cs=tinysrgb&w=200&h=200&fit=crop",
     ],
+    trigger_v2: { kind: "order_fulfilled" },
+    audience: { kind: "all" },
   },
 
   // ---- RETENTION -----------------------------------------------------------
@@ -242,6 +263,8 @@ export const PLAYS: PlaybookPlay[] = [
     sample_message:
       "Hi Adaeze, just thinking about you — how's that headwrap holding up? We just got the new royal blue Aso-Oke Gele in. Thought of you immediately.",
     affected_customers: ["Adaeze Okafor", "Kemi Adebayo", "Olumide Sanusi", "Patience Jonathan"],
+    trigger_v2: { kind: "customer_silent", hoursThreshold: 24 * 42 },
+    audience: { kind: "vip" },
   },
   {
     id: "play-thank-you-receipt",
@@ -270,6 +293,8 @@ export const PLAYS: PlaybookPlay[] = [
     sample_message:
       "Order complete 🎉 Receipt attached. Did the delivery go smoothly today?",
     affected_customers: ["Ayodeji Balogun", "Patience Jonathan", "Joel Mensah", "Tobi Akinwumi", "Sade Lawal", "Maryam Bello"],
+    trigger_v2: { kind: "order_fulfilled" },
+    audience: { kind: "all" },
   },
 
   // ---- INVENTORY -----------------------------------------------------------
@@ -305,6 +330,8 @@ export const PLAYS: PlaybookPlay[] = [
       px("33298188"),
       px("6760143"),
     ],
+    trigger_v2: { kind: "low_stock", stockThreshold: 5 },
+    audience: { kind: "all" },
   },
   {
     id: "play-clearance-stale",
@@ -337,6 +364,8 @@ export const PLAYS: PlaybookPlay[] = [
       px("7897135"),
       px("7360460"),
     ],
+    trigger_v2: { kind: "manual" },
+    audience: { kind: "all" },
   },
 
   // ---- ROUTINE -------------------------------------------------------------
@@ -367,6 +396,8 @@ export const PLAYS: PlaybookPlay[] = [
     sample_message:
       "Good morning ☀️ Overnight: 3 sales (₦47k), 2 messages handled, Tunde's pending payment. The one thing for the next 4 hours: Adaeze hasn't replied since Tuesday — quick check-in?",
     spark: [2, 3, 1, 4, 2, 3, 5],
+    trigger_v2: { kind: "schedule_daily", hourOfDay: 7, minuteOfHour: 30 },
+    audience: { kind: "all" },
   },
   {
     id: "play-saturday-prep",
@@ -395,6 +426,8 @@ export const PLAYS: PlaybookPlay[] = [
     sample_message:
       "Tomorrow's Saturday 📈 Stock check: Wax print solid (38 yards), Lagos Tee thin (3 left), Earbuds OK. Featuring the wax print in tonight's status?",
     spark: [0, 0, 0, 0, 0, 1, 0],
+    trigger_v2: { kind: "schedule_weekly", dayOfWeek: 5, hourOfDay: 18, minuteOfHour: 0 },
+    audience: { kind: "all" },
   },
 ]
 

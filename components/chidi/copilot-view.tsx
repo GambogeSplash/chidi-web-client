@@ -1,16 +1,27 @@
 "use client"
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
-import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus, Phone } from "lucide-react"
+import { Send, History, Loader2, Package, TrendingUp, MessageCircle, Brain, ChevronDown, Plus, Phone, BookmarkPlus } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import { useRouter, useParams } from "next/navigation"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet"
 import { useConversation } from "@/hooks/use-conversation"
 import { useConversationList } from "@/hooks/use-conversation-list"
 import { conversationsAPI } from "@/lib/api/conversations"
 import { CopilotHistoryPanel } from "./copilot-history-panel"
 import { CopilotMessageContent } from "./copilot-blocks"
 import { VoiceButton } from "./voice-button"
+import { AttachmentChips, CopilotAttachButton } from "./copilot-attachments"
 import { useFirstTimeHint } from "@/lib/hooks/use-first-time-hint"
 import { useSalesOverview } from "@/lib/hooks/use-analytics"
 import { useOrders } from "@/lib/hooks/use-orders"
@@ -20,6 +31,19 @@ import Image from "next/image"
 import type { ConversationResponse, ChatMessage } from "@/lib/types/conversation"
 import type { DisplayProduct } from "@/lib/types/product"
 import { cn } from "@/lib/utils"
+import {
+  readFileAsAttachment,
+  isAcceptedFile,
+  buildPayloadWithAttachments,
+  type CopilotAttachment,
+} from "@/lib/chidi/copilot-attachments"
+import {
+  extractPlayDraft,
+  saveChatAsPlay,
+  persistAuthoredPlay,
+  AUDIENCE_LABEL,
+  type SavePlayAudience,
+} from "@/lib/chidi/save-as-play"
 
 interface CopilotViewProps {
   conversationId?: string
@@ -109,10 +133,21 @@ export function CopilotView({
   onConversationSelect,
   products = []
 }: CopilotViewProps) {
+  const router = useRouter()
+  const params = useParams()
+  const slug = (params?.slug as string) ?? ""
+
   const [inputValue, setInputValue] = useState("")
   const [showHistory, setShowHistory] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0])
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  // Attachments — held as data URLs in component state, capped per file at 2MB.
+  // Real upload is phase-2 backend; here we prepend `[attachment: name]` text
+  // so the merchant SEES the chip in their sent message.
+  const [attachments, setAttachments] = useState<CopilotAttachment[]>([])
+  const [isDragOver, setIsDragOver] = useState(false)
+  // Save-chat-as-play sheet
+  const [showSavePlay, setShowSavePlay] = useState(false)
   const messageIndexRef = useRef(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -177,22 +212,94 @@ export function CopilotView({
   }, [messages, isSending, isStreaming])
 
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!content.trim()) return
+    // Attachments alone (no typed text) are still a valid send — the chip
+    // becomes the message body via buildPayloadWithAttachments.
+    const hasAttachments = attachments.length > 0
+    if (!content.trim() && !hasAttachments) return
+
+    const payload = buildPayloadWithAttachments(content, attachments)
 
     setInputValue("")
+    setAttachments([])
 
     if (!conversation) {
       // Use streaming for new conversations
-      const newConversation = await createAndSendMessage(content, true)
+      const newConversation = await createAndSendMessage(payload, true)
       if (newConversation) {
         addConversation(newConversation)
         onConversationCreated?.(newConversation)
       }
     } else {
       // Use streaming for existing conversations
-      await sendMessageStreaming(content)
+      await sendMessageStreaming(payload)
     }
-  }, [conversation, createAndSendMessage, sendMessageStreaming, addConversation, onConversationCreated])
+  }, [conversation, createAndSendMessage, sendMessageStreaming, addConversation, onConversationCreated, attachments])
+
+  // ---------- Attachment handling -------------------------------------------
+  // Pulled into a single helper so the paperclip button + drag-and-drop both
+  // funnel through here. Quietly toasts on rejected types / oversize files.
+  const handleFiles = useCallback(async (files: FileList | File[]) => {
+    const list = Array.from(files)
+    for (const file of list) {
+      if (!isAcceptedFile(file)) {
+        toast("This file type isn't supported yet", {
+          description: "Try a JPG, PNG, WebP, PDF, or CSV.",
+        })
+        continue
+      }
+      try {
+        const att = await readFileAsAttachment(file)
+        setAttachments((prev) => [...prev, att])
+      } catch (err) {
+        const msg =
+          err instanceof Error && err.message.includes("too large")
+            ? "That file is over 2MB"
+            : "Couldn't read that file"
+        toast(msg, { description: "Try a smaller version." })
+      }
+    }
+  }, [])
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id))
+  }, [])
+
+  // Drag-and-drop into the input area. We attach to the form/input wrapper
+  // so the merchant can drop anywhere inside it.
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!isDragOver) setIsDragOver(true)
+  }, [isDragOver])
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+  }, [])
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragOver(false)
+    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files)
+    }
+  }, [handleFiles])
+
+  // ---------- Save chat as play ---------------------------------------------
+  const playDraft = useMemo(
+    () => extractPlayDraft(messages.map((m) => ({ role: m.role, content: m.content }))),
+    [messages],
+  )
+
+  const handleSavePlay = useCallback((input: { name: string; trigger: string; message: string; audience: SavePlayAudience }) => {
+    const play = saveChatAsPlay(input)
+    persistAuthoredPlay(play)
+    setShowSavePlay(false)
+    toast.success("Saved as a play", { description: `"${play.title}" is now in your playbook.` })
+    if (slug) {
+      router.push(`/dashboard/${slug}/notebook`)
+    }
+  }, [router, slug])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -275,17 +382,34 @@ export function CopilotView({
       >
         {/* Input - fixed at bottom */}
         <div className="flex-shrink-0 p-4 pb-4 bg-[var(--chidi-surface)] border-t border-[var(--chidi-border-subtle)]">
-          <form onSubmit={handleSubmit} className="max-w-lg mx-auto">
-            <div className="relative">
+          <form
+            onSubmit={handleSubmit}
+            className="max-w-lg mx-auto"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <AttachmentChips attachments={attachments} onRemove={handleRemoveAttachment} />
+            <div
+              className={cn(
+                "relative rounded-xl transition-shadow",
+                isDragOver && "ring-2 ring-[var(--chidi-text-primary)]/40 ring-offset-2",
+              )}
+            >
               <Input
                 ref={inputRef}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask Chidi anything about your business..."
-                className="pr-24 pl-4 h-12 bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] rounded-xl font-chidi-voice"
+                placeholder={
+                  isDragOver
+                    ? "Drop to attach"
+                    : "Ask Chidi anything about your business..."
+                }
+                className="pr-32 pl-4 h-12 bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] rounded-xl font-chidi-voice"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <CopilotAttachButton onFiles={handleFiles} size="sm" />
                 <VoiceButton
                   size="sm"
                   onTranscript={(t) => setInputValue(t)}
@@ -297,10 +421,10 @@ export function CopilotView({
                 <Button
                   type="submit"
                   size="icon"
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() && attachments.length === 0}
                   className={cn(
                     "h-8 w-8 rounded-lg transition-opacity",
-                    inputValue.trim()
+                    inputValue.trim() || attachments.length > 0
                       ? "btn-cta opacity-100"
                       : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50"
                   )}
@@ -343,6 +467,21 @@ export function CopilotView({
         >
           <Phone className="w-4 h-4" />
           <span className="text-[12px] font-medium hidden sm:inline">Call Chidi</span>
+        </Button>
+        {/* Save chat as a play — convert this conversation into a recurring
+            move in the merchant's playbook. Disabled until there's at least
+            one assistant message worth saving. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowSavePlay(true)}
+          disabled={!messages.some((m) => m.role === "assistant" && m.content.trim().length > 0)}
+          aria-label="Save chat as a play"
+          title="Save chat as a play"
+          className="h-9 px-2.5 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] rounded-lg gap-1.5 font-chidi-voice disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[var(--chidi-text-secondary)]"
+        >
+          <BookmarkPlus className="w-4 h-4" />
+          <span className="text-[12px] font-medium hidden sm:inline">Save as play</span>
         </Button>
         <Button
           variant="ghost"
@@ -438,30 +577,45 @@ export function CopilotView({
 
       {/* Input — Claude-style large rounded bubble with send inside */}
       <div className="flex-shrink-0 px-4 lg:px-6 pb-6 pt-2 bg-[var(--background)]">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-          <div className="relative bg-white border border-[var(--chidi-border-default)] rounded-2xl shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] focus-within:border-[var(--chidi-text-muted)]/40 focus-within:shadow-[0_4px_18px_-4px_rgba(0,0,0,0.10)] transition-all">
+        <form
+          onSubmit={handleSubmit}
+          className="max-w-3xl mx-auto"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <AttachmentChips attachments={attachments} onRemove={handleRemoveAttachment} />
+          <div
+            className={cn(
+              "relative bg-white border border-[var(--chidi-border-default)] rounded-2xl shadow-[0_2px_12px_-4px_rgba(0,0,0,0.06)] focus-within:border-[var(--chidi-text-muted)]/40 focus-within:shadow-[0_4px_18px_-4px_rgba(0,0,0,0.10)] transition-all",
+              isDragOver && "border-[var(--chidi-text-primary)]/50 ring-2 ring-[var(--chidi-text-primary)]/20",
+            )}
+          >
             <Input
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Ask Chidi about your business..."
-              className="pr-14 pl-4 py-4 h-14 bg-transparent border-0 text-[15px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus-visible:ring-0 font-chidi-voice"
+              placeholder={isDragOver ? "Drop to attach" : "Ask Chidi about your business..."}
+              className="pr-24 pl-4 py-4 h-14 bg-transparent border-0 text-[15px] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus-visible:ring-0 font-chidi-voice"
             />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!inputValue.trim() || isSending}
-              aria-label="Send"
-              className={cn(
-                "absolute right-2 top-1/2 -translate-y-1/2 h-9 w-9 rounded-lg transition-all",
-                inputValue.trim() && !isSending
-                  ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] hover:opacity-90"
-                  : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50 cursor-not-allowed",
-              )}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              <CopilotAttachButton onFiles={handleFiles} disabled={isSending} />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={(!inputValue.trim() && attachments.length === 0) || isSending}
+                aria-label="Send"
+                className={cn(
+                  "h-9 w-9 rounded-lg transition-all",
+                  (inputValue.trim() || attachments.length > 0) && !isSending
+                    ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] hover:opacity-90"
+                    : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] opacity-50 cursor-not-allowed",
+                )}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
           <p className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice text-center mt-2">
             Chidi can make mistakes. Verify anything important.
@@ -479,6 +633,16 @@ export function CopilotView({
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
+      />
+
+      {/* Save chat as play sheet */}
+      <SaveAsPlaySheet
+        open={showSavePlay}
+        onOpenChange={setShowSavePlay}
+        defaultName={playDraft.name}
+        defaultTrigger={playDraft.trigger}
+        defaultMessage={playDraft.message}
+        onSave={handleSavePlay}
       />
     </div>
   )
@@ -576,3 +740,177 @@ function CopilotEmptyState({
   )
 }
 
+// =============================================================================
+// SaveAsPlaySheet — turn this Ask-Chidi conversation into a recurring play.
+// Auto-fills name (first user line), trigger (paraphrased from messages), and
+// the message template (last AI draft). Audience picker is cosmetic for now.
+// On save: writes via persistAuthoredPlay(...) and navigates to the playbook.
+// =============================================================================
+
+const AUDIENCE_OPTIONS: SavePlayAudience[] = [
+  "this-customer",
+  "customers-like-this",
+  "all-customers",
+]
+
+interface SaveAsPlaySheetProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  defaultName: string
+  defaultTrigger: string
+  defaultMessage: string
+  onSave: (input: { name: string; trigger: string; message: string; audience: SavePlayAudience }) => void
+}
+
+function SaveAsPlaySheet({
+  open,
+  onOpenChange,
+  defaultName,
+  defaultTrigger,
+  defaultMessage,
+  onSave,
+}: SaveAsPlaySheetProps) {
+  const [name, setName] = useState(defaultName)
+  const [trigger, setTrigger] = useState(defaultTrigger)
+  const [message, setMessage] = useState(defaultMessage)
+  const [audience, setAudience] = useState<SavePlayAudience>("this-customer")
+
+  // Reset to fresh draft each time the sheet opens — the merchant might
+  // have added more turns to the chat between opens.
+  useEffect(() => {
+    if (open) {
+      setName(defaultName)
+      setTrigger(defaultTrigger)
+      setMessage(defaultMessage)
+      setAudience("this-customer")
+    }
+  }, [open, defaultName, defaultTrigger, defaultMessage])
+
+  const handleSave = () => {
+    if (!name.trim()) return
+    onSave({ name, trigger, message, audience })
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="bg-[var(--background)] p-0 flex flex-col gap-0 w-full sm:max-w-[440px] max-w-full"
+      >
+        <SheetHeader className="px-5 pt-5 pb-3 border-b border-[var(--chidi-border-subtle)]">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-primary)]">
+              <BookmarkPlus className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0 pr-6">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-0.5">
+                Playbook
+              </p>
+              <SheetTitle className="text-[15px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
+                Save this chat as a play
+              </SheetTitle>
+              <SheetDescription className="text-[12px] text-[var(--chidi-text-secondary)] font-chidi-voice mt-1 leading-snug">
+                Chidi will run this whenever the trigger fires.
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+          {/* Name */}
+          <div className="space-y-1.5">
+            <label htmlFor="play-name" className="text-[11px] uppercase tracking-[0.14em] text-[var(--chidi-text-muted)] font-semibold">
+              Name
+            </label>
+            <Input
+              id="play-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="What is this play called?"
+              className="h-10 bg-white border-[var(--chidi-border-subtle)] text-[14px] font-chidi-voice text-[var(--chidi-text-primary)]"
+            />
+          </div>
+
+          {/* Trigger */}
+          <div className="space-y-1.5">
+            <label htmlFor="play-trigger" className="text-[11px] uppercase tracking-[0.14em] text-[var(--chidi-text-muted)] font-semibold">
+              Trigger
+            </label>
+            <Input
+              id="play-trigger"
+              value={trigger}
+              onChange={(e) => setTrigger(e.target.value)}
+              placeholder="When should Chidi run this?"
+              className="h-10 bg-white border-[var(--chidi-border-subtle)] text-[14px] font-chidi-voice text-[var(--chidi-text-primary)]"
+            />
+          </div>
+
+          {/* Message template */}
+          <div className="space-y-1.5">
+            <label htmlFor="play-message" className="text-[11px] uppercase tracking-[0.14em] text-[var(--chidi-text-muted)] font-semibold">
+              Message template
+            </label>
+            <textarea
+              id="play-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={5}
+              placeholder="What does Chidi send when this play runs?"
+              className="w-full rounded-md border border-[var(--chidi-border-subtle)] bg-white px-3 py-2 text-[14px] font-chidi-voice text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--chidi-text-primary)]/20 resize-none"
+            />
+          </div>
+
+          {/* Audience */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] uppercase tracking-[0.14em] text-[var(--chidi-text-muted)] font-semibold">
+              Audience
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {AUDIENCE_OPTIONS.map((opt) => {
+                const active = audience === opt
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setAudience(opt)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[12px] font-chidi-voice border transition-colors",
+                      active
+                        ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] border-[var(--chidi-text-primary)]"
+                        : "bg-white text-[var(--chidi-text-secondary)] border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)] hover:text-[var(--chidi-text-primary)]",
+                    )}
+                  >
+                    {AUDIENCE_LABEL[opt]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <SheetFooter className="px-5 py-3 border-t border-[var(--chidi-border-subtle)] flex-row items-center justify-end gap-2 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="text-[12px] font-chidi-voice px-3 py-1.5 rounded-md text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!name.trim()}
+            className={cn(
+              "text-[12px] font-medium font-chidi-voice px-3.5 py-1.5 rounded-md transition-colors",
+              name.trim()
+                ? "bg-[var(--chidi-text-primary)] text-[var(--chidi-bg-primary)] hover:opacity-90"
+                : "bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] cursor-not-allowed",
+            )}
+          >
+            Save as play
+          </button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  )
+}
