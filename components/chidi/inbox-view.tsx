@@ -1029,12 +1029,6 @@ export function InboxView({ onViewCustomerOrders, onOpenOrder, onAskChidiAboutCu
         <div className="flex items-center justify-between mb-3 gap-3">
           <div className="min-w-0 flex items-baseline gap-3">
             <h1 className="ty-page-title text-[var(--chidi-text-primary)]">Inbox</h1>
-            <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
-              {conversations.length} {conversations.length === 1 ? "conversation" : "conversations"}
-              {needsHumanCount > 0 && (
-                <span className="text-[var(--chidi-warning)]"> · {needsHumanCount} need you</span>
-              )}
-            </p>
           </div>
           <Button
             variant="ghost"
