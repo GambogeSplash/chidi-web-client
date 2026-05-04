@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Volume2, VolumeX, Mic, MicOff, Moon, Sun } from "lucide-react"
 import { ChidiCard, ChidiSection } from "./page-shell"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { isSoundEnabled, setSoundEnabled, playWin } from "@/lib/chidi/sound"
 import { cn } from "@/lib/utils"
 
@@ -273,7 +273,7 @@ function ToneSlider({ tone, onChange }: ToneSliderProps) {
       {/* Live preview — updates as the slider moves */}
       <div className="mt-5 bg-[var(--chidi-surface)] rounded-lg p-3.5 border-l-2 border-[var(--chidi-win)]">
         <div className="flex items-center gap-1.5 mb-1.5">
-          <ChidiMark size={12} variant="win" />
+          <ArcFace size={14} className="text-[var(--chidi-win)]" />
           <p className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice uppercase tracking-wider">
             How I'd reply, on this setting
           </p>

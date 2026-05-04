@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react"
 import { cn } from "@/lib/utils"
-import { ChidiAvatar } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 
 /**
  * The Chidi page shell — every dashboard page wraps in <ChidiPage>. Single
@@ -60,7 +60,7 @@ export function ChidiPage({
               {eyebrow && <p className="ty-meta mb-1.5">{eyebrow}</p>}
               {title && (
                 <div className="flex items-start gap-3">
-                  {voice && <ChidiAvatar size="md" tone="default" className="mt-0.5" />}
+                  {voice && <ArcFace size={32} className="mt-0.5 text-[var(--chidi-text-primary)]" />}
                   <div className="min-w-0">
                     <h1 className="ty-page-title text-[var(--chidi-text-primary)]">{title}</h1>
                     {subtitle && (

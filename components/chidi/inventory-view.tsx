@@ -873,10 +873,14 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
             {/* "Add product" — single click opens a small modal where the
                 merchant picks the path (manually OR import). Modal beats
                 dropdown because the choices deserve a moment, not a hover. */}
-            <Button size="sm" className="btn-cta" onClick={() => setAddChooserOpen(true)}>
-              <Plus className="w-4 h-4 mr-1" />
+            <button
+              type="button"
+              onClick={() => setAddChooserOpen(true)}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 active:scale-[0.97] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40"
+            >
+              <Plus className="w-4 h-4" strokeWidth={2.4} />
               Add product
-            </Button>
+            </button>
           </div>
         </div>
 

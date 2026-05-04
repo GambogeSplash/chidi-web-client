@@ -64,20 +64,21 @@ function DialogContent({
           'bg-background z-50 grid gap-4 border shadow-lg duration-200',
           // Animation primitives
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-          // Mobile (default): bottom sheet — slides up from the bottom edge,
-          // full-width, rounded top, max-h so the sheet never crowds the
-          // status bar. The sheet handle sits above the content for affordance.
-          'fixed inset-x-0 bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0',
+          // Position chrome — IMPORTANT: previously we set left-0/right-0 on
+          // mobile and tried to clear them with sm:inset-x-auto, but Tailwind
+          // alphabetical ordering put left/right AFTER inset-x-auto in the CSS
+          // cascade, so on desktop the modal stayed pinned to the left edge.
+          // Fix: use bottom-positioning for mobile (no left/right needed) and
+          // 50%-translated for desktop. Single source of truth per breakpoint.
+          'fixed bottom-0 left-0 right-0 translate-y-0',
           'w-full max-w-full max-h-[92vh] rounded-t-2xl rounded-b-none p-5 pt-4',
           'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-          // Desktop (sm+): centered modal — original behavior. The
-          // slide-from-bottom animation is mobile-only; on desktop the
-          // zoom animation takes over.
-          'sm:top-[50%] sm:left-[50%] sm:bottom-auto sm:right-auto sm:inset-x-auto',
-          'sm:translate-x-[-50%] sm:translate-y-[-50%]',
-          'sm:w-full sm:max-w-[calc(100%-2rem)] sm:max-h-[85vh] sm:rounded-lg sm:p-6',
+          // Desktop (sm+): pinned to viewport center via 50% top/left + -50% translate.
+          'sm:!top-1/2 sm:!left-1/2 sm:!right-auto sm:!bottom-auto',
+          'sm:!translate-x-[-50%] sm:!translate-y-[-50%]',
+          'sm:!w-[min(32rem,calc(100vw-2rem))] sm:!max-w-none sm:!max-h-[85vh]',
+          'sm:rounded-lg sm:p-6',
           'sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95',
-          'sm:max-w-lg',
           className,
         )}
         {...props}
