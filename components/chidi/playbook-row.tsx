@@ -18,11 +18,57 @@
  * card chrome at the page level.
  */
 
+import {
+  ShoppingBag,
+  Package,
+  Heart,
+  Boxes,
+  CalendarClock,
+  type LucideIcon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
-import { formatNGN, type PlaybookPlay } from "@/lib/chidi/playbook-plays"
+import {
+  formatNGN,
+  type PlaybookPlay,
+  type PlayCategory,
+} from "@/lib/chidi/playbook-plays"
 import { lastFiredLabel } from "@/lib/chidi/play-staleness"
 import { triggerSummary } from "@/lib/chidi/play-triggers"
 import { audienceShort } from "@/lib/chidi/play-audiences"
+
+// Per-category visual: icon + tint color for the small left-edge square.
+// Icons map to merchant intent — shopping bag = conversion, package = inventory,
+// clock = routine/scheduled, heart = retention, repeat = recovery.
+const CATEGORY_VISUAL: Record<
+  PlayCategory,
+  { icon: LucideIcon; tint: string; ink: string }
+> = {
+  recovery: {
+    icon: Boxes,
+    tint: "rgba(245, 184, 86, 0.15)",
+    ink: "var(--chidi-warn, #b07a25)",
+  },
+  conversion: {
+    icon: ShoppingBag,
+    tint: "rgba(43, 182, 115, 0.14)",
+    ink: "var(--chidi-win, #2bb673)",
+  },
+  retention: {
+    icon: Heart,
+    tint: "rgba(232, 100, 132, 0.14)",
+    ink: "#c84a78",
+  },
+  inventory: {
+    icon: Package,
+    tint: "rgba(91, 141, 239, 0.14)",
+    ink: "var(--chidi-info, #5b8def)",
+  },
+  routine: {
+    icon: CalendarClock,
+    tint: "var(--chidi-surface)",
+    ink: "var(--chidi-text-secondary)",
+  },
+}
 
 export type PlaybookRowState = "running" | "paused" | "quiet"
 
@@ -55,6 +101,9 @@ export function PlaybookRow({
   const actionLabel =
     state === "paused" ? "Resume" : state === "quiet" ? "Wake up" : "Pause"
 
+  const visual = CATEGORY_VISUAL[play.category]
+  const Icon = visual.icon
+
   return (
     <button
       type="button"
@@ -66,6 +115,19 @@ export function PlaybookRow({
         state === "paused" && "opacity-70 hover:opacity-100",
       )}
     >
+      {/* Category illustration — small tinted square with a Lucide icon. */}
+      <span
+        aria-hidden
+        className={cn(
+          "flex-shrink-0 w-9 h-9 rounded-lg inline-flex items-center justify-center",
+          "motion-safe:transition-transform group-hover:scale-105",
+          state === "quiet" && "opacity-70",
+        )}
+        style={{ backgroundColor: visual.tint, color: visual.ink }}
+      >
+        <Icon className="w-4 h-4" strokeWidth={2} />
+      </span>
+
       <StatusPill play={play} state={state} />
 
       <div className="flex-1 min-w-0">

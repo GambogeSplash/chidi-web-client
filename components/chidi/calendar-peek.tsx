@@ -21,6 +21,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   Calendar as CalendarIcon,
+  CalendarDays,
   ChevronRight,
   MessageSquare,
   Package,
@@ -42,6 +43,7 @@ import {
   subscribe as subscribeFollowUps,
   type TodaysItems,
 } from "@/lib/chidi/calendar-events"
+import { CalendarMonthView } from "./calendar-month-view"
 
 interface CalendarPeekProps {
   /** The trigger element — passed as the SheetTrigger child. */
@@ -103,6 +105,7 @@ function CalendarPeekBody({ onClose }: CalendarPeekBodyProps) {
   const [now, setNow] = useState<Date>(() => new Date())
   const [items, setItems] = useState<TodaysItems>(() => getTodaysItems(orders))
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [monthOpen, setMonthOpen] = useState(false)
 
   // Re-aggregate whenever orders refetch or follow-ups/broadcasts change.
   useEffect(() => {
@@ -228,12 +231,12 @@ function CalendarPeekBody({ onClose }: CalendarPeekBodyProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t border-[var(--chidi-border-subtle)]">
+      <div className="px-3 py-2 border-t border-[var(--chidi-border-subtle)] flex items-center gap-1.5">
         <Sheet open={scheduleOpen} onOpenChange={setScheduleOpen}>
           <SheetTrigger asChild>
-            <button className="w-full flex items-center justify-center gap-2 h-8 rounded-md bg-[var(--chidi-surface)] hover:bg-[var(--chidi-surface)]/70 transition-colors text-[12px] font-chidi-voice font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]">
+            <button className="flex-1 flex items-center justify-center gap-2 h-8 rounded-md bg-[var(--chidi-surface)] hover:bg-[var(--chidi-surface)]/70 transition-colors text-[12px] font-chidi-voice font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]">
               <Plus className="w-3 h-3" strokeWidth={2.4} />
-              Schedule something
+              Schedule
             </button>
           </SheetTrigger>
           <SheetContent side="right" className="w-full sm:max-w-md p-0 bg-[var(--card)]">
@@ -251,6 +254,33 @@ function CalendarPeekBody({ onClose }: CalendarPeekBodyProps) {
                   setScheduleOpen(false)
                 }}
                 onCancel={() => setScheduleOpen(false)}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+        <Sheet open={monthOpen} onOpenChange={setMonthOpen}>
+          <SheetTrigger asChild>
+            <button className="flex-1 flex items-center justify-center gap-2 h-8 rounded-md bg-[var(--chidi-surface)] hover:bg-[var(--chidi-surface)]/70 transition-colors text-[12px] font-chidi-voice font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]">
+              <CalendarDays className="w-3 h-3" strokeWidth={2.4} />
+              View full calendar
+            </button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:max-w-lg p-0 bg-[var(--card)] flex flex-col">
+            <SheetHeader className="px-5 pt-5 pb-2 border-b border-[var(--chidi-border-subtle)]">
+              <SheetTitle className="font-chidi-voice text-[var(--chidi-text-primary)]">
+                Calendar
+              </SheetTitle>
+              <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice">
+                Deliveries, broadcasts, follow-ups — all in one month view.
+              </p>
+            </SheetHeader>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <CalendarMonthView
+                onNavigate={(href) => {
+                  setMonthOpen(false)
+                  onClose()
+                  router.push(href)
+                }}
               />
             </div>
           </SheetContent>

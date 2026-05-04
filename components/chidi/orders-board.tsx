@@ -592,14 +592,22 @@ function Column({
       ref={setNodeRef}
       aria-label={`${meta.label} column`}
       className={cn(
-        "flex flex-col rounded-2xl border bg-[var(--chidi-surface)]/30",
+        "relative flex flex-col rounded-2xl border bg-[var(--chidi-surface)]/30",
         "border-[var(--chidi-border-subtle)]",
         "lg:h-[calc(100vh-9rem)]",
-        isHovered && "border-[var(--chidi-text-primary)] bg-[var(--chidi-surface)]/60",
-        isOver && "ring-2 ring-[var(--chidi-text-primary)]/40",
+        isHovered && "border-[var(--chidi-text-primary)] bg-[var(--chidi-win-soft)]/60 motion-safe:chidi-board-column-receiving",
+        isOver && "ring-2 ring-[var(--chidi-win)]/50",
         "motion-safe:transition-[border-color,background-color] motion-safe:duration-150",
       )}
     >
+      {/* Drag-over inner dashed border — sits inside the rounded chrome so
+          the receiving column reads as "drop here" without shifting layout. */}
+      {isHovered && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-1 rounded-xl border border-dashed border-[var(--chidi-win)]/55"
+        />
+      )}
       <header className="flex items-center justify-between gap-2 px-3 lg:px-4 pt-3 pb-2 flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {variant === "mobile" && onColumnHeaderJump && (
@@ -643,7 +651,7 @@ function Column({
         variant === "desktop" ? "overflow-y-auto" : "overflow-visible",
       )}>
         {orders.length === 0 ? (
-          <ColumnEmpty hint={meta.emptyHint} />
+          <ColumnEmpty hint={meta.emptyHint} stage={stage} />
         ) : (
           <ul className="space-y-2">
             {orders.map((order, i) => {
@@ -652,8 +660,8 @@ function Column({
               return (
                 <li
                   key={order.id}
-                  className="motion-safe:chidi-list-in"
-                  style={{ animationDelay: `${i * 28}ms` }}
+                  className="motion-safe:chidi-board-card-in"
+                  style={{ animationDelay: `${Math.min(i, 12) * 32}ms` }}
                 >
                   <DraggableCard
                     order={order}
@@ -738,12 +746,25 @@ function DraggableCard({
 // Empty
 // =============================================================================
 
-function ColumnEmpty({ hint }: { hint: string }) {
+// Stage-specific drag-here line — augments the generic emptyHint with a more
+// directional cue ("Drag here when..."). Kept inline so the brief can change
+// the copy here without rippling out to lib/chidi/board-state.ts.
+const STAGE_DRAG_HINT: Record<BoardStage, string> = {
+  PENDING_PAYMENT: "New orders land here first.",
+  CONFIRMED: "Drag here when the customer pays.",
+  FULFILLED: "Drag here when the order's packed.",
+  OUT_FOR_DELIVERY: "Drag here when a rider picks it up.",
+}
+
+function ColumnEmpty({ hint, stage }: { hint: string; stage: BoardStage }) {
   return (
     <div className="flex flex-col items-center justify-center text-center px-4 py-10 gap-2">
       <ArcFace size={20} className="text-[var(--chidi-text-primary)]" />
-      <p className="text-[11.5px] text-[var(--chidi-text-muted)] leading-snug max-w-[16ch]">
+      <p className="text-[11.5px] text-[var(--chidi-text-muted)] leading-snug max-w-[18ch]">
         {hint}
+      </p>
+      <p className="text-[10.5px] text-[var(--chidi-text-muted)]/70 italic leading-snug max-w-[20ch]">
+        {STAGE_DRAG_HINT[stage]}
       </p>
     </div>
   )

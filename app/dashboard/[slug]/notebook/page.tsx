@@ -365,34 +365,40 @@ export default function PlaybookPage() {
             <ListSkeleton />
           ) : (
             <>
-              {/* === Hero strip === */}
-              <div className="flex items-start gap-3 py-6 lg:py-8 mb-2">
-                <ArcFace
-                  size={32}
-                  className="text-[var(--chidi-text-primary)] flex-shrink-0 mt-0.5"
-                />
-                <p className="text-[15px] lg:text-[16px] font-chidi-voice text-[var(--chidi-text-primary)] leading-relaxed">
-                  {heroSentence}
-                </p>
-              </div>
+              {/* === Hero scene === */}
+              <PlaybookHeroScene
+                plays={allPlays}
+                pausedSet={pausedSet}
+                sentence={heroSentence}
+              />
 
               {/* === Single play list === */}
-              <ul className="rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)]/40 divide-y divide-[var(--chidi-border-subtle)] overflow-hidden">
-                {sortedPlays.map((play) => (
-                  <li key={play.id}>
-                    <PlaybookRow
-                      play={play}
-                      state={rowStateFor(play)}
-                      customized={
-                        !!customMessages[play.id] &&
-                        customMessages[play.id] !== play.sample_message
-                      }
-                      onOpen={() => setSheetTarget({ kind: "play", id: play.id })}
-                      onAction={() => handleRowAction(play)}
-                    />
-                  </li>
-                ))}
-              </ul>
+              {sortedPlays.length === 0 ? (
+                <PlaybookEmptyState
+                  onBrowse={() => setSheetTarget({ kind: "catalogue" })}
+                />
+              ) : (
+                <ul className="rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)]/40 divide-y divide-[var(--chidi-border-subtle)] overflow-hidden">
+                  {sortedPlays.map((play, i) => (
+                    <li
+                      key={play.id}
+                      className="motion-safe:chidi-playbook-row-in"
+                      style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+                    >
+                      <PlaybookRow
+                        play={play}
+                        state={rowStateFor(play)}
+                        customized={
+                          !!customMessages[play.id] &&
+                          customMessages[play.id] !== play.sample_message
+                        }
+                        onOpen={() => setSheetTarget({ kind: "play", id: play.id })}
+                        onAction={() => handleRowAction(play)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               {/* === Catalogue link === */}
               <div className="mt-6 flex justify-center">
@@ -622,6 +628,176 @@ function CatalogueSheet({
         })}
       </div>
     </>
+  )
+}
+
+// ===========================================================================
+// PlaybookHeroScene — small visual scene above the play list.
+//
+// Composition:
+//   ┌──────────────────────────────────────────────────┐
+//   │  [ArcFace + tinted halo +    Today, Chidi: ...   │
+//   │   floating chips of today's                     │
+//   │   actions]                                      │
+//   └──────────────────────────────────────────────────┘
+//
+// Chips read from the plays that fired today + the routine schedules so the
+// scene actually shows what's happening, not generic decoration.
+// ===========================================================================
+
+const HERO_CHIP_TINTS: Array<{ bg: string; ink: string; rot: number }> = [
+  { bg: "rgba(43, 182, 115, 0.14)", ink: "#1e8d57", rot: -3 },
+  { bg: "rgba(245, 184, 86, 0.16)", ink: "#b07a25", rot: 2 },
+  { bg: "rgba(91, 141, 239, 0.14)", ink: "#3a6cd0", rot: -2 },
+  { bg: "rgba(232, 100, 132, 0.14)", ink: "#c84a78", rot: 4 },
+]
+
+function PlaybookHeroScene({
+  plays,
+  pausedSet,
+  sentence,
+}: {
+  plays: PlaybookPlay[]
+  pausedSet: Set<string>
+  sentence: string
+}) {
+  // Derive up to four chips from the highest-signal active plays so the scene
+  // says something true. We don't recompute fired-today here; the page-level
+  // hero sentence already conveys that. The chips are about *posture*: which
+  // moves are staffing the room.
+  const chips = useMemo(() => {
+    const candidates = plays
+      .filter((p) => !pausedSet.has(p.id))
+      .sort((a, b) => b.stats.runs - a.stats.runs)
+      .slice(0, 4)
+    return candidates.map((p, i) => ({
+      id: p.id,
+      label: chipLabel(p),
+      tint: HERO_CHIP_TINTS[i % HERO_CHIP_TINTS.length],
+    }))
+  }, [plays, pausedSet])
+
+  return (
+    <div className="motion-safe:chidi-playbook-hero-in py-6 lg:py-8 mb-2">
+      <div className="flex items-start gap-4 lg:gap-5">
+        {/* Left: ArcFace inside a tinted halo with floating chips around it. */}
+        <div className="relative flex-shrink-0 w-28 h-20 lg:w-32 lg:h-24">
+          {/* Soft halo behind the face */}
+          <span
+            aria-hidden
+            className="absolute left-0 top-0 w-16 h-16 lg:w-[72px] lg:h-[72px] rounded-full"
+            style={{
+              background:
+                "radial-gradient(circle at 30% 30%, rgba(232, 163, 61, 0.22), rgba(232, 163, 61, 0) 70%)",
+            }}
+          />
+          <div className="absolute left-1.5 top-1 w-14 h-14 lg:w-16 lg:h-16 rounded-full bg-[var(--chidi-surface)]/60 border border-[var(--chidi-border-subtle)] flex items-center justify-center text-[var(--chidi-text-primary)]">
+            <ArcFace size={36} state="speaking" />
+          </div>
+          {/* Floating chips — positioned around the face */}
+          <div className="absolute inset-0 pointer-events-none">
+            {chips.map((c, i) => (
+              <span
+                key={c.id}
+                className={cn(
+                  "absolute inline-flex items-center gap-1 text-[9.5px] font-medium font-chidi-voice px-1.5 py-0.5 rounded-full border border-[var(--chidi-border-subtle)] shadow-sm whitespace-nowrap",
+                  "motion-safe:chidi-playbook-chip-float",
+                )}
+                style={{
+                  backgroundColor: c.tint.bg,
+                  color: c.tint.ink,
+                  ["--rot" as never]: `${c.tint.rot}deg`,
+                  ...chipPosition(i),
+                }}
+              >
+                {c.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: the sentence */}
+        <p className="text-[15px] lg:text-[16px] font-chidi-voice text-[var(--chidi-text-primary)] leading-relaxed flex-1 pt-1">
+          {sentence}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function chipPosition(i: number): React.CSSProperties {
+  // Hand-tuned positions so the four chips read as an arc around the face.
+  switch (i) {
+    case 0:
+      return { left: "62%", top: "4px", transform: "rotate(-3deg)" }
+    case 1:
+      return { left: "68%", bottom: "4px", transform: "rotate(2deg)" }
+    case 2:
+      return { left: "8%", bottom: "-2px", transform: "rotate(-2deg)" }
+    case 3:
+    default:
+      return { left: "30%", top: "-4px", transform: "rotate(4deg)" }
+  }
+}
+
+function chipLabel(play: PlaybookPlay): string {
+  switch (play.id) {
+    case "play-pending-payment":
+      return "Cold-payment chase"
+    case "play-cart-abandon":
+      return "Quiet-chat nudge"
+    case "play-bulk-quote":
+      return "Bulk quote"
+    case "play-upsell-bundle":
+      return "Bundle add-on"
+    case "play-vip-checkin":
+      return "VIP wake-up"
+    case "play-thank-you-receipt":
+      return "Thank-you note"
+    case "play-restock-fast-mover":
+      return "Restock alarm"
+    case "play-clearance-stale":
+      return "Clearance ping"
+    case "play-morning-brief":
+      return "Morning brief"
+    case "play-saturday-prep":
+      return "Saturday prep"
+    default:
+      return play.title.length > 22 ? `${play.title.slice(0, 20)}…` : play.title
+  }
+}
+
+// ===========================================================================
+// PlaybookEmptyState — shown only when sortedPlays is empty (e.g. all plays
+// removed). Renders a tinted square + ArcFace + Chidi-voice line + CTA.
+// ===========================================================================
+
+function PlaybookEmptyState({ onBrowse }: { onBrowse: () => void }) {
+  return (
+    <div className="rounded-xl border border-dashed border-[var(--chidi-border-default)] bg-[var(--card)]/40 px-6 py-10 flex flex-col items-center text-center gap-3">
+      <span
+        className="w-12 h-12 rounded-xl flex items-center justify-center text-[var(--chidi-text-primary)]"
+        style={{ backgroundColor: "var(--chidi-win-soft)" }}
+      >
+        <ArcFace size={32} />
+      </span>
+      <div>
+        <h3 className="text-[15px] font-semibold font-chidi-voice text-[var(--chidi-text-primary)]">
+          Your playbook's empty.
+        </h3>
+        <p className="text-[12.5px] text-[var(--chidi-text-secondary)] font-chidi-voice mt-1 max-w-[42ch]">
+          Pick from the catalogue to start. Each play is one move Chidi runs
+          for you, on the schedule you set.
+        </p>
+      </div>
+      <button
+        onClick={onBrowse}
+        className="inline-flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-md bg-[var(--chidi-text-primary)] text-[var(--background)] hover:opacity-90 transition-opacity"
+      >
+        <Plus className="w-3.5 h-3.5" strokeWidth={2.2} />
+        Browse the catalogue
+      </button>
+    </div>
   )
 }
 

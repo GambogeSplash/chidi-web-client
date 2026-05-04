@@ -30,6 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { TelegramIcon, WhatsAppIcon } from "@/components/ui/channel-icons"
+import { CustomerCharacter } from "@/components/chidi/customer-character"
 import { PaymentConfirmationWidget } from "@/components/chidi/payment-confirmation-widget"
 import {
   type BoardStage,
@@ -140,8 +141,13 @@ export const OrderCard = forwardRef<HTMLDivElement, OrderCardProps>(
           ...(dragTransform ? { transform: dragTransform } : null),
         }}
       >
-        {/* Top row: customer name + channel chip */}
+        {/* Top row: customer character + name + channel chip */}
         <div className="flex items-center gap-2 min-w-0">
+          <CustomerCharacter
+            size="xs"
+            name={order.customer_name}
+            fallbackId={order.id}
+          />
           <p className="flex-1 min-w-0 truncate text-[12.5px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
             {order.customer_name || "Unknown customer"}
           </p>

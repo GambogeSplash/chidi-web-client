@@ -1469,3 +1469,99 @@ select:focus-visible {
   .chidi-offline-banner-in,
   .chidi-offline-toast-in { animation: none; }
 }
+
+/* ============================================================================
+   NEW SECTION — Calendar month view + Easels board polish + Playbook hero
+   Added 2026-05-03 with the imagery + animation pass on three surfaces:
+   Calendar Peek (full month sheet), Playbook (hero scene + row cascade),
+   Easels Board (column + drop celebrations). All animations honor
+   prefers-reduced-motion and collapse to instant.
+   ========================================================================= */
+
+/* --- Calendar month view --------------------------------------------------- */
+@keyframes chidiCalGridIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.992); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.chidi-cal-grid-in {
+  animation: chidiCalGridIn 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes chidiCalDrawerIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chidi-cal-drawer-in {
+  animation: chidiCalDrawerIn 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes chidiCalDayPop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+.chidi-cal-day-pop {
+  animation: chidiCalDayPop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chidi-cal-grid-in,
+  .chidi-cal-drawer-in,
+  .chidi-cal-day-pop { animation: none; }
+}
+
+/* --- Playbook hero floating chips ----------------------------------------- */
+@keyframes chidiPlaybookChipFloat {
+  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+  50%      { transform: translateY(-3px) rotate(calc(var(--rot, 0deg) + 1.5deg)); }
+}
+.chidi-playbook-chip-float {
+  animation: chidiPlaybookChipFloat 4.2s ease-in-out infinite;
+}
+.chidi-playbook-chip-float:nth-child(2) { animation-delay: 0.6s; animation-duration: 4.6s; }
+.chidi-playbook-chip-float:nth-child(3) { animation-delay: 1.2s; animation-duration: 5s; }
+.chidi-playbook-chip-float:nth-child(4) { animation-delay: 1.8s; animation-duration: 4.4s; }
+
+@keyframes chidiPlaybookHeroFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chidi-playbook-hero-in {
+  animation: chidiPlaybookHeroFadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes chidiPlaybookRowIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chidi-playbook-row-in {
+  animation: chidiPlaybookRowIn 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chidi-playbook-chip-float,
+  .chidi-playbook-hero-in,
+  .chidi-playbook-row-in { animation: none; }
+}
+
+/* --- Easels board polish -------------------------------------------------- */
+@keyframes chidiBoardCardIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.chidi-board-card-in {
+  animation: chidiBoardCardIn 260ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes chidiBoardColumnPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(43, 182, 115, 0); }
+  50%      { box-shadow: 0 0 0 6px rgba(43, 182, 115, 0.06); }
+}
+.chidi-board-column-receiving {
+  animation: chidiBoardColumnPulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chidi-board-card-in,
+  .chidi-board-column-receiving { animation: none; }
+}
