@@ -54,6 +54,9 @@ export interface PlaybookPlay {
   /** Customer-side plays: names of people the play would currently affect.
       Used to render stacked avatars in the play card. */
   affected_customers?: string[]
+  /** A short, voice-y subtitle that explains the play in human terms.
+      Renders under the title in both Today + Always-running. */
+  subtitle?: string
   /** Inventory plays: image URLs of the SKUs the play targets. Drives
       product thumbnails in the play card. */
   affected_product_images?: string[]
@@ -93,7 +96,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-pending-payment",
     category: "recovery",
-    title: "Chase the cold pending payment",
+    title: "The 24-hour chase",
+    subtitle: "When someone drops off at checkout, follow up with grace.",
     trigger: "An order has been in PENDING_PAYMENT for 24 hours.",
     steps: [
       "Send a soft nudge in the customer's voice: \"Hey, still want to grab that one? I'm holding it.\"",
@@ -122,7 +126,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-cart-abandon",
     category: "recovery",
-    title: "Recover the dropped chat",
+    title: "Quiet ones",
+    subtitle: "When a chat goes silent after a quote, slip in once.",
     trigger: "Customer asks about a product, gets a quote, then goes silent for 3+ hours.",
     steps: [
       "Send a single message tied to what they asked: \"That blue one is still here if you want it.\"",
@@ -151,7 +156,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-bulk-quote",
     category: "conversion",
-    title: "Wholesale quote, on the spot",
+    title: "Big basket",
+    subtitle: "When someone asks for ten or more, quote on the spot.",
     trigger: "Customer asks about quantities of 10+ units.",
     steps: [
       "Quote the unit price including a tiered discount (5% at 10, 10% at 20, 15% at 50).",
@@ -178,7 +184,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-upsell-bundle",
     category: "conversion",
-    title: "Pair the bonnet with the lipstick",
+    title: "Two for the road",
+    subtitle: "When a beauty item lands, offer its companion at a kindness.",
     trigger: "A customer adds a beauty item to their order.",
     steps: [
       "Offer the matching companion product (bonnet → lipstick set, soap → lotion).",
@@ -211,7 +218,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-vip-checkin",
     category: "retention",
-    title: "Bring the VIP back at week 6",
+    title: "Wake up old friends",
+    subtitle: "When a regular goes quiet for six weeks, send a real note.",
     trigger: "A repeat customer (3+ orders) has gone 6 weeks without a message.",
     steps: [
       "Send a personal note tied to their last purchase (\"how's the headwrap holding up?\").",
@@ -238,7 +246,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-thank-you-receipt",
     category: "retention",
-    title: "Thank-you note with the receipt",
+    title: "First handshake",
+    subtitle: "When an order is fulfilled, send the receipt with a thank-you in your voice.",
     trigger: "An order is marked FULFILLED.",
     steps: [
       "Send a branded receipt + a one-line thank you in your shop voice.",
@@ -267,7 +276,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-restock-fast-mover",
     category: "inventory",
-    title: "Flag the fast-mover before it dies",
+    title: "Empty shelf alarm",
+    subtitle: "When a fast-mover dips below threshold, draft the supplier message.",
     trigger: "A product hits 30% of its reorder threshold and is selling 3+ units/week.",
     steps: [
       "Notify you in the morning brief with stock-out ETA in days.",
@@ -299,7 +309,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-clearance-stale",
     category: "inventory",
-    title: "Clear the stale shelf",
+    title: "Dust off the shelf",
+    subtitle: "When stock sits for forty-five days, mark it down quietly.",
     trigger: "A product hasn't sold in 45 days but is taking up cash + space.",
     steps: [
       "Suggest a 20% markdown for one week, listed with the regular catalog.",
@@ -332,7 +343,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-morning-brief",
     category: "routine",
-    title: "Morning brief at 7:30am",
+    title: "First light",
+    subtitle: "Every morning at 7:30, your day on one screen.",
     trigger: "Every weekday at 7:30am, before you open the app.",
     steps: [
       "Summarize overnight: orders, payments, conversations needing you.",
@@ -359,7 +371,8 @@ export const PLAYS: PlaybookPlay[] = [
   {
     id: "play-saturday-prep",
     category: "routine",
-    title: "Saturday-prep on Friday night",
+    title: "Friday rush",
+    subtitle: "Fire a stock check + status idea before Saturday's peak.",
     trigger: "Every Friday at 6pm — Saturdays are 1.85× your average day.",
     steps: [
       "Cross-check stock vs last 4 Saturdays' top sellers.",

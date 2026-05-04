@@ -1,72 +1,95 @@
 "use client"
 
 /**
- * Playbook — rebuilt from scratch (2026-05-03).
+ * Playbook — "Chidi's stage." Rebuilt 2026-05-03 (wave 5).
  *
- * What the merchant wants to do here, ranked by frequency:
- *   1. See what's running for me right now and what it's earning ("did Chidi
- *      actually do anything for me this month?").
- *   2. Turn a play on or off without thinking about it ("pause the receipt
- *      thank-you while I'm closed for Salah").
- *   3. Peek at what a play is and tweak it ("show me the message it sends").
+ * RATIONALE
+ * ---------
+ * The previous Playbook was a flat list of toggleable automations. The
+ * Insights surface had its own "Decisions thread" that spoke to the merchant
+ * conversationally and asked for one-tap replies. Two surfaces, two metaphors,
+ * one of them duplicating the other. Worse: the playbook felt like a settings
+ * panel, not a place where the merchant *felt* Chidi working for them.
  *
- * Primary action this surface optimizes for: TOGGLING a play on/off and
- * SEEING the proof it earned its keep.
+ * This rewrite folds Decisions INTO the Playbook and reframes the page as a
+ * single stage with two acts:
  *
- * Metaphor: a list of tireless workers the merchant can hire or send home for
- * the day. NOT a workflow editor. NOT an automations IDE. NOT a fleet of
- * agents with stats dashboards. Authoring is demoted to a single quiet "+"
- * at the bottom — most Lagos merchants will live entirely off the seeded
- * plays, and that's fine.
+ *   1. TODAY — the urgent things that need a human "yes" right now. Each
+ *      decision renders as a chat-bubble from Chidi with reply pills. Tapping
+ *      the primary reply *enacts* the play visually inside the same card:
+ *      message types out in a WhatsApp/Telegram bubble (~22ms/char), the
+ *      recipient list cycles through, a green check lands, the card collapses
+ *      with a spring, and a "✓ Ran 2s ago" row appears in Recent runs.
+ *      That's the wow — the merchant sees the work happen, not a toast.
  *
- * Layout: ONE column. Each row = name + 1-line summary + ₦ earned + a real
- * toggle. Tap the row → slide-up sheet with full description, sample message,
- * customize, run-now, recent runs. That's it. No master/detail, no KPI
- * strip stealing space, no filter chips, no composer leaking inline.
+ *   2. ALWAYS RUNNING — quieter list of background plays (24-hour chase,
+ *      Empty shelf alarm, Friday rush, etc). Toggle on/off, tap to peek the
+ *      message, see what they earned this month. This is the boring (good)
+ *      part of automation.
+ *
+ * The decision-as-conversation metaphor leaves Insights and lives here. The
+ * mascot is gone; ArcFace stands in. Plays are renamed from generic
+ * categories to character names so the page feels like a cast, not a CRUD
+ * table — but IDs stay stable so any backend wiring keeps working.
+ *
+ * Layout: ChidiPage shell, single column (the wow is in the cards). Title is
+ * "Playbook" (not "Chidi's playbook" — quieter). Subtitle: "What Chidi's
+ * running for you, and what needs your call."
  */
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import { useParams, useRouter } from "next/navigation"
-import { Plus, ChevronRight, X as XIcon } from "lucide-react"
+import { Plus, RefreshCw, X as XIcon } from "lucide-react"
 import { toast } from "sonner"
 import { AppHeader } from "@/components/chidi/app-header"
 import { NavRail } from "@/components/chidi/nav-rail"
 import { ChidiPage } from "@/components/chidi/page-shell"
 import { EmptyState } from "@/components/chidi/empty-state"
-import { ChidiMark } from "@/components/chidi/chidi-mark"
+import { ArcFace } from "@/components/chidi/arc-face"
+import { PlaybookDecisionCard } from "@/components/chidi/playbook-decision-card"
+import { PlaybookAlwaysRunning } from "@/components/chidi/playbook-always-running"
 import { cn } from "@/lib/utils"
 import { useRailCollapsed } from "@/lib/chidi/use-rail-collapsed"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
 import {
   PLAYS,
-  formatNGN,
   type PlaybookPlay,
 } from "@/lib/chidi/playbook-plays"
+import { DECISIONS, type Decision } from "@/lib/chidi/insights-decisions"
 
-/**
- * Lazy-load the slide-up sheet body. Keeps the route's first paint fast — the
- * list itself is tiny; the sheet only matters once a play is tapped.
- */
 const PlaySheetBody = dynamic(
   () => import("@/components/chidi/play-sandbox").then((m) => m.PlaySheetBody),
-  {
-    ssr: false,
-    loading: () => <SheetBodySkeleton />,
-  },
+  { ssr: false, loading: () => <SheetBodySkeleton /> },
 )
+
+// ---------------------------------------------------------------------------
+// Persisted decision lifecycle (snoozed / dismissed / enacted)
+// ---------------------------------------------------------------------------
+
+type DecisionStateMap = Record<
+  string,
+  { state: "active" | "snoozed" | "dismissed" | "enacted"; until?: number }
+>
+
+interface RecentRun {
+  decisionId: string
+  title: string
+  resultLine: string
+  recipientCount: number
+  ranAt: number // epoch ms
+}
 
 interface DraftPlay {
   title: string
   trigger: string
   message: string
 }
-
 const EMPTY_DRAFT: DraftPlay = { title: "", trigger: "", message: "" }
 
-// ============================================================================
+// ===========================================================================
 // Page
-// ============================================================================
+// ===========================================================================
 
 export default function PlaybookPage() {
   const router = useRouter()
@@ -74,34 +97,41 @@ export default function PlaybookPage() {
   const slug = params.slug as string
   const railCollapsed = useRailCollapsed()
 
-  // Mounting flag — render skeleton on first paint while the sessionStorage
-  // hooks hydrate. Avoids a flash of "all on" then snap to user's saved state.
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  // The merchant's on/off ledger. Default = whatever the seed says (active).
-  // Persists per-merchant via sessionStorage.
+  // ----- Always-running plays state -------------------------------------
   const [pausedIds, setPausedIds] = usePersistedState<string[]>(
     "playbook:paused",
     PLAYS.filter((p) => p.state === "paused").map((p) => p.id),
   )
   const pausedSet = useMemo(() => new Set(pausedIds), [pausedIds])
 
-  // Per-play customizations: the merchant's edited message, persisted.
   const [customMessages, setCustomMessages] = usePersistedState<Record<string, string>>(
     "playbook:custom-messages",
     {},
   )
 
-  // Locally-authored plays (the optional "+ New play" path).
   const [authoredPlays, setAuthoredPlays] = usePersistedState<PlaybookPlay[]>(
     "playbook:authored",
     [],
   )
+  const allPlays = useMemo(() => [...authoredPlays, ...PLAYS], [authoredPlays])
 
-  // Sheet state — which play (or "compose") is open in the slide-up sheet.
+  // ----- Today's decisions state ----------------------------------------
+  const [decisionState, setDecisionState] = usePersistedState<DecisionStateMap>(
+    "playbook:decisions",
+    {},
+  )
+
+  const [recentRuns, setRecentRuns] = usePersistedState<RecentRun[]>(
+    "playbook:recent-runs",
+    [],
+  )
+
+  // ----- Sheet (sandbox / compose) state --------------------------------
   const [sheetTarget, setSheetTarget] = useState<
     | { kind: "play"; id: string }
     | { kind: "compose" }
@@ -113,30 +143,85 @@ export default function PlaybookPage() {
     EMPTY_DRAFT,
   )
 
-  const allPlays = useMemo(
-    () => [...authoredPlays, ...PLAYS],
-    [authoredPlays],
+  // -------------------------------------------------------------------------
+  // Visible decisions (filter snoozed/dismissed/enacted)
+  // -------------------------------------------------------------------------
+  const visibleDecisions: Decision[] = useMemo(() => {
+    const now = Date.now()
+    return DECISIONS.filter((d) => {
+      const s = decisionState[d.id]
+      if (!s || s.state === "active") return true
+      if (s.state === "dismissed" || s.state === "enacted") return false
+      if (s.state === "snoozed") {
+        if (!s.until) return false
+        return s.until <= now
+      }
+      return true
+    })
+  }, [decisionState])
+
+  const dismissedCount = DECISIONS.length - visibleDecisions.length
+
+  // -------------------------------------------------------------------------
+  // Decision lifecycle handlers
+  // -------------------------------------------------------------------------
+  const setDecisionLifecycle = useCallback(
+    (id: string, state: DecisionStateMap[string]["state"], snoozeMs?: number) => {
+      setDecisionState((prev) => ({
+        ...prev,
+        [id]: {
+          state,
+          until: snoozeMs ? Date.now() + snoozeMs : undefined,
+        },
+      }))
+    },
+    [setDecisionState],
   )
 
-  // Two groups: Running (top) + Paused (below). No filter chips. No tabs.
-  const { running, paused } = useMemo(() => {
-    const running: PlaybookPlay[] = []
-    const paused: PlaybookPlay[] = []
-    for (const p of allPlays) {
-      if (pausedSet.has(p.id)) paused.push(p)
-      else running.push(p)
-    }
-    return { running, paused }
-  }, [allPlays, pausedSet])
-
-  const totalRecovered = useMemo(
-    () =>
-      allPlays
-        .filter((p) => !pausedSet.has(p.id))
-        .reduce((s, p) => s + (p.stats.last_30d_value_recovered_ngn ?? 0), 0),
-    [allPlays, pausedSet],
+  const handleEnacted = useCallback(
+    (summary: { decisionId: string; resultLine: string; recipientCount: number }) => {
+      const decision = DECISIONS.find((d) => d.id === summary.decisionId)
+      if (!decision) return
+      setRecentRuns((prev) =>
+        [
+          {
+            decisionId: summary.decisionId,
+            title: decision.question,
+            resultLine: summary.resultLine,
+            recipientCount: summary.recipientCount,
+            ranAt: Date.now(),
+          },
+          ...prev,
+        ].slice(0, 8),
+      )
+      setDecisionLifecycle(summary.decisionId, "enacted")
+      toast.success("Play ran", { description: summary.resultLine })
+    },
+    [setRecentRuns, setDecisionLifecycle],
   )
 
+  const handleSnooze = useCallback(
+    (id: string, ms: number) => {
+      setDecisionLifecycle(id, "snoozed", ms)
+      toast("Snoozed", { description: "Chidi will bring it back later." })
+    },
+    [setDecisionLifecycle],
+  )
+
+  const handleDismiss = useCallback(
+    (id: string) => {
+      setDecisionLifecycle(id, "dismissed")
+    },
+    [setDecisionLifecycle],
+  )
+
+  const handleRestoreAll = useCallback(() => {
+    setDecisionState({})
+  }, [setDecisionState])
+
+  // -------------------------------------------------------------------------
+  // Always-running handlers
+  // -------------------------------------------------------------------------
   const togglePause = (id: string) => {
     setPausedIds((prev) => {
       const set = new Set(prev)
@@ -153,9 +238,7 @@ export default function PlaybookPage() {
 
   const handleSaveCustom = (id: string, message: string) => {
     setCustomMessages((prev) => ({ ...prev, [id]: message }))
-    toast.success("Message saved", {
-      description: "Chidi will use your version from now on.",
-    })
+    toast.success("Message saved", { description: "Chidi will use your version from now on." })
   }
 
   const handleResetCustom = (id: string) => {
@@ -187,9 +270,7 @@ export default function PlaybookPage() {
     clearDraft()
     setDraft(EMPTY_DRAFT)
     setSheetTarget(null)
-    toast.success("Play added", {
-      description: `"${title}" is now in your playbook.`,
-    })
+    toast.success("Play added", { description: `"${title}" is now in your playbook.` })
   }
 
   const activePlay = useMemo(() => {
@@ -197,7 +278,7 @@ export default function PlaybookPage() {
     return allPlays.find((p) => p.id === sheetTarget.id) ?? null
   }, [sheetTarget, allPlays])
 
-  // Close sheet on Escape.
+  // Close sheet on Escape
   useEffect(() => {
     if (!sheetTarget) return
     const onKey = (e: KeyboardEvent) => {
@@ -207,6 +288,9 @@ export default function PlaybookPage() {
     return () => window.removeEventListener("keydown", onKey)
   }, [sheetTarget])
 
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
   return (
     <div
       className={cn(
@@ -224,92 +308,101 @@ export default function PlaybookPage() {
 
       <ChidiPage
         eyebrow="Playbook"
-        title="Plays you keep running."
-        subtitle={
-          mounted
-            ? totalRecovered > 0
-              ? `${formatNGN(totalRecovered)} recovered for you in the last 30 days.`
-              : "Turn a play on and Chidi will run it for you."
-            : undefined
-        }
+        title="Playbook"
+        subtitle="What Chidi's running for you, and what needs your call."
         voice
         width="default"
       >
         {!mounted ? (
           <ListSkeleton />
-        ) : allPlays.length === 0 ? (
-          <EmptyState
-            art="copilot"
-            title="Your playbook is empty."
-            description="A play is a move Chidi runs for you on repeat — like nudging cold pending payments. Author your first one."
-            action={
-              <button
-                onClick={() => setSheetTarget({ kind: "compose" })}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
-              >
-                <Plus className="w-4 h-4" strokeWidth={2.4} />
-                Author your first play
-              </button>
-            }
-          />
         ) : (
-          <>
-            {/* RUNNING — primary section */}
-            {running.length > 0 && (
-              <SectionGroup
-                title="Running"
-                count={running.length}
+          <div className="space-y-10">
+            {/* === TODAY — conversation thread of decisions === */}
+            <SectionHeader
+              eyebrow="Today"
+              count={visibleDecisions.length}
+              tone="warning"
+              right={
+                dismissedCount > 0 ? (
+                  <button
+                    onClick={handleRestoreAll}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" strokeWidth={2} />
+                    Restore {dismissedCount}
+                  </button>
+                ) : null
+              }
+            />
+
+            {visibleDecisions.length === 0 ? (
+              <TodayEmpty />
+            ) : (
+              <div className="space-y-3">
+                {visibleDecisions.map((d) => (
+                  <PlaybookDecisionCard
+                    key={d.id}
+                    decision={d}
+                    onEnacted={handleEnacted}
+                    onSnooze={handleSnooze}
+                    onDismiss={handleDismiss}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* === RECENT RUNS — appears after first enactment === */}
+            {recentRuns.length > 0 && (
+              <RecentRunsSection runs={recentRuns} />
+            )}
+
+            {/* === ALWAYS RUNNING — quieter list === */}
+            <div>
+              <SectionHeader
+                eyebrow="Always running"
+                count={allPlays.length}
                 tone="win"
-              >
-                {running.map((play) => (
-                  <PlayRow
-                    key={play.id}
-                    play={play}
-                    paused={false}
-                    customMessage={customMessages[play.id]}
-                    onOpen={() => setSheetTarget({ kind: "play", id: play.id })}
-                    onTogglePause={() => togglePause(play.id)}
-                  />
-                ))}
-              </SectionGroup>
-            )}
+              />
+              {allPlays.length === 0 ? (
+                <EmptyState
+                  art="copilot"
+                  title="No background plays yet."
+                  description="A play is a move Chidi runs for you on repeat — like nudging cold pending payments. Author your first one."
+                  action={
+                    <button
+                      onClick={() => setSheetTarget({ kind: "compose" })}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md text-[13px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" strokeWidth={2.4} />
+                      Author your first play
+                    </button>
+                  }
+                />
+              ) : (
+                <PlaybookAlwaysRunning
+                  plays={allPlays}
+                  pausedSet={pausedSet}
+                  customMessages={customMessages}
+                  onOpen={(id) => setSheetTarget({ kind: "play", id })}
+                  onTogglePause={togglePause}
+                />
+              )}
 
-            {/* PAUSED — secondary, quieter */}
-            {paused.length > 0 && (
-              <SectionGroup
-                title="Paused"
-                count={paused.length}
-                tone="muted"
-                className="mt-8"
-              >
-                {paused.map((play) => (
-                  <PlayRow
-                    key={play.id}
-                    play={play}
-                    paused
-                    customMessage={customMessages[play.id]}
-                    onOpen={() => setSheetTarget({ kind: "play", id: play.id })}
-                    onTogglePause={() => togglePause(play.id)}
-                  />
-                ))}
-              </SectionGroup>
-            )}
-
-            {/* Author button — quiet, below the list */}
-            <div className="mt-8 flex justify-center">
-              <button
-                onClick={() => setSheetTarget({ kind: "compose" })}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium border border-dashed border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)] transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" strokeWidth={2.2} />
-                New play
-              </button>
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => setSheetTarget({ kind: "compose" })}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-medium border border-dashed border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)] hover:text-[var(--chidi-text-primary)] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" strokeWidth={2.2} />
+                  New play
+                </button>
+              </div>
             </div>
-          </>
+          </div>
         )}
       </ChidiPage>
 
-      {/* Slide-up sheet — single overlay surface for play detail OR compose */}
+      {/* Slide-up sheet — sandbox or compose */}
       {sheetTarget && (
         <Sheet onClose={() => setSheetTarget(null)}>
           {sheetTarget.kind === "compose" ? (
@@ -342,161 +435,120 @@ export default function PlaybookPage() {
   )
 }
 
-// ============================================================================
-// SectionGroup — quiet eyebrow + count
-// ============================================================================
+// ===========================================================================
+// Section header — shared eyebrow + count + optional right slot
+// ===========================================================================
 
-function SectionGroup({
-  title,
+function SectionHeader({
+  eyebrow,
   count,
   tone,
-  className,
-  children,
+  right,
 }: {
-  title: string
+  eyebrow: string
   count: number
-  tone: "win" | "muted"
-  className?: string
-  children: React.ReactNode
+  tone: "warning" | "win"
+  right?: React.ReactNode
 }) {
+  const dot =
+    tone === "warning" ? "var(--chidi-warning)" : "var(--chidi-win)"
   return (
-    <div className={className}>
-      <div className="flex items-baseline gap-2 mb-3 px-0.5">
+    <div className="flex items-center justify-between gap-3 mb-4 px-0.5">
+      <div className="flex items-baseline gap-2">
         <span
           className="w-1.5 h-1.5 rounded-full"
-          style={{
-            backgroundColor:
-              tone === "win" ? "var(--chidi-win)" : "var(--chidi-text-muted)",
-          }}
+          style={{ backgroundColor: dot }}
         />
         <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
-          {title}
+          {eyebrow}
         </p>
         <span className="text-[10px] tabular-nums text-[var(--chidi-text-muted)]">
           {count}
         </span>
       </div>
-      <div className="space-y-2">{children}</div>
+      {right}
     </div>
   )
 }
 
-// ============================================================================
-// PlayRow — the heart of the surface
-// ============================================================================
+// ===========================================================================
+// TodayEmpty — encouraging zero-state for the conversation thread
+// ===========================================================================
 
-function PlayRow({
-  play,
-  paused,
-  customMessage,
-  onOpen,
-  onTogglePause,
-}: {
-  play: PlaybookPlay
-  paused: boolean
-  customMessage?: string
-  onOpen: () => void
-  onTogglePause: () => void
-}) {
-  const recovered = play.stats.last_30d_value_recovered_ngn ?? 0
-  const customized = !!customMessage && customMessage !== play.sample_message
-
+function TodayEmpty() {
   return (
-    <article
-      className={cn(
-        "group relative rounded-xl bg-[var(--card)] border transition-all",
-        paused
-          ? "border-[var(--chidi-border-subtle)] opacity-75"
-          : "border-[var(--chidi-border-default)] hover:border-[var(--chidi-text-muted)]",
-      )}
-    >
-      <div className="flex items-stretch">
-        {/* Main tap target — opens the sheet */}
-        <button
-          onClick={onOpen}
-          className="flex-1 min-w-0 px-4 py-3.5 lg:px-5 lg:py-4 text-left flex items-center gap-3"
-        >
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <h3 className="text-[13.5px] font-semibold text-[var(--chidi-text-primary)] leading-snug truncate">
-                {play.title}
-              </h3>
-              {customized && (
-                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-[var(--chidi-surface)] text-[var(--chidi-text-muted)] flex-shrink-0">
-                  Yours
-                </span>
-              )}
-            </div>
-            <p className="text-[11.5px] text-[var(--chidi-text-secondary)] leading-snug truncate">
-              <span className="text-[var(--chidi-text-muted)]">When </span>
-              {play.trigger}
-            </p>
-            {recovered > 0 && !paused && (
-              <p className="text-[11px] text-[var(--chidi-win)] mt-1 tabular-nums font-medium">
-                Recovered {formatNGN(recovered)} this month
-              </p>
-            )}
-          </div>
-          <ChevronRight
-            className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0 group-hover:translate-x-0.5 transition-transform"
-            strokeWidth={2}
-          />
-        </button>
-
-        {/* Toggle — always visible, real switch, big tap target */}
-        <div className="flex items-center pr-4 lg:pr-5 border-l border-[var(--chidi-border-subtle)] pl-3 lg:pl-4">
-          <Toggle
-            on={!paused}
-            onChange={onTogglePause}
-            label={paused ? "Resume play" : "Pause play"}
-          />
-        </div>
+    <div className="rounded-2xl bg-[var(--card)] border border-[var(--chidi-border-default)] p-6 lg:p-8 flex items-start gap-4">
+      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-primary)]">
+        <ArcFace size={32} />
       </div>
-    </article>
+      <div className="min-w-0">
+        <h3 className="text-[15px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
+          Nothing pressing today.
+        </h3>
+        <p className="text-[12.5px] text-[var(--chidi-text-secondary)] mt-1 leading-snug font-chidi-voice">
+          Take a breath. I'll bring something back when it matters.
+        </p>
+      </div>
+    </div>
   )
 }
 
-// ============================================================================
-// Toggle — accessible switch, --chidi-* tokens
-// ============================================================================
+// ===========================================================================
+// Recent runs — inserted after the first decision is enacted
+// ===========================================================================
 
-function Toggle({
-  on,
-  onChange,
-  label,
-}: {
-  on: boolean
-  onChange: () => void
-  label: string
-}) {
+function RecentRunsSection({ runs }: { runs: RecentRun[] }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={onChange}
-      className={cn(
-        "relative inline-flex items-center h-6 w-11 rounded-full transition-colors flex-shrink-0",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-text-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--card)]",
-        on
-          ? "bg-[var(--chidi-win)]"
-          : "bg-[var(--chidi-border-default)]",
-      )}
-    >
-      <span
-        className={cn(
-          "inline-block h-5 w-5 rounded-full bg-white shadow-sm transform motion-safe:transition-transform",
-          on ? "translate-x-[22px]" : "translate-x-0.5",
-        )}
-      />
-    </button>
+    <div>
+      <SectionHeader eyebrow="Recent runs" count={runs.length} tone="win" />
+      <ul className="rounded-xl border border-[var(--chidi-border-subtle)] bg-[var(--card)] divide-y divide-[var(--chidi-border-subtle)] overflow-hidden">
+        {runs.map((run, i) => (
+          <li
+            key={`${run.decisionId}-${run.ranAt}`}
+            className="flex items-start gap-3 px-4 py-3 motion-safe:animate-[playbookRanRowIn_280ms_cubic-bezier(0.22,1,0.36,1)]"
+            style={{ animationDelay: `${i * 30}ms` }}
+          >
+            <span className="mt-0.5 w-4 h-4 rounded-full bg-[var(--chidi-win)] flex items-center justify-center text-[var(--background)] text-[9px] font-bold flex-shrink-0">
+              ✓
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12.5px] text-[var(--chidi-text-primary)] leading-snug font-medium">
+                {run.title}
+              </p>
+              <p className="text-[11.5px] text-[var(--chidi-win)] mt-0.5 leading-snug">
+                {run.resultLine}
+              </p>
+            </div>
+            <span className="text-[10.5px] text-[var(--chidi-text-muted)] flex-shrink-0 tabular-nums">
+              <RelativeTime epochMs={run.ranAt} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
-// ============================================================================
-// Sheet — slide-up overlay
-// ============================================================================
+function RelativeTime({ epochMs }: { epochMs: number }) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
+  const diff = Math.max(0, Date.now() - epochMs)
+  const sec = Math.floor(diff / 1000)
+  if (sec < 60) return <>Ran {sec}s ago</>
+  const min = Math.floor(sec / 60)
+  if (min < 60) return <>Ran {min}m ago</>
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return <>Ran {hr}h ago</>
+  const day = Math.floor(hr / 24)
+  return <>Ran {day}d ago</>
+}
+
+// ===========================================================================
+// Sheet — slide-up overlay (kept from prior surface, simplified)
+// ===========================================================================
 
 function Sheet({
   children,
@@ -505,7 +557,6 @@ function Sheet({
   children: React.ReactNode
   onClose: () => void
 }) {
-  // Lock body scroll while sheet is open.
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = "hidden"
@@ -520,35 +571,21 @@ function Sheet({
       role="dialog"
       aria-modal="true"
     >
-      {/* Backdrop */}
       <button
         aria-label="Close"
         onClick={onClose}
         className="absolute inset-0 bg-black/40 motion-safe:animate-[chidiBackdropIn_180ms_ease-out]"
       />
-      {/* Sheet */}
-      <div
-        className="relative w-full sm:max-w-xl bg-[var(--card)] sm:rounded-2xl rounded-t-2xl border border-[var(--chidi-border-default)] shadow-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col motion-safe:animate-[chidiSheetIn_280ms_cubic-bezier(0.22,1,0.36,1)]"
-      >
+      <div className="relative w-full sm:max-w-xl bg-[var(--card)] sm:rounded-2xl rounded-t-2xl border border-[var(--chidi-border-default)] shadow-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col motion-safe:animate-[chidiSheetIn_280ms_cubic-bezier(0.22,1,0.36,1)]">
         {children}
         <style jsx>{`
           @keyframes chidiSheetIn {
-            from {
-              transform: translateY(24px);
-              opacity: 0;
-            }
-            to {
-              transform: translateY(0);
-              opacity: 1;
-            }
+            from { transform: translateY(24px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
           }
           @keyframes chidiBackdropIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
+            from { opacity: 0; }
+            to   { opacity: 1; }
           }
         `}</style>
       </div>
@@ -556,9 +593,9 @@ function Sheet({
   )
 }
 
-// ============================================================================
-// ComposeSheet — author a new play, kept very small
-// ============================================================================
+// ===========================================================================
+// ComposeSheet — quiet authoring path
+// ===========================================================================
 
 function ComposeSheet({
   draft,
@@ -571,18 +608,13 @@ function ComposeSheet({
   onSave: () => void
   onCancel: () => void
 }) {
-  const titleRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    setTimeout(() => titleRef.current?.focus(), 100)
-  }, [])
-
   const canSave = draft.title.trim().length > 1 && draft.trigger.trim().length > 1
 
   return (
     <>
       <header className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)] flex-shrink-0">
-        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center">
-          <ChidiMark size={16} variant="default" />
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center text-[var(--chidi-text-primary)]">
+          <ArcFace size={28} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold mb-0.5">
@@ -607,7 +639,6 @@ function ComposeSheet({
             Name
           </label>
           <input
-            ref={titleRef}
             type="text"
             value={draft.title}
             onChange={(e) => onChange((d) => ({ ...d, title: e.target.value }))}
@@ -666,33 +697,37 @@ function ComposeSheet({
   )
 }
 
-// ============================================================================
-// Skeletons — proper row-shaped placeholders, not Loader2
-// ============================================================================
+// ===========================================================================
+// Skeletons
+// ===========================================================================
 
 function ListSkeleton() {
   return (
-    <div className="space-y-2">
-      <div className="flex items-baseline gap-2 mb-3 px-0.5">
-        <div className="h-1.5 w-1.5 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
-        <div className="h-2 w-16 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
-      </div>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-xl bg-[var(--card)] border border-[var(--chidi-border-default)] px-4 py-3.5 lg:px-5 lg:py-4 flex items-center gap-3"
-        >
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <div
-              className="h-3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
-              style={{ width: `${55 + (i % 3) * 12}%` }}
-            />
-            <div
-              className="h-2.5 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
-              style={{ width: `${70 + (i % 2) * 10}%` }}
-            />
+    <div className="space-y-8">
+      {[0, 1].map((g) => (
+        <div key={g} className="space-y-3">
+          <div className="flex items-baseline gap-2 mb-3 px-0.5">
+            <div className="h-1.5 w-1.5 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
+            <div className="h-2 w-16 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse" />
           </div>
-          <div className="h-6 w-11 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse flex-shrink-0" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-xl bg-[var(--card)] border border-[var(--chidi-border-default)] px-4 py-3.5 lg:px-5 lg:py-4 flex items-center gap-3"
+            >
+              <div className="h-9 w-9 rounded-full bg-[var(--chidi-surface)] motion-safe:animate-pulse flex-shrink-0" />
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div
+                  className="h-3 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
+                  style={{ width: `${55 + (i % 3) * 12}%` }}
+                />
+                <div
+                  className="h-2.5 rounded bg-[var(--chidi-surface)] motion-safe:animate-pulse"
+                  style={{ width: `${70 + (i % 2) * 10}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       ))}
     </div>
@@ -720,4 +755,3 @@ function SheetBodySkeleton() {
     </>
   )
 }
-

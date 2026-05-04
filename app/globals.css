@@ -1421,3 +1421,20 @@ select:focus-visible {
   .little-chidi-in,
   .little-chidi-out { animation: none; }
 }
+
+/* === Playbook — enactment surface entrance ================================
+   Added 2026-05-03 with the rebuilt Playbook ("Chidi's stage"). When the
+   merchant taps "Yes, do it" on a Today play, the inner WhatsApp/Telegram
+   bubble surface slides up + fades in below the question bubble. Pairs with
+   the typing-out animation in playbook-decision-card.tsx. Honors
+   prefers-reduced-motion via the Tailwind motion-safe gate inline.
+   ========================================================================= */
+@keyframes playbookEnactIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+@keyframes playbookRanRowIn {
+  from { opacity: 0; transform: translateY(-4px); max-height: 0; }
+  to   { opacity: 1; transform: translateY(0);    max-height: 80px; }
+}

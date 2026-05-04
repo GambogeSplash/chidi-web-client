@@ -28,7 +28,7 @@ import {
   Pencil,
   Check,
 } from "lucide-react"
-import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import {
@@ -118,8 +118,15 @@ export function PlaySheetBody({
     <>
       {/* === Header ============================================ */}
       <header className="flex items-start gap-3 px-5 lg:px-6 pt-5 pb-4 border-b border-[var(--chidi-border-subtle)] flex-shrink-0">
-        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center">
-          <ChidiMark size={16} variant={paused ? "muted" : "default"} />
+        <div
+          className={cn(
+            "flex-shrink-0 w-9 h-9 rounded-xl bg-[var(--chidi-surface)] flex items-center justify-center",
+            paused
+              ? "text-[var(--chidi-text-muted)]"
+              : "text-[var(--chidi-text-primary)]",
+          )}
+        >
+          <ArcFace size={28} state={paused ? "idle" : "speaking"} />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -145,6 +152,11 @@ export function PlaySheetBody({
           <h2 className="text-[17px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
             {play.title}
           </h2>
+          {play.subtitle && (
+            <p className="text-[12px] text-[var(--chidi-text-secondary)] mt-1 leading-snug font-chidi-voice">
+              {play.subtitle}
+            </p>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -238,9 +250,8 @@ export function PlaySheetBody({
                   }}
                 >
                   <div className="flex items-center gap-1 mb-1">
-                    <ChidiMark size={10} variant="win" />
                     <span
-                      className="text-[9px] uppercase tracking-[0.12em] font-medium"
+                      className="text-[9px] uppercase tracking-[0.12em] font-semibold"
                       style={{ color: "var(--chidi-win)" }}
                     >
                       Chidi
