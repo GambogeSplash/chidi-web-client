@@ -25,8 +25,7 @@ const TESTIMONIALS: Testimonial[] = [
       "I used to lose customers because I couldn't reply at night. Chidi never sleeps, and now I close sales while I'm asleep.",
     name: 'Adaeze O.',
     company: "Bella's Fashion · Lagos",
-    image:
-      'https://images.pexels.com/photos/15227424/pexels-photo-15227424.jpeg?auto=compress&cs=tinysrgb&w=160&h=160&fit=crop',
+    image: '/testimonial-adaeze.png',
     stat: '+34% sales in 2 months',
   },
   {
@@ -34,8 +33,7 @@ const TESTIMONIALS: Testimonial[] = [
       'My Telegram bot brings in half my orders now, and WhatsApp picks up the rest. Chidi runs both like a staff of three answering at the same time.',
     name: 'Kwame B.',
     company: 'KB Sneakers · Accra',
-    image:
-      'https://images.pexels.com/photos/5648107/pexels-photo-5648107.jpeg?auto=compress&cs=tinysrgb&w=160&h=160&fit=crop',
+    image: '/testimonial-kwame.png',
     stat: 'Avg reply time, 12 seconds',
   },
   {
@@ -43,8 +41,7 @@ const TESTIMONIALS: Testimonial[] = [
       'It noticed I was underpricing my best product. I raised it 12% and got zero complaints. Just more orders.',
     name: 'Wanjiru M.',
     company: 'Threads & Things · Nairobi',
-    image:
-      'https://images.pexels.com/photos/5466267/pexels-photo-5466267.jpeg?auto=compress&cs=tinysrgb&w=160&h=160&fit=crop',
+    image: '/testimonial-wanjiru.png',
     stat: '+12% margin on hero SKU',
   },
 ]
