@@ -911,7 +911,7 @@ export function ChannelChat({ conversation, onBack, onConversationUpdate, onView
 
       {/* Reply Input — safe-area-bottom keeps the send button clear of the
           iOS home indicator on mobile. */}
-      <div className="px-4 py-3 border-t border-[var(--chidi-border-subtle)] bg-white safe-area-bottom">
+      <div className="px-4 pt-3 pb-5 sm:pb-4 border-t border-[var(--chidi-border-subtle)] bg-white safe-area-bottom">
         <div className="flex gap-2 items-center">
           <Input
             ref={replyInputRef}

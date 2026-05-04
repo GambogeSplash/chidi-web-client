@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Sparkles } from "lucide-react"
+import { ArcFace } from "./arc-face"
 import {
   Popover,
   PopoverContent,
@@ -161,7 +161,7 @@ export function BoostsPanel({
               activeCount > 0 && "text-[var(--chidi-win)]",
             )}
           >
-            <Sparkles className="w-4 h-4" />
+            <ArcFace size={16} className="text-current" />
             {activeCount > 0 && (
               <span
                 aria-hidden
@@ -178,7 +178,7 @@ export function BoostsPanel({
       >
         <div className="px-4 pt-3.5 pb-2 border-b border-[var(--chidi-border-subtle)]">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-[var(--chidi-win)]" />
+            <ArcFace size={14} className="text-[var(--chidi-win)]" />
             <p className="text-[13px] font-medium text-[var(--chidi-text-primary)]">
               Boosts for {firstName || "this customer"}
             </p>
