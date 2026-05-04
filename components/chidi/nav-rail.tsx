@@ -1,14 +1,15 @@
 "use client"
 
+import * as React from "react"
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { useParams, usePathname, useRouter } from "next/navigation"
 import {
+  Calendar as CalendarIcon,
   ChevronDown,
   ChevronsLeft,
-  Building2,
-  Settings as SettingsIcon,
+  StickyNote,
   type LucideIcon,
 } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -18,6 +19,17 @@ import type { TabId } from "./bottom-navigation"
 import { ArcFace } from "./arc-face"
 import { BusinessAvatar, useBusinessAvatarSeed } from "./business-avatar"
 import { PRIMARY_TABS, LIBRARY_ENTRIES } from "@/lib/chidi/navigation"
+import { NotesPanel } from "./notes-panel"
+import { CalendarPeek, useTodaysCount } from "./calendar-peek"
+import { SpacesSwitcherList } from "./spaces-switcher"
+import {
+  ensureSeeded,
+  getActiveSpaceId,
+  listSpaces,
+  setActiveSpaceId,
+  subscribe as subscribeSpaces,
+  type Space,
+} from "@/lib/chidi/spaces"
 
 interface NavRailProps {
   activeTab: TabId
@@ -72,6 +84,58 @@ export function NavRail({
     if (typeof window === "undefined") return
     setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "true")
   }, [])
+
+  // Seed/reconcile spaces on mount, restore active-space pointer.
+  // We seed even when the merchant has only one shop so the switcher always
+  // has something coherent to show — the seeded peers are inert demo entries.
+  useEffect(() => {
+    if (!slug) return
+    const seeded = ensureSeeded({ name: businessName, slug })
+    if (!getActiveSpaceId()) {
+      setActiveSpaceId(seeded[0].id)
+    }
+  }, [slug, businessName])
+
+  // ⌘1..⌘9 → jump to the Nth space. Same metaKey/ctrlKey gate the rest of
+  // the dashboard uses (Cmd on Mac, Ctrl elsewhere).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      if (e.shiftKey || e.altKey) return
+      const n = parseInt(e.key, 10)
+      if (!Number.isFinite(n) || n < 1 || n > 9) return
+      const target = e.target as HTMLElement | null
+      const isTyping =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      if (isTyping) return
+      const spaces: Space[] = listSpaces()
+      const space = spaces[n - 1]
+      if (!space) return
+      e.preventDefault()
+      setActiveSpaceId(space.id)
+      router.push(`/dashboard/${space.slug}`)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [router])
+
+  // Listen for spaces-changed so the rail's footer card can reflect renames.
+  // (Also available to consumers via subscribeSpaces — we keep the local
+  // bump so nav-rail re-renders when the active-space label changes.)
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    return subscribeSpaces(() => forceTick((t) => t + 1))
+  }, [])
+
+  // Notes panel open state — owned here so the rail's button can toggle it.
+  const [notesOpen, setNotesOpen] = useState(false)
+
+  // Today-count for the Calendar Peek badge — pulls from broadcasts +
+  // follow-ups + orders behind the scenes.
+  const todaysCount = useTodaysCount()
   const toggleCollapsed = () => {
     const next = !collapsed
     setCollapsed(next)
@@ -267,11 +331,37 @@ export function NavRail({
         )}
       </nav>
 
+      {/* Sidebar utilities — Notes + Calendar Peek. These sit just above the
+          workspace card so they're always one reach from the bottom of the
+          screen, the same Arc-browser pattern that anchors lightweight
+          merchant tools (jot, schedule) close to identity (workspace). */}
+      <div className="mt-auto px-2 pt-2 flex flex-col gap-0.5">
+        <RailUtilityButton
+          collapsed={collapsed}
+          icon={CalendarIcon}
+          label="Today"
+          render={(child) => (
+            <CalendarPeek side="right" align="end">
+              {child}
+            </CalendarPeek>
+          )}
+          badgeCount={todaysCount}
+        />
+        <NotesPanel open={notesOpen} onOpenChange={setNotesOpen}>
+          <RailUtilityButton
+            collapsed={collapsed}
+            icon={StickyNote}
+            label="Notes"
+            asChildButton
+          />
+        </NotesPanel>
+      </div>
+
       {/* Bottom: workspace switcher (shop avatar + name + popover). Sits at
           the foot of the rail so the user's own context (settings, switch
           workspace, sign-out) is one reach away from the bottom of the
           screen — same gravity as the macOS Dock or VS Code account icon. */}
-      <div className="mt-auto p-2 border-t border-[var(--chidi-border-subtle)]">
+      <div className="p-2 border-t border-[var(--chidi-border-subtle)]">
         <div
           className={cn(
             "rounded-xl border border-[var(--chidi-border-default)] bg-[var(--chidi-surface)]/50 transition-colors",
@@ -288,6 +378,57 @@ export function NavRail({
     </aside>
   )
 }
+
+interface RailUtilityButtonProps {
+  collapsed: boolean
+  icon: LucideIcon
+  label: string
+  badgeCount?: number
+  /** When true, the button is rendered as a SheetTrigger child (no extra wrapper). */
+  asChildButton?: boolean
+  /** Optional render-prop wrapper — used for Calendar so the trigger lives
+   *  inside <CalendarPeek>. */
+  render?: (child: React.ReactNode) => React.ReactNode
+}
+
+const RailUtilityButton = React.forwardRef<HTMLButtonElement, RailUtilityButtonProps>(
+  function RailUtilityButton(
+    { collapsed, icon: Icon, label, badgeCount = 0, render, asChildButton, ...rest },
+    ref,
+  ) {
+    const button = (
+      <button
+        ref={ref}
+        title={collapsed ? label : undefined}
+        aria-label={label}
+        className={cn(
+          "group relative w-full flex items-center rounded-lg text-[13px] font-chidi-voice transition-colors active:scale-[0.98]",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--chidi-win)]/40",
+          collapsed ? "justify-center py-2" : "gap-3 px-2.5 py-1.5",
+          "text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]/60 hover:text-[var(--chidi-text-primary)]",
+        )}
+        {...rest}
+      >
+        <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={1.8} />
+        {!collapsed && <span className="flex-1 text-left truncate">{label}</span>}
+        {badgeCount > 0 && (
+          <span
+            className={cn(
+              "chidi-badge-pop text-[10px] font-medium tabular-nums rounded-full bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)]",
+              collapsed
+                ? "absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-[3px] bg-[var(--chidi-warning)] text-white flex items-center justify-center text-[9px]"
+                : "px-1.5 py-0.5 min-w-[18px] text-center",
+            )}
+          >
+            {badgeCount > 9 ? "9+" : badgeCount}
+          </span>
+        )}
+      </button>
+    )
+    if (render) return <>{render(button)}</>
+    return asChildButton ? button : button
+  },
+)
 
 interface BusinessSwitcherProps {
   businessName: string
@@ -327,37 +468,11 @@ function BusinessSwitcher({ businessName, slug, collapsed }: BusinessSwitcherPro
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[224px] p-1 bg-[var(--card)] border-[var(--chidi-border-default)]"
+        side="right"
+        sideOffset={10}
+        className="w-[260px] p-1.5 bg-[var(--card)] border-[var(--chidi-border-default)]"
       >
-        {/* Current workspace — highlighted, click to confirm context */}
-        <div className="px-2.5 py-2 flex items-center gap-2 rounded-md bg-[var(--chidi-surface)]">
-          <BusinessAvatar name={avatarSeed} size="xs" />
-          <span className="text-[13px] font-medium font-chidi-voice text-[var(--chidi-text-primary)] truncate">
-            {businessName}
-          </span>
-        </div>
-
-        <div className="h-px bg-[var(--chidi-border-subtle)] my-1" />
-
-        {/* Workspace actions */}
-        {slug && (
-          <Link
-            href={`/dashboard/${slug}/settings`}
-            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-[var(--chidi-surface)]/70 transition-colors text-left text-[13px] font-chidi-voice text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
-          >
-            <SettingsIcon className="w-3.5 h-3.5 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
-            <span className="flex-1">Workspace settings</span>
-          </Link>
-        )}
-
-        <div className="h-px bg-[var(--chidi-border-subtle)] my-1" />
-
-        <button
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md hover:bg-[var(--chidi-surface)]/70 transition-colors text-left text-[13px] font-chidi-voice text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]"
-        >
-          <Building2 className="w-3.5 h-3.5 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
-          <span className="flex-1">Add another business</span>
-        </button>
+        <SpacesSwitcherList onSwitched={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   )

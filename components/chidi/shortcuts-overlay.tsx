@@ -38,11 +38,22 @@ const GROUPS: ShortcutGroup[] = [
     ],
   },
   {
+    title: "Spaces",
+    items: [
+      { keys: ["⌘", "1"], label: "Switch to shop 1" },
+      { keys: ["⌘", "2"], label: "Switch to shop 2" },
+      { keys: ["⌘", "3"], label: "Switch to shop 3" },
+      { keys: ["⌘", "9"], label: "Switch to shop 9" },
+    ],
+  },
+  {
     title: "Actions",
     items: [
       { keys: ["⌘", "K"], label: "Open command palette" },
       { keys: ["⌘", "/"], label: "Search conversations" },
+      { keys: ["⌘", "."], label: "Peek (Little Chidi)" },
       { keys: ["⌘", "⇧", "C"], label: "Call Chidi (voice)" },
+      { keys: ["⌘", "N"], label: "New note (in Notes panel)" },
       { keys: ["N"], label: "New product" },
       { keys: ["R"], label: "Reply with AI suggestion" },
       { keys: ["E"], label: "Mark conversation resolved" },

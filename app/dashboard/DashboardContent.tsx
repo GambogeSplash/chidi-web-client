@@ -30,6 +30,7 @@ import { NavRail } from '@/components/chidi/nav-rail'
 import { CommandPalette } from '@/components/chidi/command-palette'
 import { ShortcutsOverlay } from '@/components/chidi/shortcuts-overlay'
 import { CallChidi } from '@/components/chidi/call-chidi'
+import { LittleChidiProvider } from '@/components/chidi/little-chidi-provider'
 import { ApprovalGuardrailProvider } from '@/components/chidi/approval-guardrail'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
 
@@ -435,6 +436,12 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
           from the Ask-Chidi CTA, the /call command palette entry, or the
           global Cmd+Shift+C shortcut. Mocked conversation, no real audio yet. */}
       <CallChidi open={callChidiOpen} onClose={() => setCallChidiOpen(false)} />
+
+      {/* Little Chidi — the Arc "Little Arc" peek overlay. ⌘. summons it
+          from anywhere; it reads from the existing React Query caches and
+          lets the merchant act on orders/customers/products/conversations
+          without leaving their current view. */}
+      <LittleChidiProvider />
 
       {/* Approval guardrail — sensitive Chidi actions ask for the merchant's
           OK before they fire. Pattern lifted from Stripe Sessions 2026 Agent
