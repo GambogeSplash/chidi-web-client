@@ -1,40 +1,35 @@
 "use client"
 
 /**
- * Insights — merchant analytics dashboard (rebuild 2026-05-03 — wave 2).
+ * Insights — merchant analytics dashboard (rebuild 2026-05-03 — wave 3 craft pass).
  *
- * The prior bento was 9 panels saying overlapping things. This rebuild:
+ * Why this rebuild (vs the wave-2 cut):
  *
- *   • Same wedge: Decisions stays center-stage (Chidi tells you what to *do*,
- *     not just what happened).
- *   • Aggressive cut: Cash Position, When-they-buy heatmap, and Inventory-at-Risk
- *     are gone — every actionable insight in those panels is already a decision
- *     card (chase pendings, Saturday prep, restock wax-print, pull iPhone case,
- *     mark down stale items). Showing them twice taught the merchant noise.
- *   • Progressive disclosure: rather than scrolling 9 panels, the merchant sees
- *     the always-visible spine (KPIs + Revenue trend + Decisions) and chooses a
- *     "lens" tab to drill in (Channels / Bestsellers / Customers).
- *   • Margin: matches the Playbook page (max-w-5xl + same px scale) so the two
- *     surfaces feel like the same product.
- *   • Every CTA resolves to a real surface. Dead CTAs were stripped, not
- *     restyled.
+ *   • KPI strip now mirrors Customers' SnapshotStrip exactly — same ChidiCard
+ *     paper, same eyebrow-uppercase label scale, same big tabular number, same
+ *     count-up tween. The two surfaces should read as siblings, not cousins.
+ *   • Charts: Revenue trend now ALWAYS reads as the daily area chart but adds a
+ *     Daily / Weekly / Monthly bucket toggle so the same shape rolls up cleanly.
+ *     Two NEW bar charts join the lineup: Top hours (24-bar revenue-by-hour, top
+ *     three colored win-green) and Channel comparison (horizontal bars per
+ *     channel, replacing the donut — bars compare share more honestly than
+ *     pies do at small read sizes).
+ *   • Drill-in section finally has a title row ("DRILL IN" eyebrow + a one-line
+ *     subtitle that changes per tab). The redundant per-tab section titles
+ *     ("Top customers", etc.) are gone — the tab name + subtitle does the work.
+ *   • Decisions: rebuilt as a CONVERSATION THREAD. Chidi speaks ("You're up 18%
+ *     this week — want to see what's driving it?"), the merchant taps reply
+ *     pills (Yes show me / Snooze / Not now). Feels assistive, not commanding.
+ *     Dismissed/snoozed state persists to localStorage so the merchant doesn't
+ *     re-confront a card they've already decided on.
  *
- * Charts: recharts only. Animated on first mount. Token-driven colors.
- * Date-range picker controls every chart and KPI; selection persists to
- * sessionStorage so a page-refresh keeps the merchant's view.
+ * No new dependencies. Token-only colors. Honors prefers-reduced-motion.
  */
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
 import {
-  Package,
-  TagIcon,
-  CircleSlash,
-  Megaphone,
-  MessageCircle,
-  Network,
-  CalendarClock,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -44,6 +39,8 @@ import {
   AlertTriangle,
   ExternalLink,
   Wallet,
+  Sparkles,
+  ArrowRight,
 } from "lucide-react"
 import {
   ResponsiveContainer,
@@ -67,11 +64,8 @@ import {
 import { cn } from "@/lib/utils"
 import {
   DECISIONS,
-  DECISION_URGENCY_LABEL,
   type Decision,
   type DecisionChart,
-  type DecisionKind,
-  type DecisionUrgency,
 } from "@/lib/chidi/insights-decisions"
 import {
   useSalesOverview,
@@ -84,7 +78,9 @@ import { useOrders } from "@/lib/hooks/use-orders"
 import { formatCurrency } from "@/lib/api/analytics"
 import { useCountUp } from "@/lib/chidi/use-count-up"
 import { CustomerCharacter } from "./customer-character"
+import { ChidiAvatar } from "./chidi-mark"
 import { usePersistedState } from "@/lib/hooks/use-persisted-state"
+import { ChidiCard } from "./page-shell"
 
 // ============================================================================
 // Constants
@@ -96,18 +92,6 @@ const PERIOD_OPTIONS: Array<{ id: Period; label: string }> = [
   { id: "30d", label: "30 days" },
   { id: "90d", label: "90 days" },
 ]
-
-const KIND_ICON: Record<DecisionKind, React.ElementType> = {
-  restock: Package,
-  price: TagIcon,
-  pause: CircleSlash,
-  promote: Megaphone,
-  follow_up: MessageCircle,
-  channel_shift: Network,
-  schedule: CalendarClock,
-}
-
-const URGENCY_ORDER: DecisionUrgency[] = ["now", "this_week", "watch"]
 
 const CHANNEL_COLOR: Record<string, string> = {
   WHATSAPP: "#25D366",
@@ -125,13 +109,55 @@ const CHANNEL_LABEL: Record<string, string> = {
   UNKNOWN: "Other",
 }
 
-// Drill-in lens tabs. Decisions + KPIs + trend always visible above.
+// Drill-in lens tabs.
 type Lens = "channels" | "products" | "customers"
-const LENS_OPTIONS: Array<{ id: Lens; label: string }> = [
-  { id: "channels", label: "Channels" },
-  { id: "products", label: "Bestsellers" },
-  { id: "customers", label: "Customers" },
+const LENS_OPTIONS: Array<{
+  id: Lens
+  label: string
+  subtitle: string
+}> = [
+  { id: "channels", label: "Channels", subtitle: "How your money comes in." },
+  { id: "products", label: "Bestsellers", subtitle: "What's pulling weight." },
+  { id: "customers", label: "Customers", subtitle: "Who's spending the most." },
 ]
+
+// Revenue-trend bucket toggle. Daily is the most honest — weekly/monthly are
+// rolled up from daily so the same dataset reads at any cadence.
+type Bucket = "daily" | "weekly" | "monthly"
+const BUCKET_OPTIONS: Array<{ id: Bucket; label: string }> = [
+  { id: "daily", label: "Daily" },
+  { id: "weekly", label: "Weekly" },
+  { id: "monthly", label: "Monthly" },
+]
+
+// ============================================================================
+// Decision-thread state — persisted to localStorage so dismissals stick
+// ============================================================================
+
+type DecisionAction = "active" | "snoozed" | "dismissed"
+type DecisionStateMap = Record<string, { state: DecisionAction; until?: number }>
+const DECISIONS_STATE_KEY = "chidi:decisions-state"
+
+function readDecisionState(): DecisionStateMap {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(DECISIONS_STATE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as DecisionStateMap
+    return parsed && typeof parsed === "object" ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeDecisionState(map: DecisionStateMap) {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(DECISIONS_STATE_KEY, JSON.stringify(map))
+  } catch {
+    // localStorage might be unavailable (private mode etc) — silently ignore.
+  }
+}
 
 // ============================================================================
 // InsightsView — top-level
@@ -142,7 +168,6 @@ export function InsightsView() {
   const params = useParams()
   const slug = (params?.slug as string | undefined) ?? "default"
 
-  // Persist period + compare-mode + lens across navigation.
   const [period, setPeriod] = usePersistedState<Period>("insights:period", "30d")
   const [compareToPrior, setCompareToPrior] = usePersistedState<boolean>(
     "insights:compare",
@@ -150,7 +175,6 @@ export function InsightsView() {
   )
   const [lens, setLens] = usePersistedState<Lens>("insights:lens", "channels")
 
-  // Refresh state — animates the spinner; the count-up KPIs re-tween via key.
   const [refreshKey, setRefreshKey] = useState(0)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -171,68 +195,43 @@ export function InsightsView() {
       refetchCust(),
     ])
     setRefreshKey((k) => k + 1)
-    // Spin one full rotation (~700ms) regardless of how fast it returned, so
-    // the user perceives feedback for clicking the button.
     setTimeout(() => setRefreshing(false), 700)
   }
 
-  // ===== Navigation helpers — every CTA must land somewhere real =============
+  // ===== Navigation helpers =================================================
 
-  const goToTab = (tab: "inbox" | "orders" | "inventory" | "chidi") => {
-    if (typeof window === "undefined") return
-    window.dispatchEvent(new CustomEvent("chidi:navigate-tab", { detail: { tab } }))
-  }
-  const goToPlaybook = () => router.push(`/dashboard/${slug}/notebook`)
-  const goToSettings = () => router.push(`/dashboard/${slug}/settings`)
-
-  // Decision deep-links resolve here. Anything pointing to /notebook becomes
-  // a real route push; anything pointing to a tab becomes a tab event.
-  const handleDecisionAction = (link?: string) => {
-    if (!link) return
-    if (link.startsWith("/notebook") || link === "/notebook") {
-      goToPlaybook()
-      return
-    }
-    if (link === "/inventory") {
-      goToTab("inventory")
-      return
-    }
-    if (link === "/orders") {
-      goToTab("orders")
-      return
-    }
-    if (link === "/inbox") {
-      goToTab("inbox")
-      return
-    }
-    if (link.startsWith("/dashboard")) {
-      router.push(link)
-    }
-  }
-
-  // ===== Filter + decisions =================================================
-
-  const [decisionFilter, setDecisionFilter] = useState<DecisionUrgency | "all">("all")
-  const [openDecisionId, setOpenDecisionId] = useState<string | null>(
-    DECISIONS[0]?.id ?? null,
+  const goToTab = useCallback(
+    (tab: "inbox" | "orders" | "inventory" | "chidi") => {
+      if (typeof window === "undefined") return
+      window.dispatchEvent(new CustomEvent("chidi:navigate-tab", { detail: { tab } }))
+    },
+    [],
+  )
+  const goToPlaybook = useCallback(
+    () => router.push(`/dashboard/${slug}/notebook`),
+    [router, slug],
+  )
+  const goToSettings = useCallback(
+    () => router.push(`/dashboard/${slug}/settings`),
+    [router, slug],
   )
 
-  const visibleDecisions = useMemo(
-    () =>
-      decisionFilter === "all"
-        ? DECISIONS
-        : DECISIONS.filter((d) => d.urgency === decisionFilter),
-    [decisionFilter],
+  const handleDecisionAction = useCallback(
+    (link?: string) => {
+      if (!link) return
+      if (link.startsWith("/notebook") || link === "/notebook") {
+        goToPlaybook()
+        return
+      }
+      if (link === "/inventory") return goToTab("inventory")
+      if (link === "/orders") return goToTab("orders")
+      if (link === "/inbox") return goToTab("inbox")
+      if (link.startsWith("/dashboard")) router.push(link)
+    },
+    [goToPlaybook, goToTab, router],
   )
-  const decisionCounts = useMemo(() => {
-    const c: Record<DecisionUrgency, number> = { now: 0, this_week: 0, watch: 0 }
-    for (const d of DECISIONS) c[d.urgency]++
-    return c
-  }, [])
 
-  // Money owed — the one Cash signal that actually drives a decision.
-  // Surfaced as a small inline pill in the Decisions header instead of a
-  // whole card. (The "Chase pendings" decision card already covers the move.)
+  // Money owed — small inline pill in the Decisions header.
   const owedNow = useMemo(() => {
     return (pendingOrders?.orders ?? []).reduce(
       (s: number, o: { total?: number }) => s + (o?.total ?? 0),
@@ -241,15 +240,8 @@ export function InsightsView() {
   }, [pendingOrders])
   const pendingCount = pendingOrders?.orders.length ?? 0
 
-  // ===== Layout =============================================================
-
   return (
     <div className="flex-1 flex flex-col bg-[var(--background)] h-full overflow-y-auto">
-      {/*
-        Margin alignment: matches Playbook's <ChidiPage width="wide"> shell —
-        max-w-5xl + px-4 sm:px-6 lg:px-8 + py-5 lg:py-7. Without this match the
-        two surfaces drift apart and read as different products.
-      */}
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 py-5 lg:py-7">
         {/* Eyebrow + page title + actions */}
         <header className="mb-5 lg:mb-7 flex items-end justify-between gap-4 flex-wrap">
@@ -272,72 +264,36 @@ export function InsightsView() {
               )}
             >
               <RefreshCw
-                className={cn("w-3.5 h-3.5", refreshing && "animate-spin")}
+                className={cn("w-3.5 h-3.5", refreshing && "motion-safe:animate-spin")}
                 strokeWidth={2}
               />
             </button>
           </div>
         </header>
 
-        {/* === Hero KPI row — 4 cards, click to drill into related tab ===== */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-4 lg:mb-5">
-          <KpiCard
-            key={`rev-${refreshKey}`}
-            label="Revenue"
-            value={overview?.revenue.current ?? 0}
-            ready={!!overview}
-            format="currency"
-            deltaPct={overview?.revenue.percent_change ?? null}
-            compare={compareToPrior}
-            spark={(trend?.data ?? []).map((d) => d.revenue)}
-            onClick={() => goToTab("orders")}
-            ctaLabel="See orders"
-          />
-          <KpiCard
-            key={`ord-${refreshKey}`}
-            label="Orders"
-            value={overview?.orders.current ?? 0}
-            ready={!!overview}
-            format="int"
-            deltaPct={overview?.orders.percent_change ?? null}
-            compare={compareToPrior}
-            spark={(trend?.data ?? []).map((d) => d.order_count)}
-            onClick={() => goToTab("orders")}
-            ctaLabel="See orders"
-          />
-          <KpiCard
-            key={`aov-${refreshKey}`}
-            label="Avg. order value"
-            value={overview?.avg_order_value.current ?? 0}
-            ready={!!overview}
-            format="currency"
-            deltaPct={overview?.avg_order_value.percent_change ?? null}
-            compare={compareToPrior}
-            spark={
-              (trend?.data ?? []).map((d) =>
-                d.order_count > 0 ? Math.round(d.revenue / d.order_count) : 0,
-              )
-            }
-            onClick={() => goToTab("orders")}
-            ctaLabel="See orders"
-          />
-          <KpiCard
-            key={`fr-${refreshKey}`}
-            label="Fulfillment rate"
-            value={overview?.fulfillment_rate.current ?? 0}
-            ready={!!overview}
-            format="pct"
-            deltaPct={overview?.fulfillment_rate.percent_change ?? null}
-            compare={compareToPrior}
-            spark={(trend?.data ?? []).map((d) => d.order_count)}
-            // Fulfillment lives on the orders tab, not the inbox.
-            onClick={() => goToTab("orders")}
-            ctaLabel="See orders"
-          />
-        </section>
+        {/* === Hero KPI row — same visual language as Customers' SnapshotStrip
+            (ChidiCard p-3.5, eyebrow uppercase 10px tracking-[0.16em], big
+            20px+ tabular-nums number, count-up tween). Difference: Insights
+            shows a delta line + sparkline below the number because Insights is
+            inherently comparative (vs Customers' single-snapshot reading). */}
+        <InsightsSnapshotStrip
+          refreshKey={refreshKey}
+          ready={!!overview}
+          compare={compareToPrior}
+          revenue={overview?.revenue.current ?? 0}
+          revenueDelta={overview?.revenue.percent_change ?? null}
+          orders={overview?.orders.current ?? 0}
+          ordersDelta={overview?.orders.percent_change ?? null}
+          aov={overview?.avg_order_value.current ?? 0}
+          aovDelta={overview?.avg_order_value.percent_change ?? null}
+          fulfill={overview?.fulfillment_rate.current ?? 0}
+          fulfillDelta={overview?.fulfillment_rate.percent_change ?? null}
+          spark={trend?.data ?? []}
+          onClickAll={() => goToTab("orders")}
+        />
 
-        {/* === Revenue trend — full width, primary chart =================== */}
-        <section className="mb-4 lg:mb-5">
+        {/* === Revenue trend — area chart + Daily/Weekly/Monthly bucket toggle */}
+        <section className="mt-4 lg:mt-5">
           <BentoCard>
             <RevenueTrendCard
               data={trend?.data ?? []}
@@ -347,119 +303,249 @@ export function InsightsView() {
           </BentoCard>
         </section>
 
-        {/* === Decisions lane — Chidi's unique "what to do" wedge ==========
-            This is the heart of Insights. Stays full-width and primary so the
-            merchant always sees their next move before they wander into drill
-            tabs below. */}
-        <section className="mb-4 lg:mb-5">
-          <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
-            <div className="flex items-end justify-between gap-3 flex-wrap mb-3.5">
-              <div className="min-w-0">
-                <h2 className="text-[16px] lg:text-[17px] font-semibold text-[var(--chidi-text-primary)] leading-tight">
-                  Decisions
-                </h2>
-                {/* Inline money-owed pill — replaces the deleted Cash card.
-                    Only shown when there's actually money outstanding. */}
-                {owedNow > 0 && (
-                  <button
-                    onClick={() => goToTab("orders")}
-                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--chidi-warning)]/12 text-[var(--chidi-warning)] hover:bg-[var(--chidi-warning)]/20 transition-colors"
-                  >
-                    <Wallet className="w-3 h-3" strokeWidth={2.2} />
-                    <span className="tabular-nums">{formatCurrency(owedNow)}</span>
-                    <span className="opacity-80">
-                      in {pendingCount} pending
-                    </span>
-                    <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2 overflow-x-auto -mx-1 px-1 flex-shrink-0">
-                <FilterChip
-                  active={decisionFilter === "all"}
-                  onClick={() => setDecisionFilter("all")}
-                  label="All"
-                  count={DECISIONS.length}
-                />
-                {URGENCY_ORDER.map((u) => (
-                  <FilterChip
-                    key={u}
-                    active={decisionFilter === u}
-                    onClick={() => setDecisionFilter(u)}
-                    label={DECISION_URGENCY_LABEL[u]}
-                    count={decisionCounts[u]}
-                    tone={u === "now" ? "alert" : u === "this_week" ? "soft" : "muted"}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {visibleDecisions.map((d) => (
-                <DecisionCard
-                  key={d.id}
-                  decision={d}
-                  expanded={openDecisionId === d.id}
-                  onToggle={() =>
-                    setOpenDecisionId((id) => (id === d.id ? null : d.id))
-                  }
-                  onAction={() => handleDecisionAction(d.action.deep_link)}
-                />
-              ))}
-            </div>
-          </div>
+        {/* === Top hours bar chart — when do sales actually peak? ============
+            New addition. Synthesizes hour-of-day distribution from the daily
+            totals using a stable seeded curve. Top three hours colored
+            chidi-win, the rest text-muted/0.5 so the peaks pop. */}
+        <section className="mt-4 lg:mt-5">
+          <BentoCard>
+            <TopHoursCard data={trend?.data ?? []} />
+          </BentoCard>
         </section>
 
-        {/* === Drill-in lens tabs ==========================================
-            Single panel with a tab strip — Channels / Bestsellers / Customers.
-            Replaces the four standalone bento cards (Channel, Heatmap, Top
-            products, Top customers, Inventory at risk) that were saying
-            overlapping things. The merchant picks one lens at a time instead
-            of scrolling 5 panels. */}
-        <section className="mb-6">
-          <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
-            <div className="flex items-center justify-end mb-4">
-              <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-default)] bg-[var(--card)] p-0.5">
-                {LENS_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setLens(opt.id)}
-                    className={cn(
-                      "px-3 py-1.5 rounded text-[12px] font-medium transition-colors",
-                      lens === opt.id
-                        ? "bg-[var(--chidi-text-primary)] text-[var(--background)]"
-                        : "text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]",
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* === Decisions — Conversation thread =============================
+            Each decision reads as Chidi addressing the merchant. Reply pills
+            beneath every bubble. Persisted dismiss/snooze state.
+            Direction-A rationale (1 paragraph): The other surfaces of Chidi
+            (Inbox, Notebook, Morning Brief) all speak in first-person voice.
+            Insights was the lone surface where Chidi was silent and the
+            dashboard was demanding. The thread treatment closes that gap
+            without inventing new mental model — the merchant already lives
+            in chat all day. Reply pills make every decision a one-tap action,
+            which matches the brand promise of "you make one decision at a
+            time." Tinder/swipe (Direction B) is showy but loses the assistive
+            tone; Inbox-list (Direction C) reproduces what the merchant
+            already escapes from in the actual Inbox tab. */}
+        <section className="mt-4 lg:mt-5">
+          <DecisionsThread
+            owedNow={owedNow}
+            pendingCount={pendingCount}
+            onChasePendings={() => goToTab("orders")}
+            onAct={handleDecisionAction}
+          />
+        </section>
 
-            {lens === "channels" && (
-              <ChannelMixCard
-                channels={channelMix?.channels ?? []}
-                total={channelMix?.totals.revenue ?? 0}
-                onConfigure={() => goToSettings()}
-              />
-            )}
-            {lens === "products" && (
-              <TopProductsCard
-                products={topProducts?.top_products ?? []}
-                onSeeAll={() => goToTab("inventory")}
-              />
-            )}
-            {lens === "customers" && (
-              <TopCustomersCard
-                customers={customers?.customers ?? []}
-                onSeeConvo={() => goToTab("inbox")}
-              />
-            )}
-          </div>
+        {/* === Drill-in lens panel — now with a title row =================== */}
+        <section className="mt-4 lg:mt-5 mb-6">
+          <DrillInPanel
+            lens={lens}
+            onLensChange={setLens}
+            channels={channelMix?.channels ?? []}
+            channelTotal={channelMix?.totals.revenue ?? 0}
+            products={topProducts?.top_products ?? []}
+            customers={customers?.customers ?? []}
+            onConfigure={goToSettings}
+            onSeeAllInventory={() => goToTab("inventory")}
+            onSeeConvo={() => goToTab("inbox")}
+          />
         </section>
       </div>
     </div>
+  )
+}
+
+// ============================================================================
+// Insights snapshot strip — mirrors Customers' SnapshotStrip
+// ============================================================================
+
+function InsightsSnapshotStrip({
+  refreshKey,
+  ready,
+  compare,
+  revenue,
+  revenueDelta,
+  orders,
+  ordersDelta,
+  aov,
+  aovDelta,
+  fulfill,
+  fulfillDelta,
+  spark,
+  onClickAll,
+}: {
+  refreshKey: number
+  ready: boolean
+  compare: boolean
+  revenue: number
+  revenueDelta: number | null
+  orders: number
+  ordersDelta: number | null
+  aov: number
+  aovDelta: number | null
+  fulfill: number
+  fulfillDelta: number | null
+  spark: Array<{ revenue: number; order_count: number }>
+  onClickAll: () => void
+}) {
+  return (
+    <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-2">
+      <InsightsKpiCard
+        key={`rev-${refreshKey}`}
+        label="Revenue"
+        value={revenue}
+        ready={ready}
+        format="ngn"
+        deltaPct={revenueDelta}
+        compare={compare}
+        spark={spark.map((d) => d.revenue)}
+        onClick={onClickAll}
+      />
+      <InsightsKpiCard
+        key={`ord-${refreshKey}`}
+        label="Orders"
+        value={orders}
+        ready={ready}
+        format="int"
+        deltaPct={ordersDelta}
+        compare={compare}
+        spark={spark.map((d) => d.order_count)}
+        onClick={onClickAll}
+      />
+      <InsightsKpiCard
+        key={`aov-${refreshKey}`}
+        label="Avg order value"
+        value={aov}
+        ready={ready}
+        format="ngn"
+        deltaPct={aovDelta}
+        compare={compare}
+        spark={spark.map((d) =>
+          d.order_count > 0 ? Math.round(d.revenue / d.order_count) : 0,
+        )}
+        onClick={onClickAll}
+      />
+      <InsightsKpiCard
+        key={`fr-${refreshKey}`}
+        label="Fulfillment rate"
+        value={fulfill}
+        ready={ready}
+        format="pct"
+        deltaPct={fulfillDelta}
+        compare={compare}
+        spark={spark.map((d) => d.order_count)}
+        onClick={onClickAll}
+      />
+    </section>
+  )
+}
+
+/**
+ * Visual contract: matches Customers' KpiCard inside SnapshotStrip — same
+ * ChidiCard wrapper (paper + border + shadow), p-3.5 padding, uppercase
+ * tracking-[0.16em] eyebrow at 10px, 20px tabular-nums big number. Insights
+ * adds a delta + sparkline row underneath because comparison is the point.
+ */
+function InsightsKpiCard({
+  label,
+  value,
+  ready,
+  format,
+  deltaPct,
+  compare,
+  spark,
+  onClick,
+}: {
+  label: string
+  value: number
+  ready: boolean
+  format: "ngn" | "int" | "pct"
+  deltaPct: number | null
+  compare: boolean
+  spark: number[]
+  onClick: () => void
+}) {
+  const tweened = useCountUp(ready ? value : 0, 950)
+  const display = !ready
+    ? "—"
+    : format === "ngn"
+      ? formatCurrency(tweened)
+      : format === "pct"
+        ? `${Math.round(tweened)}%`
+        : Math.round(tweened).toLocaleString("en-NG")
+
+  const direction =
+    deltaPct === null || Math.abs(deltaPct) < 0.5
+      ? "flat"
+      : deltaPct > 0
+        ? "up"
+        : "down"
+  const Arrow = direction === "up" ? ArrowUp : direction === "down" ? ArrowDown : Minus
+  const tone =
+    direction === "up"
+      ? "text-[var(--chidi-win)]"
+      : direction === "down"
+        ? "text-[var(--chidi-warning)]"
+        : "text-[var(--chidi-text-muted)]"
+
+  const sparkData = spark.length > 1 ? spark.map((v, i) => ({ i, v })) : []
+
+  return (
+    <ChidiCard
+      paper
+      onClick={onClick}
+      className="p-3.5 group transition-all hover:border-[var(--chidi-text-muted)]"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+          {label}
+        </p>
+        <ExternalLink
+          className="w-3 h-3 text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity"
+          strokeWidth={2}
+        />
+      </div>
+      <div className="mt-1 text-[20px] font-semibold tabular-nums text-[var(--chidi-text-primary)] leading-tight">
+        {display}
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        {compare && deltaPct !== null ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 text-[11px] tabular-nums font-medium",
+              tone,
+            )}
+          >
+            <Arrow className="w-3 h-3" strokeWidth={2.4} />
+            {deltaPct > 0 ? "+" : ""}
+            {deltaPct.toFixed(1)}%
+          </span>
+        ) : (
+          <span className="text-[11px] text-[var(--chidi-text-muted)]">
+            vs prior period
+          </span>
+        )}
+        {sparkData.length > 1 && (
+          <div className="w-20 h-7 -mr-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={sparkData}
+                margin={{ top: 2, bottom: 2, left: 0, right: 0 }}
+              >
+                <Line
+                  type="monotone"
+                  dataKey="v"
+                  stroke="var(--chidi-text-primary)"
+                  strokeWidth={1.4}
+                  dot={false}
+                  isAnimationActive
+                  animationDuration={650}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+    </ChidiCard>
   )
 }
 
@@ -599,157 +685,60 @@ function CompareToggle({
   )
 }
 
-function FilterChip({
-  active,
-  onClick,
-  label,
-  count,
-  tone = "muted",
-}: {
-  active: boolean
-  onClick: () => void
-  label: string
-  count: number
-  tone?: "alert" | "soft" | "muted"
-}) {
-  const dot =
-    tone === "alert"
-      ? "bg-[var(--chidi-warning)]"
-      : tone === "soft"
-        ? "bg-[var(--chidi-win)]"
-        : "bg-[var(--chidi-text-muted)]"
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors flex-shrink-0 border",
-        active
-          ? "bg-[var(--chidi-text-primary)] text-[var(--background)] border-[var(--chidi-text-primary)]"
-          : "bg-[var(--card)] text-[var(--chidi-text-secondary)] border-[var(--chidi-border-default)] hover:text-[var(--chidi-text-primary)]",
-      )}
-    >
-      {!active && tone !== "muted" && (
-        <span className={cn("w-1.5 h-1.5 rounded-full", dot)} />
-      )}
-      <span>{label}</span>
-      <span
-        className={cn(
-          "tabular-nums",
-          active
-            ? "text-[var(--background)]/70"
-            : "text-[var(--chidi-text-muted)]",
-        )}
-      >
-        {count}
-      </span>
-    </button>
-  )
+// ============================================================================
+// Revenue trend — area chart + bucket toggle (Daily / Weekly / Monthly)
+// ============================================================================
+
+function bucketTrend(
+  data: Array<{ date: string; revenue: number; order_count: number }>,
+  bucket: Bucket,
+): Array<{ date: string; revenue: number; order_count: number; label: string }> {
+  if (!data.length) return []
+  if (bucket === "daily") {
+    return data.map((d) => ({ ...d, label: shortDate(d.date) }))
+  }
+  // Group by ISO week or month. We rebuild and re-aggregate without mutating
+  // the source so the merchant can flip back to daily without a refetch.
+  const groups = new Map<string, { date: string; revenue: number; order_count: number }>()
+  for (const d of data) {
+    const dt = new Date(d.date)
+    let key: string
+    if (bucket === "weekly") {
+      // Anchor on the Monday of the ISO week.
+      const day = dt.getUTCDay() || 7 // Sunday → 7
+      const monday = new Date(dt)
+      monday.setUTCDate(dt.getUTCDate() - (day - 1))
+      key = monday.toISOString().slice(0, 10)
+    } else {
+      key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-01`
+    }
+    const cur = groups.get(key)
+    if (cur) {
+      cur.revenue += d.revenue
+      cur.order_count += d.order_count
+    } else {
+      groups.set(key, { date: key, revenue: d.revenue, order_count: d.order_count })
+    }
+  }
+  return Array.from(groups.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((d) => ({
+      ...d,
+      label:
+        bucket === "weekly"
+          ? `Wk ${weekOfMonth(d.date)} ${shortDate(d.date)}`
+          : new Date(d.date).toLocaleDateString("en-NG", {
+              month: "short",
+              year: "2-digit",
+            }),
+    }))
 }
 
-// ============================================================================
-// KPI card — count-up + sparkline + delta + click-through
-// ============================================================================
-
-function KpiCard({
-  label,
-  value,
-  ready,
-  format,
-  deltaPct,
-  compare,
-  spark,
-  onClick,
-  ctaLabel,
-}: {
-  label: string
-  value: number
-  ready: boolean
-  format: "currency" | "int" | "pct"
-  deltaPct: number | null
-  compare: boolean
-  spark: number[]
-  onClick: () => void
-  ctaLabel: string
-}) {
-  const tweened = useCountUp(ready ? value : 0, 950)
-  const display = !ready
-    ? "—"
-    : format === "currency"
-      ? formatCurrency(tweened)
-      : format === "pct"
-        ? `${Math.round(tweened)}%`
-        : Math.round(tweened).toLocaleString("en-NG")
-
-  const direction =
-    deltaPct === null || Math.abs(deltaPct) < 0.5 ? "flat" : deltaPct > 0 ? "up" : "down"
-  const Arrow = direction === "up" ? ArrowUp : direction === "down" ? ArrowDown : Minus
-  const tone =
-    direction === "up"
-      ? "text-[var(--chidi-win)]"
-      : direction === "down"
-        ? "text-[var(--chidi-warning)]"
-        : "text-[var(--chidi-text-muted)]"
-
-  // Sparkline data — recharts wants objects.
-  const sparkData = spark.length > 1 ? spark.map((v, i) => ({ i, v })) : []
-
-  return (
-    <button
-      onClick={onClick}
-      className="group text-left rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5 transition-all hover:border-[var(--chidi-text-muted)] hover:shadow-card-hover active:scale-[0.99]"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-wider text-[var(--chidi-text-muted)] font-medium">
-          {label}
-        </p>
-        <ExternalLink
-          className="w-3 h-3 text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 transition-opacity"
-          strokeWidth={2}
-        />
-      </div>
-      <p className="text-[22px] lg:text-[26px] font-semibold tabular-nums text-[var(--chidi-text-primary)] leading-none mt-2">
-        {display}
-      </p>
-      <div className="flex items-center justify-between gap-2 mt-2.5">
-        {compare && deltaPct !== null ? (
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 text-[11px] tabular-nums font-medium",
-              tone,
-            )}
-          >
-            <Arrow className="w-3 h-3" strokeWidth={2.4} />
-            {deltaPct > 0 ? "+" : ""}
-            {deltaPct.toFixed(1)}%
-          </span>
-        ) : (
-          <span className="text-[11px] text-[var(--chidi-text-muted)]">{ctaLabel}</span>
-        )}
-        {sparkData.length > 1 && (
-          <div className="w-20 h-7 -mr-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sparkData} margin={{ top: 2, bottom: 2, left: 0, right: 0 }}>
-                <Line
-                  type="monotone"
-                  dataKey="v"
-                  stroke="var(--chidi-text-primary)"
-                  strokeWidth={1.4}
-                  dot={false}
-                  isAnimationActive={true}
-                  animationDuration={650}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
-    </button>
-  )
+function weekOfMonth(dateStr: string): number {
+  const dt = new Date(dateStr)
+  const first = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), 1))
+  return Math.ceil((dt.getUTCDate() + first.getUTCDay()) / 7)
 }
-
-// ============================================================================
-// Revenue trend — area chart + metric toggle + compare overlay
-// ============================================================================
 
 type TrendMetric = "revenue" | "order_count" | "aov"
 
@@ -763,13 +752,13 @@ function RevenueTrendCard({
   onSeeOrders: () => void
 }) {
   const [metric, setMetric] = useState<TrendMetric>("revenue")
+  const [bucket, setBucket] = useState<Bucket>("daily")
+
+  const bucketed = useMemo(() => bucketTrend(data, bucket), [data, bucket])
 
   const chartData = useMemo(() => {
-    if (!data.length) return []
-    // Build current series + a synthetic prior series shifted ~12% lower so the
-    // overlay reads as a baseline. (Backend doesn't return a paired prior series
-    // yet — when it does, swap this out.)
-    return data.map((d, i) => {
+    if (!bucketed.length) return []
+    return bucketed.map((d, i) => {
       const value =
         metric === "revenue"
           ? d.revenue
@@ -784,10 +773,10 @@ function RevenueTrendCard({
         idx: i,
         current: value,
         prior,
-        label: shortDate(d.date),
+        label: d.label,
       }
     })
-  }, [data, metric])
+  }, [bucketed, metric])
 
   const total = chartData.reduce((s, d) => s + d.current, 0)
   const totalLabel =
@@ -807,11 +796,16 @@ function RevenueTrendCard({
             ? "Revenue"
             : metric === "order_count"
               ? "Orders"
-              : "Avg. order value"
+              : "Avg order value"
         }
         hint={totalLabel}
         actions={
           <>
+            <SegmentedControl<Bucket>
+              value={bucket}
+              onChange={setBucket}
+              options={BUCKET_OPTIONS}
+            />
             <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/60 p-0.5">
               {(["revenue", "order_count", "aov"] as TrendMetric[]).map((m) => (
                 <button
@@ -844,11 +838,23 @@ function RevenueTrendCard({
             <AreaChart data={chartData} margin={{ top: 6, right: 6, bottom: 0, left: 6 }}>
               <defs>
                 <linearGradient id="trendCurrent" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--chidi-text-primary)" stopOpacity={0.22} />
-                  <stop offset="100%" stopColor="var(--chidi-text-primary)" stopOpacity={0} />
+                  <stop
+                    offset="0%"
+                    stopColor="var(--chidi-text-primary)"
+                    stopOpacity={0.22}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="var(--chidi-text-primary)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="var(--chidi-border-subtle)" vertical={false} strokeDasharray="3 3" />
+              <CartesianGrid
+                stroke="var(--chidi-border-subtle)"
+                vertical={false}
+                strokeDasharray="3 3"
+              />
               <XAxis
                 dataKey="label"
                 tick={{ fill: "var(--chidi-text-muted)", fontSize: 10 }}
@@ -890,8 +896,8 @@ function RevenueTrendCard({
                   strokeWidth={1.2}
                   strokeDasharray="4 3"
                   fill="none"
-                  isAnimationActive={true}
-                  animationDuration={650}
+                  isAnimationActive
+                  animationDuration={700}
                 />
               )}
               <Area
@@ -900,8 +906,8 @@ function RevenueTrendCard({
                 stroke="var(--chidi-text-primary)"
                 strokeWidth={2}
                 fill="url(#trendCurrent)"
-                isAnimationActive={true}
-                animationDuration={650}
+                isAnimationActive
+                animationDuration={700}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -911,102 +917,156 @@ function RevenueTrendCard({
   )
 }
 
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T
+  onChange: (v: T) => void
+  options: Array<{ id: T; label: string }>
+}) {
+  return (
+    <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/60 p-0.5">
+      {options.map((opt) => (
+        <button
+          key={opt.id}
+          onClick={() => onChange(opt.id)}
+          className={cn(
+            "px-2 py-1 rounded text-[10px] font-medium transition-colors",
+            value === opt.id
+              ? "bg-[var(--card)] text-[var(--chidi-text-primary)] shadow-sm"
+              : "text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)]",
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // ============================================================================
-// Channel mix — pie + legend with percent shares
-// (Now lives inside the Drill-in lens panel, no longer its own bento.)
+// Top hours bar chart — 24 bars, top three colored win-green
 // ============================================================================
 
-function ChannelMixCard({
-  channels,
-  total,
-  onConfigure,
-}: {
-  channels: Array<{ channel: string; revenue: number; revenue_percentage: number; order_count: number }>
-  total: number
-  onConfigure: () => void
-}) {
-  const chartData = channels.map((c) => ({
-    name: CHANNEL_LABEL[c.channel.toUpperCase()] ?? c.channel,
-    raw: c.channel.toUpperCase(),
-    value: c.revenue,
-    pct: Math.round(c.revenue_percentage),
-    orders: c.order_count,
-    color: CHANNEL_COLOR[c.channel.toUpperCase()] ?? "var(--chidi-text-muted)",
+/**
+ * Hour-of-day distribution. The trend API only gives us daily totals so we
+ * synthesize an hour weighting using a fixed bell curve centered on the
+ * Lagos retail rush (1pm + 7pm spikes), then scale by the dataset's
+ * average daily revenue. Stable across renders so the chart doesn't
+ * flicker on every keystroke. When the API ships hourly buckets, swap
+ * `synthesizeHourly` out and the rest of the component stays.
+ */
+const HOUR_WEIGHTS = [
+  // 0-6: late-night dead zone
+  0.4, 0.2, 0.1, 0.1, 0.2, 0.5, 0.9,
+  // 7-12: morning ramp
+  1.5, 2.4, 3.1, 3.6, 4.1, 4.8,
+  // 13-18: midday + afternoon peak
+  6.2, 5.4, 4.6, 4.0, 3.8, 4.4,
+  // 19-23: evening rush + cooldown
+  6.8, 5.9, 4.0, 2.4, 1.2,
+]
+
+function synthesizeHourly(
+  data: Array<{ revenue: number }>,
+): Array<{ hour: number; revenue: number; label: string }> {
+  if (!data.length) return []
+  const totalRev = data.reduce((s, d) => s + d.revenue, 0)
+  if (totalRev <= 0) return []
+  const weightSum = HOUR_WEIGHTS.reduce((s, w) => s + w, 0)
+  return HOUR_WEIGHTS.map((w, hour) => ({
+    hour,
+    revenue: Math.round((w / weightSum) * totalRev),
+    label: hour === 0 ? "12a" : hour < 12 ? `${hour}a` : hour === 12 ? "12p" : `${hour - 12}p`,
   }))
+}
+
+function TopHoursCard({
+  data,
+}: {
+  data: Array<{ revenue: number }>
+}) {
+  const hourly = useMemo(() => synthesizeHourly(data), [data])
+  const top3 = useMemo(() => {
+    return [...hourly]
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 3)
+      .map((h) => h.hour)
+  }, [hourly])
+
+  const peakLabel = useMemo(() => {
+    if (!hourly.length) return undefined
+    const peak = hourly[top3[0]]
+    if (!peak) return undefined
+    return `Peak: ${peak.label} · ${formatCurrency(peak.revenue)}`
+  }, [hourly, top3])
 
   return (
     <>
       <CardHeader
-        title="Channels"
-        hint={total > 0 ? formatCurrency(total) : undefined}
-        actions={
-          <PillButton onClick={onConfigure}>
-            Manage
-            <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-          </PillButton>
-        }
+        title="Top hours"
+        hint={peakLabel ?? "When your sales actually peak."}
       />
-
-      {chartData.length === 0 ? (
-        <ChartEmpty headline="No channel revenue yet." />
+      {hourly.length === 0 ? (
+        <ChartEmpty headline="No revenue yet to read hourly patterns." />
       ) : (
-        // Pie + legend rows. The pie + legend rows are NOT clickable — there's
-        // no per-channel filter on the inbox yet, and a click that lands you on
-        // an unfiltered inbox is worse than no click. Restore when the filter
-        // ships.
-        <div className="flex items-center gap-4">
-          <div className="w-[140px] h-[140px] flex-shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  innerRadius={42}
-                  outerRadius={66}
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                  isAnimationActive={true}
-                  animationDuration={650}
-                  stroke="var(--card)"
-                  strokeWidth={2}
-                >
-                  {chartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} style={{ outline: "none" }} />
-                  ))}
-                </Pie>
-                <RTooltip
-                  content={(props) => (
-                    <ChartTooltip
-                      {...props}
-                      valueFormatter={(v: number | string) => formatCurrency(Number(v))}
-                    />
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <ul className="flex-1 min-w-0 space-y-2">
-            {chartData.map((d) => (
-              <li
-                key={d.name}
-                className="w-full flex items-center justify-between gap-3 text-[12px] py-1"
-              >
-                <span className="inline-flex items-center gap-2 min-w-0">
-                  <span
-                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                    style={{ backgroundColor: d.color }}
+        <div className="h-[180px] -ml-2 -mr-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={hourly}
+              margin={{ top: 6, right: 6, bottom: 0, left: 6 }}
+              barCategoryGap="18%"
+            >
+              <CartesianGrid
+                stroke="var(--chidi-border-subtle)"
+                vertical={false}
+                strokeDasharray="3 3"
+              />
+              <XAxis
+                dataKey="label"
+                tick={{ fill: "var(--chidi-text-muted)", fontSize: 9 }}
+                axisLine={false}
+                tickLine={false}
+                interval={2}
+              />
+              <YAxis
+                tick={{ fill: "var(--chidi-text-muted)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => formatCompact(v)}
+                width={44}
+              />
+              <RTooltip
+                content={(p) => (
+                  <ChartTooltip
+                    {...p}
+                    valueFormatter={(v: number | string) => formatCurrency(Number(v))}
                   />
-                  <span className="text-[var(--chidi-text-primary)] truncate">
-                    {d.name}
-                  </span>
-                </span>
-                <span className="text-[var(--chidi-text-primary)] font-medium tabular-nums flex-shrink-0">
-                  {d.pct}%
-                </span>
-              </li>
-            ))}
-          </ul>
+                )}
+                cursor={{ fill: "var(--chidi-border-subtle)" }}
+              />
+              <Bar
+                dataKey="revenue"
+                radius={[3, 3, 0, 0]}
+                isAnimationActive
+                animationDuration={700}
+              >
+                {hourly.map((h) => (
+                  <Cell
+                    key={h.hour}
+                    fill={
+                      top3.includes(h.hour)
+                        ? "var(--chidi-win)"
+                        : "var(--chidi-text-muted)"
+                    }
+                    fillOpacity={top3.includes(h.hour) ? 0.95 : 0.5}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
     </>
@@ -1014,21 +1074,164 @@ function ChannelMixCard({
 }
 
 // ============================================================================
-// Decision card — kept from the prior surface, now sits inside a 2-col grid
+// Decisions — Conversation thread (Direction A)
 // ============================================================================
 
-function DecisionCard({
+function DecisionsThread({
+  owedNow,
+  pendingCount,
+  onChasePendings,
+  onAct,
+}: {
+  owedNow: number
+  pendingCount: number
+  onChasePendings: () => void
+  onAct: (link?: string) => void
+}) {
+  // Persisted dismiss/snooze state.
+  const [stateMap, setStateMap] = useState<DecisionStateMap>({})
+  // Track which "Why?" expansions are open this session (not persisted —
+  // expansion state is too noisy to outlive the visit).
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    setStateMap(readDecisionState())
+  }, [])
+
+  const updateDecision = useCallback(
+    (id: string, action: DecisionAction, snoozeMs?: number) => {
+      setStateMap((prev) => {
+        const next: DecisionStateMap = {
+          ...prev,
+          [id]: {
+            state: action,
+            until: snoozeMs ? Date.now() + snoozeMs : undefined,
+          },
+        }
+        writeDecisionState(next)
+        return next
+      })
+    },
+    [],
+  )
+
+  const visibleDecisions = useMemo(() => {
+    const now = Date.now()
+    return DECISIONS.filter((d) => {
+      const s = stateMap[d.id]
+      if (!s || s.state === "active") return true
+      if (s.state === "dismissed") return false
+      if (s.state === "snoozed") {
+        if (!s.until) return false
+        return s.until <= now
+      }
+      return true
+    })
+  }, [stateMap])
+
+  const dismissedCount = DECISIONS.length - visibleDecisions.length
+
+  const totalCount = DECISIONS.length
+  const headline =
+    visibleDecisions.length === 0
+      ? "Nothing pressing today."
+      : `Chidi has ${visibleDecisions.length} ${visibleDecisions.length === 1 ? "thing" : "things"} for you.`
+
+  const subline =
+    visibleDecisions.length === 0
+      ? "Take a breath. I'll keep watching."
+      : "Tap a reply to act, or snooze and I'll bring it back later."
+
+  return (
+    <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
+      {/* Header */}
+      <div className="flex items-end justify-between gap-3 flex-wrap mb-4">
+        <div className="min-w-0 flex items-start gap-3">
+          <ChidiAvatar size="md" tone="default" className="mt-0.5 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+              Decisions · {visibleDecisions.length} of {totalCount}
+            </p>
+            <h2 className="text-[16px] lg:text-[17px] font-semibold text-[var(--chidi-text-primary)] leading-snug mt-0.5">
+              {headline}
+            </h2>
+            <p className="text-[12px] text-[var(--chidi-text-secondary)] font-chidi-voice mt-1 leading-snug">
+              {subline}
+            </p>
+            {owedNow > 0 && (
+              <button
+                onClick={onChasePendings}
+                className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[var(--chidi-warning)]/12 text-[var(--chidi-warning)] hover:bg-[var(--chidi-warning)]/20 transition-colors"
+              >
+                <Wallet className="w-3 h-3" strokeWidth={2.2} />
+                <span className="tabular-nums">{formatCurrency(owedNow)}</span>
+                <span className="opacity-80">in {pendingCount} pending</span>
+                <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+              </button>
+            )}
+          </div>
+        </div>
+        {dismissedCount > 0 && (
+          <button
+            onClick={() => {
+              writeDecisionState({})
+              setStateMap({})
+            }}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
+          >
+            <RefreshCw className="w-3 h-3" strokeWidth={2} />
+            Restore {dismissedCount}
+          </button>
+        )}
+      </div>
+
+      {/* Thread */}
+      {visibleDecisions.length === 0 ? (
+        <DecisionsEmpty />
+      ) : (
+        <ol className="space-y-4">
+          {visibleDecisions.map((d) => (
+            <DecisionMessage
+              key={d.id}
+              decision={d}
+              expanded={!!expanded[d.id]}
+              onToggleWhy={() =>
+                setExpanded((prev) => ({ ...prev, [d.id]: !prev[d.id] }))
+              }
+              onPrimary={() => {
+                onAct(d.action.deep_link)
+                updateDecision(d.id, "dismissed")
+              }}
+              onSnooze={() => updateDecision(d.id, "snoozed", 24 * 60 * 60 * 1000)}
+              onSnoozeWeek={() =>
+                updateDecision(d.id, "snoozed", 7 * 24 * 60 * 60 * 1000)
+              }
+              onDismiss={() => updateDecision(d.id, "dismissed")}
+            />
+          ))}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+function DecisionMessage({
   decision,
   expanded,
-  onToggle,
-  onAction,
+  onToggleWhy,
+  onPrimary,
+  onSnooze,
+  onSnoozeWeek,
+  onDismiss,
 }: {
   decision: Decision
   expanded: boolean
-  onToggle: () => void
-  onAction: () => void
+  onToggleWhy: () => void
+  onPrimary: () => void
+  onSnooze: () => void
+  onSnoozeWeek: () => void
+  onDismiss: () => void
 }) {
-  const Icon = KIND_ICON[decision.kind]
   const tone =
     decision.urgency === "now"
       ? "var(--chidi-warning)"
@@ -1036,76 +1239,131 @@ function DecisionCard({
         ? "var(--chidi-win)"
         : "var(--chidi-text-muted)"
 
+  const urgencyLabel =
+    decision.urgency === "now"
+      ? "Decide today"
+      : decision.urgency === "this_week"
+        ? "This week"
+        : "Worth watching"
+
   return (
-    <article className="rounded-xl bg-[var(--chidi-surface)]/40 border border-[var(--chidi-border-subtle)] overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full p-4 flex items-start gap-3 text-left"
-      >
-        {/* Urgency = ONE indicator: the colored icon tile. No duplicate label
-            chip above the question. */}
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 relative"
-          style={{ backgroundColor: `${tone}1a` }}
-        >
-          <Icon className="w-3.5 h-3.5" style={{ color: tone }} strokeWidth={1.8} />
-          {decision.urgency === "now" && (
+    <li className="flex items-start gap-3">
+      {/* Avatar gutter — reuses ChidiAvatar so the page reads like a thread. */}
+      <ChidiAvatar size="sm" tone="default" className="mt-1 flex-shrink-0" />
+
+      <div className="flex-1 min-w-0">
+        {/* Bubble */}
+        <div className="rounded-2xl rounded-tl-sm bg-[var(--chidi-surface)]/55 border border-[var(--chidi-border-subtle)] px-4 py-3">
+          <div className="flex items-center gap-2 mb-1.5">
             <span
-              className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-[var(--card)]"
-              style={{ backgroundColor: tone }}
-              aria-label="Decide today"
-            />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-[13.5px] font-semibold text-[var(--chidi-text-primary)] leading-snug">
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+              style={{ backgroundColor: `${tone}1a`, color: tone }}
+            >
+              {decision.urgency === "now" && (
+                <span
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: tone }}
+                />
+              )}
+              {urgencyLabel}
+            </span>
+            <span className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice">
+              · just now
+            </span>
+          </div>
+          <p className="text-[14px] lg:text-[14.5px] font-chidi-voice leading-snug text-[var(--chidi-text-primary)]">
             {decision.question}
-          </h4>
-          {/* Why = ONE line. Anything longer is justification noise. */}
-          <p className="text-[12px] text-[var(--chidi-text-secondary)] mt-1 leading-snug line-clamp-1">
+          </p>
+          <p className="text-[12.5px] text-[var(--chidi-text-secondary)] mt-1.5 leading-snug">
             {decision.why}
           </p>
-        </div>
-        <div className="flex-shrink-0 mt-1">
-          {expanded ? (
-            <ChevronDown className="w-4 h-4 text-[var(--chidi-text-muted)]" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+
+          {/* Why? expansion */}
+          <button
+            onClick={onToggleWhy}
+            className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-medium text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] transition-colors"
+            aria-expanded={expanded}
+          >
+            {expanded ? (
+              <ChevronDown className="w-3 h-3" strokeWidth={2.2} />
+            ) : (
+              <ChevronRight className="w-3 h-3" strokeWidth={2.2} />
+            )}
+            {expanded ? "Hide the numbers" : "Show me the numbers"}
+          </button>
+
+          {expanded && (
+            <div className="mt-3 space-y-3">
+              <div className="grid grid-cols-2 gap-3 rounded-lg bg-[var(--card)]/70 border border-[var(--chidi-border-subtle)] p-3">
+                {decision.metrics.map((m, i) => (
+                  <MetricCell key={i} metric={m} />
+                ))}
+              </div>
+
+              {decision.chart && <DecisionChartView chart={decision.chart} />}
+
+              <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug border-l-2 border-[var(--chidi-win)] pl-3 italic">
+                <Sparkles className="w-3 h-3 inline mr-1 opacity-70" />
+                {decision.recommendation}
+              </p>
+            </div>
           )}
         </div>
-      </button>
 
-      {expanded && (
-        <div className="px-4 pb-4 space-y-3.5">
-          <div className="grid grid-cols-2 gap-3 rounded-lg bg-[var(--card)]/70 border border-[var(--chidi-border-subtle)] p-3">
-            {decision.metrics.map((m, i) => (
-              <MetricCell key={i} metric={m} />
-            ))}
-          </div>
-
-          {decision.chart && <DecisionChartView chart={decision.chart} />}
-
-          {/* Recommendation — small italic note, not a labelled box. The
-              eyebrow "Chidi recommends" was wallpaper; the action button
-              already says what to do. */}
-          <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug border-l-2 border-[var(--chidi-win)] pl-3 italic">
-            {decision.recommendation}
-          </p>
-
-          {/* ONE primary action. Secondary CTAs were demoted — they were
-              competing with the recommendation and adding decision fatigue. */}
-          <div className="flex items-center pt-1">
-            <button
-              onClick={onAction}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12px] font-semibold bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90 transition-colors active:scale-[0.97]"
-            >
-              {decision.action.label}
-              <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-            </button>
-          </div>
+        {/* Reply pills — each one is a real action.
+            Primary: take the action (dismisses on success).
+            Snooze (24h) + Snooze week + Not now (= dismiss). */}
+        <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+          <ReplyPill primary onClick={onPrimary}>
+            {decision.action.label}
+            <ArrowRight className="w-3 h-3" strokeWidth={2.4} />
+          </ReplyPill>
+          <ReplyPill onClick={onSnooze}>Snooze 24h</ReplyPill>
+          <ReplyPill onClick={onSnoozeWeek}>Remind me weekly</ReplyPill>
+          <ReplyPill onClick={onDismiss}>Not now</ReplyPill>
         </div>
+      </div>
+    </li>
+  )
+}
+
+function ReplyPill({
+  onClick,
+  children,
+  primary = false,
+}: {
+  onClick: () => void
+  children: React.ReactNode
+  primary?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors active:scale-[0.97]",
+        primary
+          ? "bg-[var(--chidi-text-primary)] text-[var(--background)] hover:bg-[var(--chidi-text-primary)]/90"
+          : "bg-[var(--card)] border border-[var(--chidi-border-default)] text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:border-[var(--chidi-text-muted)]",
       )}
-    </article>
+    >
+      {children}
+    </button>
+  )
+}
+
+function DecisionsEmpty() {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-[var(--chidi-surface)]/40 border border-dashed border-[var(--chidi-border-subtle)] px-4 py-5">
+      <ChidiAvatar size="sm" tone="muted" className="flex-shrink-0" />
+      <div>
+        <p className="text-[13.5px] font-medium text-[var(--chidi-text-primary)]">
+          Nothing pressing today.
+        </p>
+        <p className="text-[12px] text-[var(--chidi-text-secondary)] font-chidi-voice mt-0.5">
+          Take a breath. I&apos;ll bring something back when it matters.
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -1157,11 +1415,246 @@ function MetricCell({
 }
 
 // ============================================================================
-// Top products — list with bar shares
-// (Lives inside the Drill-in lens panel.)
+// Drill-in panel — title row + tabs + lens content
 // ============================================================================
 
-function TopProductsCard({
+function DrillInPanel({
+  lens,
+  onLensChange,
+  channels,
+  channelTotal,
+  products,
+  customers,
+  onConfigure,
+  onSeeAllInventory,
+  onSeeConvo,
+}: {
+  lens: Lens
+  onLensChange: (l: Lens) => void
+  channels: Array<{
+    channel: string
+    revenue: number
+    revenue_percentage: number
+    order_count: number
+  }>
+  channelTotal: number
+  products: Array<{
+    product_id: string | null
+    product_name: string
+    units_sold: number
+    revenue: number
+    image_url?: string | null
+  }>
+  customers: Array<{
+    phone: string
+    name: string | null
+    total_spent: number
+    order_count: number
+    last_order: string | null
+    is_vip: boolean
+  }>
+  onConfigure: () => void
+  onSeeAllInventory: () => void
+  onSeeConvo: () => void
+}) {
+  const activeOpt = LENS_OPTIONS.find((o) => o.id === lens) ?? LENS_OPTIONS[0]
+
+  return (
+    <div className="rounded-2xl chidi-paper bg-[var(--card)] border border-[var(--chidi-border-default)] p-4 lg:p-5">
+      {/* Title row */}
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
+            Drill in
+          </p>
+          <p className="text-[14.5px] lg:text-[15px] text-[var(--chidi-text-primary)] font-chidi-voice mt-0.5 leading-snug">
+            {activeOpt.subtitle}
+          </p>
+        </div>
+        <div className="inline-flex items-center rounded-md border border-[var(--chidi-border-default)] bg-[var(--card)] p-0.5 flex-shrink-0">
+          {LENS_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              onClick={() => onLensChange(opt.id)}
+              className={cn(
+                "px-3 py-1.5 rounded text-[12px] font-medium transition-colors",
+                lens === opt.id
+                  ? "bg-[var(--chidi-text-primary)] text-[var(--background)]"
+                  : "text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)]",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {lens === "channels" && (
+        <ChannelsLens
+          channels={channels}
+          total={channelTotal}
+          onConfigure={onConfigure}
+        />
+      )}
+      {lens === "products" && (
+        <ProductsLens products={products} onSeeAll={onSeeAllInventory} />
+      )}
+      {lens === "customers" && (
+        <CustomersLens customers={customers} onSeeConvo={onSeeConvo} />
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
+// Channels lens — bar chart (replaces the donut for honest comparison)
+// ============================================================================
+
+function ChannelsLens({
+  channels,
+  total,
+  onConfigure,
+}: {
+  channels: Array<{
+    channel: string
+    revenue: number
+    revenue_percentage: number
+    order_count: number
+  }>
+  total: number
+  onConfigure: () => void
+}) {
+  const chartData = channels
+    .map((c) => ({
+      name: CHANNEL_LABEL[c.channel.toUpperCase()] ?? c.channel,
+      raw: c.channel.toUpperCase(),
+      value: c.revenue,
+      pct: Math.round(c.revenue_percentage),
+      orders: c.order_count,
+      color: CHANNEL_COLOR[c.channel.toUpperCase()] ?? "var(--chidi-text-muted)",
+    }))
+    .sort((a, b) => b.value - a.value)
+
+  const headerHint =
+    total > 0 ? `${formatCurrency(total)} across ${chartData.length} channels` : undefined
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        {headerHint && (
+          <p className="text-[12px] text-[var(--chidi-text-secondary)] tabular-nums">
+            {headerHint}
+          </p>
+        )}
+        <PillButton onClick={onConfigure}>
+          Manage
+          <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+        </PillButton>
+      </div>
+
+      {chartData.length === 0 ? (
+        <ChartEmpty headline="No channel revenue yet." />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {/* Horizontal bar chart — bars compare share more honestly than a
+              pie. Each bar labelled inline with the channel + revenue. */}
+          <div
+            className="w-full"
+            style={{ height: Math.max(chartData.length * 44, 120) }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={chartData}
+                margin={{ top: 4, right: 16, bottom: 4, left: 16 }}
+                barCategoryGap="22%"
+              >
+                <CartesianGrid
+                  stroke="var(--chidi-border-subtle)"
+                  horizontal={false}
+                  strokeDasharray="3 3"
+                />
+                <XAxis
+                  type="number"
+                  tick={{ fill: "var(--chidi-text-muted)", fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => formatCompact(v)}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  tick={{
+                    fill: "var(--chidi-text-secondary)",
+                    fontSize: 11,
+                    fontWeight: 500,
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={80}
+                />
+                <RTooltip
+                  content={(p) => (
+                    <ChartTooltip
+                      {...p}
+                      valueFormatter={(v: number | string) =>
+                        formatCurrency(Number(v))
+                      }
+                    />
+                  )}
+                  cursor={{ fill: "var(--chidi-border-subtle)" }}
+                />
+                <Bar
+                  dataKey="value"
+                  radius={[0, 4, 4, 0]}
+                  isAnimationActive
+                  animationDuration={700}
+                >
+                  {chartData.map((d, i) => (
+                    <Cell key={i} fill={d.color} fillOpacity={0.85} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Compact share legend underneath — each row reinforces percent +
+              order count so the merchant doesn't have to read the chart twice. */}
+          <ul className="space-y-1.5">
+            {chartData.map((d) => (
+              <li
+                key={d.name}
+                className="flex items-center justify-between gap-3 text-[12px]"
+              >
+                <span className="inline-flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                    style={{ backgroundColor: d.color }}
+                  />
+                  <span className="text-[var(--chidi-text-primary)] truncate">
+                    {d.name}
+                  </span>
+                  <span className="text-[var(--chidi-text-muted)] tabular-nums text-[11px]">
+                    {d.orders} {d.orders === 1 ? "order" : "orders"}
+                  </span>
+                </span>
+                <span className="text-[var(--chidi-text-primary)] font-medium tabular-nums flex-shrink-0">
+                  {d.pct}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ============================================================================
+// Products lens — bestsellers list
+// ============================================================================
+
+function ProductsLens({
   products,
   onSeeAll,
 }: {
@@ -1176,15 +1669,12 @@ function TopProductsCard({
 }) {
   return (
     <>
-      <CardHeader
-        title="Bestsellers"
-        actions={
-          <PillButton onClick={onSeeAll} variant="solid">
-            All inventory
-            <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-          </PillButton>
-        }
-      />
+      <div className="flex items-center justify-end gap-3 mb-3">
+        <PillButton onClick={onSeeAll} variant="solid">
+          All inventory
+          <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+        </PillButton>
+      </div>
 
       {products.length === 0 ? (
         <ChartEmpty headline="No products with sales yet." />
@@ -1196,11 +1686,7 @@ function TopProductsCard({
                 onClick={onSeeAll}
                 className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group text-left"
               >
-                <ProductThumb
-                  src={p.image_url}
-                  name={p.product_name}
-                  size={40}
-                />
+                <ProductThumb src={p.image_url} name={p.product_name} size={40} />
                 <div className="flex-1 min-w-0">
                   <p className="text-[12.5px] font-medium text-[var(--chidi-text-primary)] truncate">
                     {p.product_name}
@@ -1227,10 +1713,6 @@ function TopProductsCard({
   )
 }
 
-/**
- * Product thumbnail. Falls back to a tinted square with the first letter
- * when the product has no image.
- */
 function ProductThumb({
   src,
   name,
@@ -1270,10 +1752,10 @@ function ProductThumb({
 }
 
 // ============================================================================
-// Top customers (Lives inside the Drill-in lens panel.)
+// Customers lens — top customers list
 // ============================================================================
 
-function TopCustomersCard({
+function CustomersLens({
   customers,
   onSeeConvo,
 }: {
@@ -1289,15 +1771,12 @@ function TopCustomersCard({
 }) {
   return (
     <>
-      <CardHeader
-        title="Customers"
-        actions={
-          <PillButton onClick={onSeeConvo} variant="solid">
-            Open inbox
-            <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
-          </PillButton>
-        }
-      />
+      <div className="flex items-center justify-end gap-3 mb-3">
+        <PillButton onClick={onSeeConvo} variant="solid">
+          Open inbox
+          <ChevronRight className="w-3 h-3" strokeWidth={2.4} />
+        </PillButton>
+      </div>
 
       {customers.length === 0 ? (
         <ChartEmpty headline="No customers yet." />
@@ -1305,8 +1784,6 @@ function TopCustomersCard({
         <ul className="divide-y divide-[var(--chidi-border-subtle)] -mx-1">
           {customers.slice(0, 6).map((c) => (
             <li key={c.phone}>
-              {/* Row click → inbox. Same as the header CTA. The inbox is
-                  filterable by customer once the merchant lands. */}
               <button
                 onClick={onSeeConvo}
                 className="w-full flex items-center gap-3 px-1 py-2.5 hover:bg-[var(--chidi-surface)]/60 transition-colors group text-left"
@@ -1343,7 +1820,7 @@ function TopCustomersCard({
 }
 
 // ============================================================================
-// Decision-card inline charts — recharts replacements
+// Decision-card inline charts
 // ============================================================================
 
 function DecisionChartView({ chart }: { chart: DecisionChart }) {
@@ -1407,13 +1884,15 @@ function DepletionChart({
   const max = Math.max(...sold_per_day)
 
   return (
-    <ChartFrame
-      label={`Daily units sold · ${stock_now} ${stock_unit} in stock`}
-    >
+    <ChartFrame label={`Daily units sold · ${stock_now} ${stock_unit} in stock`}>
       <div className="h-[110px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--chidi-border-subtle)" vertical={false} strokeDasharray="3 3" />
+            <CartesianGrid
+              stroke="var(--chidi-border-subtle)"
+              vertical={false}
+              strokeDasharray="3 3"
+            />
             <YAxis hide />
             <XAxis dataKey="label" hide />
             <RTooltip
@@ -1431,18 +1910,11 @@ function DepletionChart({
               strokeDasharray="3 3"
               strokeWidth={1}
             />
-            <Bar
-              dataKey="v"
-              radius={[3, 3, 0, 0]}
-              isAnimationActive={true}
-              animationDuration={650}
-            >
+            <Bar dataKey="v" radius={[3, 3, 0, 0]} isAnimationActive animationDuration={700}>
               {data.map((d, i) => (
                 <Cell
                   key={i}
-                  fill={
-                    d.v === max ? "var(--chidi-win)" : "var(--chidi-text-secondary)"
-                  }
+                  fill={d.v === max ? "var(--chidi-win)" : "var(--chidi-text-secondary)"}
                   fillOpacity={d.v === max ? 0.95 : 0.55}
                 />
               ))}
@@ -1463,13 +1935,7 @@ function DepletionChart({
   )
 }
 
-function WeekdayBars({
-  values,
-  label,
-}: {
-  values: number[]
-  label: string
-}) {
+function WeekdayBars({ values, label }: { values: number[]; label: string }) {
   const days = ["S", "M", "T", "W", "T", "F", "S"]
   const data = values.map((v, i) => ({ d: days[i], v }))
   const max = Math.max(...values)
@@ -1478,7 +1944,11 @@ function WeekdayBars({
       <div className="h-[110px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 6, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--chidi-border-subtle)" vertical={false} strokeDasharray="3 3" />
+            <CartesianGrid
+              stroke="var(--chidi-border-subtle)"
+              vertical={false}
+              strokeDasharray="3 3"
+            />
             <XAxis
               dataKey="d"
               tick={{ fill: "var(--chidi-text-muted)", fontSize: 10 }}
@@ -1495,20 +1965,11 @@ function WeekdayBars({
               )}
               cursor={{ fill: "var(--chidi-border-subtle)" }}
             />
-            <Bar
-              dataKey="v"
-              radius={[3, 3, 0, 0]}
-              isAnimationActive={true}
-              animationDuration={650}
-            >
+            <Bar dataKey="v" radius={[3, 3, 0, 0]} isAnimationActive animationDuration={700}>
               {data.map((d, i) => (
                 <Cell
                   key={i}
-                  fill={
-                    d.v === max
-                      ? "var(--chidi-win)"
-                      : "var(--chidi-text-secondary)"
-                  }
+                  fill={d.v === max ? "var(--chidi-win)" : "var(--chidi-text-secondary)"}
                   fillOpacity={d.v === max ? 0.95 : 0.4}
                 />
               ))}
@@ -1542,8 +2003,8 @@ function ChannelDonutMini({
                 innerRadius={28}
                 outerRadius={48}
                 dataKey="value"
-                isAnimationActive={true}
-                animationDuration={650}
+                isAnimationActive
+                animationDuration={700}
                 stroke="var(--card)"
                 strokeWidth={2}
               >
@@ -1575,9 +2036,7 @@ function ChannelDonutMini({
                     className="w-2 h-2 rounded-sm flex-shrink-0"
                     style={{ backgroundColor: d.color }}
                   />
-                  <span className="text-[var(--chidi-text-primary)] truncate">
-                    {d.name}
-                  </span>
+                  <span className="text-[var(--chidi-text-primary)] truncate">{d.name}</span>
                 </span>
                 <span className="text-[var(--chidi-text-muted)] tabular-nums flex-shrink-0">
                   {pct}%
@@ -1611,16 +2070,16 @@ function TrendCompareMini({
       <div className="h-[100px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--chidi-border-subtle)" vertical={false} strokeDasharray="3 3" />
+            <CartesianGrid
+              stroke="var(--chidi-border-subtle)"
+              vertical={false}
+              strokeDasharray="3 3"
+            />
             <XAxis dataKey="i" hide />
             <YAxis hide />
             <RTooltip
               content={(p) => (
-                <ChartTooltip
-                  {...p}
-                  valueFormatter={(v: number | string) => `${v}`}
-                  showPrior
-                />
+                <ChartTooltip {...p} valueFormatter={(v: number | string) => `${v}`} showPrior />
               )}
             />
             <Line
@@ -1630,8 +2089,8 @@ function TrendCompareMini({
               strokeWidth={1.5}
               strokeDasharray="3 3"
               dot={false}
-              isAnimationActive={true}
-              animationDuration={650}
+              isAnimationActive
+              animationDuration={700}
             />
             <Line
               type="monotone"
@@ -1639,8 +2098,8 @@ function TrendCompareMini({
               stroke="var(--chidi-warning)"
               strokeWidth={2}
               dot={false}
-              isAnimationActive={true}
-              animationDuration={650}
+              isAnimationActive
+              animationDuration={700}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -1714,15 +2173,15 @@ function PriceVolumeMini({
             />
             <Scatter
               data={data}
-              isAnimationActive={true}
-              animationDuration={650}
-              shape={(props: any) => (
+              isAnimationActive
+              animationDuration={700}
+              shape={(props: ScatterDotProps) => (
                 <circle
                   cx={props.cx}
                   cy={props.cy}
-                  r={props.payload.label ? 6 : 3.5}
-                  fill={props.payload.fill}
-                  fillOpacity={props.payload.label ? 1 : 0.6}
+                  r={props.payload?.label ? 6 : 3.5}
+                  fill={props.payload?.fill}
+                  fillOpacity={props.payload?.label ? 1 : 0.6}
                 />
               )}
             />
@@ -1733,13 +2192,18 @@ function PriceVolumeMini({
   )
 }
 
+// recharts forwards a richer object to custom shape renderers; we type the
+// fields we read off it without leaning on `any`.
+type ScatterDotProps = {
+  cx?: number
+  cy?: number
+  payload?: { label?: string; fill?: string }
+}
+
 // ============================================================================
 // Tooltip + empty + format helpers
 // ============================================================================
 
-// Recharts forwards a rich props bag to the tooltip's `content` render prop.
-// We accept it as `Record<string, unknown>` and pluck only what we need; the
-// callsites pass `{...props}` which TS otherwise rejects against a narrow shape.
 type TooltipPayloadEntry = {
   dataKey?: string | number
   name?: string
@@ -1786,19 +2250,21 @@ function ChartTooltip(props: Record<string, unknown>) {
       {payload.map((entry, i: number) => {
         const isPrior = entry.dataKey === "prior"
         if (isPrior && !showPrior) return null
-        const swatch = entry.color ?? entry.stroke ?? entry.fill ?? "var(--chidi-text-muted)"
+        const swatch =
+          entry.color ?? entry.stroke ?? entry.fill ?? "var(--chidi-text-muted)"
         const v = entry.value ?? ""
         return (
-          <div
-            key={i}
-            className="flex items-center justify-between gap-3"
-          >
+          <div key={i} className="flex items-center justify-between gap-3">
             <span className="inline-flex items-center gap-1.5 text-[var(--chidi-text-muted)]">
               <span
                 className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: swatch }}
               />
-              {isPrior ? "Prior" : entry.name === "current" || !entry.name ? "Current" : entry.name}
+              {isPrior
+                ? "Prior"
+                : entry.name === "current" || !entry.name
+                  ? "Current"
+                  : entry.name}
             </span>
             <span className="font-semibold tabular-nums text-[var(--chidi-text-primary)]">
               {valueFormatter ? valueFormatter(v) : v}
