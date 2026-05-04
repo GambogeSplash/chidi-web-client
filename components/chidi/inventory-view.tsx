@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal, Check } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal, Check, Pin, PinOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -16,12 +16,20 @@ import { EditableCell } from "./editable-cell"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { EmptyState } from "./empty-state"
 import { ManageVariationsSheet } from "./manage-variations-sheet"
 import { HintBanner } from "./hint-banner"
 import { useFirstTimeHint } from "@/lib/hooks/use-first-time-hint"
 import type { DisplayProduct } from "@/lib/types/product"
 import { cn } from "@/lib/utils"
+import {
+  getPinned as getPinnedProducts,
+  togglePin as toggleProductPin,
+  unpin as unpinProduct,
+  subscribe as subscribePinnedProducts,
+  MAX_PINNED_PRODUCTS,
+} from "@/lib/chidi/inventory-pinned"
 
 // Filter/sort labels — single source of truth so dropdown + sheet + active
 // chip all read from the same string.
@@ -58,6 +66,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [showFilters, setShowFilters] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [addChooserOpen, setAddChooserOpen] = useState(false)
 
   // Stock filter — initialized from URL (?filter=low|out), survives refresh.
   const initialFilter = (() => {
@@ -119,6 +128,25 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const queryClient = useQueryClient()
+
+  // Pinned products — newest pin first. Subscribe to store changes so the
+  // strip and per-row glyphs stay in sync (e.g. unpinning from inside a
+  // pinned card collapses that card out of the strip without a re-render
+  // dance). Reads from localStorage on mount, writes flow back through the
+  // store helpers below.
+  const [pinnedIds, setPinnedIds] = useState<string[]>([])
+  useEffect(() => {
+    setPinnedIds(getPinnedProducts())
+    return subscribePinnedProducts((ids) => setPinnedIds(ids))
+  }, [])
+  const handleTogglePin = (id: string) => {
+    toggleProductPin(id)
+    hapticSoft()
+  }
+  const handleUnpin = (id: string) => {
+    unpinProduct(id)
+    hapticSoft()
+  }
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -331,6 +359,475 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     }
   }
 
+  // Pinned product set + the survives-current-filter list. Pinning is a
+  // focus tool, not a filter bypass — if the merchant filters to "Out of
+  // stock", pinned in-stock items don't crash the strip into view. Newest
+  // pin renders first (matches the store contract), and the main collection
+  // omits anything already in the strip so cards never duplicate.
+  const pinnedIdSet = new Set(pinnedIds)
+  const pinnedProducts: DisplayProduct[] = (() => {
+    if (pinnedIds.length === 0) return []
+    const byId = new Map(filteredProducts.map((p) => [p.id, p]))
+    const out: DisplayProduct[] = []
+    for (const id of pinnedIds) {
+      const p = byId.get(id)
+      if (p) out.push(p)
+    }
+    return out
+  })()
+  const unpinnedProducts: DisplayProduct[] =
+    pinnedProducts.length > 0
+      ? filteredProducts.filter((p) => !pinnedIdSet.has(p.id))
+      : filteredProducts
+
+  // Single source of truth for rendering a product as either a list-row or
+  // grid-card. Both the Pinned strip and the main collection call this so
+  // pinning is purely a position change — same chrome, same interactions.
+  // The `pinned` flag swaps the corner glyph (filled vs outline) and turns
+  // the more-actions menu's "Pin to top" into "Unpin".
+  const renderProduct = (product: DisplayProduct, pinned: boolean) => {
+    const stockStatus = getStockStatus(product.stock, product.reorderLevel)
+    const isSelected = selectedIds.has(product.id)
+
+    if (viewMode === "list") {
+      const updatedAgo = (() => {
+        const days = Math.floor((Date.now() - new Date(product.updatedAt).getTime()) / 86400000)
+        if (days < 1) return "today"
+        if (days < 7) return `${days}d`
+        if (days < 30) return `${Math.floor(days / 7)}w`
+        return `${Math.floor(days / 30)}mo`
+      })()
+      return (
+        <div
+          key={product.id}
+          draggable={!pinned}
+          onDragStart={(e) => { if (!pinned) handleDragStart(e, product.id) }}
+          onDragOver={(e) => { if (!pinned) handleDragOver(e, product.id) }}
+          onDrop={(e) => { if (!pinned) handleDrop(e, product.id) }}
+          onDragEnd={handleDragEnd}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[var(--chidi-surface)] transition-colors text-left cursor-pointer group",
+            isSelected && "bg-[var(--chidi-win-soft)]/40",
+            pinned && "bg-[var(--chidi-surface)]/40",
+            draggingId === product.id && "opacity-40",
+            dragOverId === product.id && "border-t-2 border-t-[var(--chidi-win)]",
+          )}
+          onClick={() => onViewProduct(product)}
+        >
+          {/* Drag handle — shows on row hover. Pinned rows skip it: the
+              Pinned strip's order is "most-recently-pinned first", not
+              custom-order, so dragging would just be a confusing no-op. */}
+          <span
+            className="w-4 flex items-center justify-center text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
+            onClick={(e) => e.stopPropagation()}
+            title={pinned ? "Pinned" : "Drag to reorder"}
+          >
+            {!pinned && <GripVertical className="w-3.5 h-3.5" />}
+          </span>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => { e.stopPropagation(); toggleSelected(product.id) }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-4 h-4 rounded border-[var(--chidi-border-default)] accent-[var(--chidi-win)] cursor-pointer"
+            aria-label={`Select ${product.name}`}
+          />
+          <div className="relative flex-shrink-0 chidi-row-with-hover-image">
+            <div className="w-10 h-10 rounded-md overflow-hidden bg-[var(--chidi-surface)] flex items-center justify-center">
+              {product.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+              ) : (
+                <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
+              )}
+            </div>
+            {/* Hover-pop preview — 1.5x lifted thumbnail with shadow.
+                Pure CSS, see .chidi-row-with-hover-image in globals.css */}
+            {product.image && (
+              <div
+                data-hover-image
+                className="absolute left-12 top-1/2 -translate-y-1/2 z-30 w-32 h-32 rounded-xl overflow-hidden shadow-[0_18px_40px_-10px_rgba(0,0,0,0.35)] border border-[var(--chidi-border-default)]"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={product.image} alt="" className="w-full h-full object-cover" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              {pinned && (
+                <Pin
+                  className="w-3 h-3 text-[var(--chidi-text-secondary)] flex-shrink-0 fill-current"
+                  strokeWidth={1.8}
+                  aria-label="Pinned"
+                />
+              )}
+              <p className="text-sm font-medium text-[var(--chidi-text-primary)] truncate">{product.name}</p>
+              {/* Stock-status pill — clickable; filters list to that status */}
+              {product.stock <= product.reorderLevel && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const target = product.stock === 0 ? "out" : "low"
+                    setStockFilter(stockFilter === target ? "all" : target)
+                  }}
+                  className={cn(
+                    "text-[9px] font-medium border-0 flex-shrink-0 px-1.5 py-0.5 rounded-md motion-safe:active:scale-[0.97] transition-opacity hover:opacity-80",
+                    getStockBadgeClasses(stockStatus.variant),
+                  )}
+                  title={`Filter to ${stockStatus.label.toLowerCase()}`}
+                >
+                  {stockStatus.label}
+                </button>
+              )}
+              {product.hasVariants && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleManageVariations(product) }}
+                  className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/5 active:scale-[0.97] font-chidi-voice flex-shrink-0"
+                  title="Manage variations"
+                >
+                  <Layers className="w-2.5 h-2.5" />
+                  Variants
+                </button>
+              )}
+            </div>
+            {/* Category — clickable; filters list to that category */}
+            {product.category ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedCategory(
+                    selectedCategory === product.category ? "all" : product.category,
+                  )
+                }}
+                className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice hover:text-[var(--chidi-text-secondary)] hover:underline underline-offset-2 motion-safe:active:scale-[0.98] text-left"
+                title={`Filter to ${product.category}`}
+              >
+                {product.category}
+              </button>
+            ) : (
+              <p className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice">—</p>
+            )}
+          </div>
+          <span className="hidden sm:block w-20 text-right text-sm font-semibold text-[var(--chidi-text-primary)]">
+            <EditableCell
+              value={product.sellingPrice}
+              prefix="₦"
+              inputMode="decimal"
+              align="right"
+              hint="Click to edit price"
+              onCommit={(v) => handleInlineEdit(product.id, "selling_price", v)}
+              className="text-sm font-semibold text-[var(--chidi-text-primary)]"
+            />
+          </span>
+          <span className="hidden sm:block w-16 text-right text-sm text-[var(--chidi-text-secondary)] font-chidi-voice">
+            <EditableCell
+              value={product.stock}
+              inputMode="numeric"
+              align="right"
+              hint="Click to edit stock"
+              onCommit={(v) => handleInlineEdit(product.id, "stock_quantity", v)}
+              className="text-sm text-[var(--chidi-text-secondary)]"
+            />
+          </span>
+          <span className="hidden md:block w-20 text-right text-[11px] text-[var(--chidi-text-muted)] tabular-nums font-chidi-voice">{updatedAgo}</span>
+          {/* Hover-revealed unpin button — only renders for pinned rows.
+              Sits next to the more-actions menu so the row footprint stays
+              identical between pinned and unpinned. */}
+          {pinned && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleUnpin(product.id) }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 motion-safe:transition-opacity w-7 h-7 flex items-center justify-center rounded hover:bg-white text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)]"
+              aria-label={`Unpin ${product.name}`}
+              title="Unpin"
+            >
+              <PinOff className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                draggable={false}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="w-7 h-7 flex items-center justify-center rounded hover:bg-white text-[var(--chidi-text-muted)]"
+                aria-label="More actions"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewProduct(product) }}>View details</DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditProduct(product) }}>Edit product</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleTogglePin(product.id) }}>
+                {pinned ? (
+                  <>
+                    <PinOff className="w-4 h-4 mr-2" />
+                    Unpin
+                  </>
+                ) : (
+                  <>
+                    <Pin className="w-4 h-4 mr-2" />
+                    Pin to top
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleManageVariations(product) }}>
+                <Layers className="w-4 h-4 mr-2" />
+                Manage variations
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )
+    }
+
+    // Grid card — same logic, different chrome.
+    return (
+      <div
+        key={product.id}
+        className={cn(
+          "group bg-white border rounded-xl overflow-hidden transition-all relative",
+          "hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] hover:-translate-y-0.5",
+          isSelected
+            ? "border-[var(--chidi-win)] ring-2 ring-[var(--chidi-win)]/30"
+            : pinned
+              ? "border-[var(--chidi-text-muted)]/40"
+              : product.stock === 0
+                ? "border-[var(--chidi-warning)]/40 ring-1 ring-[var(--chidi-warning)]/20"
+                : product.stock <= product.reorderLevel
+                  ? "border-[var(--chidi-warning)]/25"
+                  : "border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)]",
+        )}
+      >
+        {/* Selection checkbox — top-left, only visible on hover or when selected */}
+        <label
+          className={cn(
+            "absolute top-2 left-2 z-20 w-6 h-6 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center motion-safe:transition-opacity cursor-pointer",
+            isSelected || selectedCount > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:opacity-100",
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelected(product.id)}
+            className="w-3.5 h-3.5 rounded border-[var(--chidi-border-default)] accent-[var(--chidi-win)] cursor-pointer"
+            aria-label={`Select ${product.name}`}
+          />
+        </label>
+
+        {/* Product Image */}
+        <div
+          className="relative aspect-square bg-[var(--chidi-image-placeholder)] overflow-hidden cursor-pointer chidi-paper"
+          onClick={() => onViewProduct(product)}
+        >
+          {/* Stock status pill — clickable; filters to that status */}
+          {product.stock <= product.reorderLevel && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                const target = product.stock === 0 ? "out" : "low"
+                setStockFilter(stockFilter === target ? "all" : target)
+              }}
+              className={cn(
+                "absolute top-2 right-10 z-10 inline-flex items-center gap-1 text-[10px] font-medium font-chidi-voice px-2 py-0.5 rounded-full backdrop-blur-sm motion-safe:active:scale-[0.97] hover:opacity-90 motion-safe:transition-opacity",
+                product.stock === 0
+                  ? "bg-[var(--chidi-warning)]/95 text-white"
+                  : "bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] border border-[var(--chidi-warning)]/30",
+              )}
+              title={`Filter to ${product.stock === 0 ? "out of stock" : "low stock"}`}
+            >
+              {product.stock === 0 ? "Out" : "Low"}
+            </button>
+          )}
+
+          {/* Pin glyph — sits beside the selection checkbox slot. Filled
+              icon = pinned. Hovering the card swaps it for a clickable
+              unpin button so the merchant can release it without opening
+              the more-actions menu. */}
+          {pinned && (
+            <div className="absolute top-2 left-10 z-10">
+              <span
+                className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-white/90 backdrop-blur-sm text-[var(--chidi-text-secondary)] group-hover:hidden"
+                aria-label="Pinned"
+                title="Pinned"
+              >
+                <Pin className="w-3 h-3 fill-current" strokeWidth={1.8} />
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleUnpin(product.id) }}
+                className="hidden group-hover:inline-flex items-center justify-center w-6 h-6 rounded-full bg-white shadow-sm text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] motion-safe:active:scale-[0.95]"
+                aria-label={`Unpin ${product.name}`}
+                title="Unpin"
+              >
+                <PinOff className="w-3 h-3" strokeWidth={1.8} />
+              </button>
+            </div>
+          )}
+
+          {/* More menu */}
+          <div className="absolute top-2 right-2 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 bg-white/85 backdrop-blur-sm hover:bg-white"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onViewProduct(product)
+                  }}
+                  className="text-[var(--chidi-text-primary)]"
+                >
+                  View details
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEditProduct(product)
+                  }}
+                  className="text-[var(--chidi-text-primary)]"
+                >
+                  Edit product
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); handleTogglePin(product.id) }}
+                  className="text-[var(--chidi-text-primary)]"
+                >
+                  {pinned ? (
+                    <>
+                      <PinOff className="w-4 h-4 mr-2" />
+                      Unpin
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="w-4 h-4 mr-2" />
+                      Pin to top
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleManageVariations(product)
+                  }}
+                  className="text-[var(--chidi-text-primary)]"
+                >
+                  <Layers className="w-4 h-4 mr-2" />
+                  Manage variations
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Image with hover zoom — image is the product, lean into it.
+              Empty slot routes to the edit modal so "Add image" actually
+              delivers an image-upload surface. */}
+          {product.image ? (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-cover motion-safe:transition-transform motion-safe:duration-500 ease-out group-hover:scale-105"
+            />
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onEditProduct(product)
+              }}
+              className="w-full h-full flex flex-col items-center justify-center text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]/40 motion-safe:transition-colors motion-safe:active:scale-[0.99]"
+              title="Add a product image"
+            >
+              <Package className="w-10 h-10 mb-1.5" strokeWidth={1.2} />
+              <span className="text-[10px] font-chidi-voice">Add image</span>
+            </button>
+          )}
+        </div>
+
+        {/* Product Info */}
+        <div className="p-3">
+          <h3
+            className="font-medium text-[13px] text-[var(--chidi-text-primary)] mb-1.5 truncate cursor-pointer"
+            onClick={() => onViewProduct(product)}
+            title={product.name}
+          >
+            {product.name}
+          </h3>
+
+          <div className="flex items-baseline justify-between mb-1.5">
+            <p className="text-[15px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
+              {product.displayPrice}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  product.stock === 0
+                    ? "bg-[var(--chidi-warning)]"
+                    : product.stock <= product.reorderLevel
+                      ? "bg-[var(--chidi-warning)]"
+                      : "bg-[var(--chidi-success)]",
+                )}
+              />
+              <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
+                {product.stock} in stock
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            {/* Category — clickable; filters list to that category */}
+            {product.category ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedCategory(
+                    selectedCategory === product.category ? "all" : product.category,
+                  )
+                }}
+                className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice hover:text-[var(--chidi-text-secondary)] hover:underline underline-offset-2 motion-safe:active:scale-[0.98]"
+                title={`Filter to ${product.category}`}
+              >
+                {product.category}
+              </button>
+            ) : (
+              <span className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice">—</span>
+            )}
+            {product.hasVariants && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleManageVariations(product)
+                }}
+                className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/5 active:scale-[0.97] font-chidi-voice"
+                title="Manage variations"
+              >
+                <Layers className="w-2.5 h-2.5" />
+                Variants
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col bg-[var(--background)] min-h-0 overflow-hidden">
       {/* Header — noun title + summary chips. No conversational subtitle. */}
@@ -373,37 +870,13 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 <List className="w-3.5 h-3.5" />
               </button>
             </div>
-            {/* Merged "Add product" CTA — primary button opens a small menu so
-                the merchant picks how they want to add (manual form OR bulk
-                upload OR drop a CSV). The full forms still live behind their
-                existing handlers; this is a single entry point. */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" className="btn-cta">
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add product
-                  <ChevronDown className="w-3 h-3 ml-1 opacity-80" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)] min-w-[220px]">
-                <DropdownMenuItem onClick={onAddProduct} className="flex items-start gap-2.5 py-2">
-                  <Plus className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-                  <div className="flex-1">
-                    <p className="text-[13px] text-[var(--chidi-text-primary)]">Add manually</p>
-                    <p className="text-[11px] text-[var(--chidi-text-muted)]">Type out the details yourself.</p>
-                  </div>
-                </DropdownMenuItem>
-                {onBulkImport && (
-                  <DropdownMenuItem onClick={onBulkImport} className="flex items-start gap-2.5 py-2">
-                    <Upload className="w-4 h-4 mt-0.5 text-[var(--chidi-text-muted)]" />
-                    <div className="flex-1">
-                      <p className="text-[13px] text-[var(--chidi-text-primary)]">Import a list</p>
-                      <p className="text-[11px] text-[var(--chidi-text-muted)]">Drag a CSV or pick a file.</p>
-                    </div>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* "Add product" — single click opens a small modal where the
+                merchant picks the path (manually OR import). Modal beats
+                dropdown because the choices deserve a moment, not a hover. */}
+            <Button size="sm" className="btn-cta" onClick={() => setAddChooserOpen(true)}>
+              <Plus className="w-4 h-4 mr-1" />
+              Add product
+            </Button>
           </div>
         </div>
 
@@ -662,7 +1135,39 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 Chidi can now answer customer questions about these products.
               </HintBanner>
             )}
-            
+
+            {/* Pinned strip — sits above the main collection in BOTH grid and
+                list view modes. Hidden when there are no pinned items
+                surviving the active filter. The container chrome matches the
+                main collection so the merchant reads it as "first row of the
+                same surface", not a separate widget. Counter is shown
+                discreetly so the merchant knows when they're approaching the
+                cap (8). */}
+            {pinnedProducts.length > 0 && (
+              <section
+                className="space-y-2"
+                aria-label={`Pinned products (${pinnedProducts.length})`}
+              >
+                <div className="flex items-baseline justify-between px-1">
+                  <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[var(--chidi-text-muted)] inline-flex items-center gap-1.5">
+                    <Pin className="w-3 h-3 fill-current text-[var(--chidi-text-secondary)]" strokeWidth={1.8} />
+                    Pinned
+                    <span className="tabular-nums opacity-70">
+                      {pinnedProducts.length}
+                      {pinnedProducts.length >= MAX_PINNED_PRODUCTS && ` / ${MAX_PINNED_PRODUCTS}`}
+                    </span>
+                  </p>
+                </div>
+                <div className={cn(
+                  viewMode === "grid"
+                    ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
+                    : "flex flex-col divide-y divide-[var(--chidi-border-subtle)] bg-white border border-[var(--chidi-border-subtle)] rounded-xl overflow-hidden",
+                )}>
+                  {pinnedProducts.map((product) => renderProduct(product, true))}
+                </div>
+              </section>
+            )}
+
             {/* Sortable column headers — list view only */}
             {viewMode === "list" && (
               <div className="flex items-center gap-3 px-3 py-2 bg-[var(--chidi-surface)] border border-[var(--chidi-border-subtle)] rounded-t-xl text-[10px] uppercase tracking-wider font-chidi-voice text-[var(--chidi-text-muted)]">
@@ -698,365 +1203,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
                 : "flex flex-col divide-y divide-[var(--chidi-border-subtle)] bg-white border border-[var(--chidi-border-subtle)] border-t-0 rounded-b-xl overflow-hidden"
             )}>
-            {filteredProducts.map((product) => {
-              const stockStatus = getStockStatus(product.stock, product.reorderLevel)
-              const isSelected = selectedIds.has(product.id)
-
-              if (viewMode === "list") {
-                const updatedAgo = (() => {
-                  const days = Math.floor((Date.now() - new Date(product.updatedAt).getTime()) / 86400000)
-                  if (days < 1) return "today"
-                  if (days < 7) return `${days}d`
-                  if (days < 30) return `${Math.floor(days / 7)}w`
-                  return `${Math.floor(days / 30)}mo`
-                })()
-                return (
-                  <div
-                    key={product.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, product.id)}
-                    onDragOver={(e) => handleDragOver(e, product.id)}
-                    onDrop={(e) => handleDrop(e, product.id)}
-                    onDragEnd={handleDragEnd}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[var(--chidi-surface)] transition-colors text-left cursor-pointer group",
-                      isSelected && "bg-[var(--chidi-win-soft)]/40",
-                      draggingId === product.id && "opacity-40",
-                      dragOverId === product.id && "border-t-2 border-t-[var(--chidi-win)]",
-                    )}
-                    onClick={() => onViewProduct(product)}
-                  >
-                    {/* Drag handle — shows on row hover */}
-                    <span
-                      className="w-4 flex items-center justify-center text-[var(--chidi-text-muted)] opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing"
-                      onClick={(e) => e.stopPropagation()}
-                      title="Drag to reorder"
-                    >
-                      <GripVertical className="w-3.5 h-3.5" />
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={(e) => { e.stopPropagation(); toggleSelected(product.id) }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-4 h-4 rounded border-[var(--chidi-border-default)] accent-[var(--chidi-win)] cursor-pointer"
-                      aria-label={`Select ${product.name}`}
-                    />
-                    <div className="relative flex-shrink-0 chidi-row-with-hover-image">
-                      <div className="w-10 h-10 rounded-md overflow-hidden bg-[var(--chidi-surface)] flex items-center justify-center">
-                        {product.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <Package className="w-4 h-4 text-[var(--chidi-text-muted)]" />
-                        )}
-                      </div>
-                      {/* Hover-pop preview — 1.5x lifted thumbnail with shadow.
-                          Pure CSS, see .chidi-row-with-hover-image in globals.css */}
-                      {product.image && (
-                        <div
-                          data-hover-image
-                          className="absolute left-12 top-1/2 -translate-y-1/2 z-30 w-32 h-32 rounded-xl overflow-hidden shadow-[0_18px_40px_-10px_rgba(0,0,0,0.35)] border border-[var(--chidi-border-default)]"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={product.image} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-[var(--chidi-text-primary)] truncate">{product.name}</p>
-                        {/* Stock-status pill — clickable; filters list to that status */}
-                        {product.stock <= product.reorderLevel && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const target = product.stock === 0 ? "out" : "low"
-                              setStockFilter(stockFilter === target ? "all" : target)
-                            }}
-                            className={cn(
-                              "text-[9px] font-medium border-0 flex-shrink-0 px-1.5 py-0.5 rounded-md motion-safe:active:scale-[0.97] transition-opacity hover:opacity-80",
-                              getStockBadgeClasses(stockStatus.variant),
-                            )}
-                            title={`Filter to ${stockStatus.label.toLowerCase()}`}
-                          >
-                            {stockStatus.label}
-                          </button>
-                        )}
-                        {product.hasVariants && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleManageVariations(product) }}
-                            className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/5 active:scale-[0.97] font-chidi-voice flex-shrink-0"
-                            title="Manage variations"
-                          >
-                            <Layers className="w-2.5 h-2.5" />
-                            Variants
-                          </button>
-                        )}
-                      </div>
-                      {/* Category — clickable; filters list to that category */}
-                      {product.category ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedCategory(
-                              selectedCategory === product.category ? "all" : product.category,
-                            )
-                          }}
-                          className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice hover:text-[var(--chidi-text-secondary)] hover:underline underline-offset-2 motion-safe:active:scale-[0.98] text-left"
-                          title={`Filter to ${product.category}`}
-                        >
-                          {product.category}
-                        </button>
-                      ) : (
-                        <p className="text-xs text-[var(--chidi-text-muted)] capitalize font-chidi-voice">—</p>
-                      )}
-                    </div>
-                    <span className="hidden sm:block w-20 text-right text-sm font-semibold text-[var(--chidi-text-primary)]">
-                      <EditableCell
-                        value={product.sellingPrice}
-                        prefix="₦"
-                        inputMode="decimal"
-                        align="right"
-                        hint="Click to edit price"
-                        onCommit={(v) => handleInlineEdit(product.id, "selling_price", v)}
-                        className="text-sm font-semibold text-[var(--chidi-text-primary)]"
-                      />
-                    </span>
-                    <span className="hidden sm:block w-16 text-right text-sm text-[var(--chidi-text-secondary)] font-chidi-voice">
-                      <EditableCell
-                        value={product.stock}
-                        inputMode="numeric"
-                        align="right"
-                        hint="Click to edit stock"
-                        onCommit={(v) => handleInlineEdit(product.id, "stock_quantity", v)}
-                        className="text-sm text-[var(--chidi-text-secondary)]"
-                      />
-                    </span>
-                    <span className="hidden md:block w-20 text-right text-[11px] text-[var(--chidi-text-muted)] tabular-nums font-chidi-voice">{updatedAgo}</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          draggable={false}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => e.stopPropagation()}
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-7 h-7 flex items-center justify-center rounded hover:bg-white text-[var(--chidi-text-muted)]"
-                          aria-label="More actions"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewProduct(product) }}>View details</DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEditProduct(product) }}>Edit product</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleManageVariations(product) }}>
-                          <Layers className="w-4 h-4 mr-2" />
-                          Manage variations
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                )
-              }
-
-              return (
-                <div
-                  key={product.id}
-                  className={cn(
-                    "group bg-white border rounded-xl overflow-hidden transition-all relative",
-                    "hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] hover:-translate-y-0.5",
-                    isSelected
-                      ? "border-[var(--chidi-win)] ring-2 ring-[var(--chidi-win)]/30"
-                      : product.stock === 0
-                        ? "border-[var(--chidi-warning)]/40 ring-1 ring-[var(--chidi-warning)]/20"
-                        : product.stock <= product.reorderLevel
-                          ? "border-[var(--chidi-warning)]/25"
-                          : "border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)]",
-                  )}
-                >
-                  {/* Selection checkbox — top-left, only visible on hover or when selected */}
-                  <label
-                    className={cn(
-                      "absolute top-2 left-2 z-20 w-6 h-6 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity cursor-pointer",
-                      isSelected || selectedCount > 0 ? "opacity-100" : "opacity-0 group-hover:opacity-100 hover:opacity-100",
-                    )}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelected(product.id)}
-                      className="w-3.5 h-3.5 rounded border-[var(--chidi-border-default)] accent-[var(--chidi-win)] cursor-pointer"
-                      aria-label={`Select ${product.name}`}
-                    />
-                  </label>
-
-                  {/* Product Image */}
-                  <div
-                    className="relative aspect-square bg-[var(--chidi-image-placeholder)] overflow-hidden cursor-pointer chidi-paper"
-                    onClick={() => onViewProduct(product)}
-                  >
-                    {/* Stock status pill — clickable; filters to that status */}
-                    {product.stock <= product.reorderLevel && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          const target = product.stock === 0 ? "out" : "low"
-                          setStockFilter(stockFilter === target ? "all" : target)
-                        }}
-                        className={cn(
-                          "absolute top-2 right-10 z-10 inline-flex items-center gap-1 text-[10px] font-medium font-chidi-voice px-2 py-0.5 rounded-full backdrop-blur-sm motion-safe:active:scale-[0.97] hover:opacity-90 transition-opacity",
-                          product.stock === 0
-                            ? "bg-[var(--chidi-warning)]/95 text-white"
-                            : "bg-[var(--chidi-warning)]/15 text-[var(--chidi-warning)] border border-[var(--chidi-warning)]/30",
-                        )}
-                        title={`Filter to ${product.stock === 0 ? "out of stock" : "low stock"}`}
-                      >
-                        {product.stock === 0 ? "Out" : "Low"}
-                      </button>
-                    )}
-
-                    {/* More menu */}
-                    <div className="absolute top-2 right-2 z-10">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 bg-white/85 backdrop-blur-sm hover:bg-white"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-white border-[var(--chidi-border-default)]">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onViewProduct(product)
-                            }}
-                            className="text-[var(--chidi-text-primary)]"
-                          >
-                            View details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onEditProduct(product)
-                            }}
-                            className="text-[var(--chidi-text-primary)]"
-                          >
-                            Edit product
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleManageVariations(product)
-                            }}
-                            className="text-[var(--chidi-text-primary)]"
-                          >
-                            <Layers className="w-4 h-4 mr-2" />
-                            Manage variations
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
-                    {/* Image with hover zoom — image is the product, lean into it.
-                        Empty slot routes to the edit modal so "Add image"
-                        actually delivers an image-upload surface. */}
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                      />
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onEditProduct(product)
-                        }}
-                        className="w-full h-full flex flex-col items-center justify-center text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-secondary)] hover:bg-[var(--chidi-surface)]/40 transition-colors motion-safe:active:scale-[0.99]"
-                        title="Add a product image"
-                      >
-                        <Package className="w-10 h-10 mb-1.5" strokeWidth={1.2} />
-                        <span className="text-[10px] font-chidi-voice">Add image</span>
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Product Info */}
-                  <div className="p-3">
-                    <h3
-                      className="font-medium text-[13px] text-[var(--chidi-text-primary)] mb-1.5 truncate cursor-pointer"
-                      onClick={() => onViewProduct(product)}
-                      title={product.name}
-                    >
-                      {product.name}
-                    </h3>
-
-                    <div className="flex items-baseline justify-between mb-1.5">
-                      <p className="text-[15px] font-semibold tabular-nums text-[var(--chidi-text-primary)]">
-                        {product.displayPrice}
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={cn(
-                            "w-1.5 h-1.5 rounded-full",
-                            product.stock === 0
-                              ? "bg-[var(--chidi-warning)]"
-                              : product.stock <= product.reorderLevel
-                                ? "bg-[var(--chidi-warning)]"
-                                : "bg-[var(--chidi-success)]",
-                          )}
-                        />
-                        <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice tabular-nums">
-                          {product.stock} in stock
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      {/* Category — clickable; filters list to that category */}
-                      {product.category ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedCategory(
-                              selectedCategory === product.category ? "all" : product.category,
-                            )
-                          }}
-                          className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice hover:text-[var(--chidi-text-secondary)] hover:underline underline-offset-2 motion-safe:active:scale-[0.98]"
-                          title={`Filter to ${product.category}`}
-                        >
-                          {product.category}
-                        </button>
-                      ) : (
-                        <span className="text-[10px] text-[var(--chidi-text-muted)] capitalize font-chidi-voice">—</span>
-                      )}
-                      {product.hasVariants && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleManageVariations(product)
-                          }}
-                          className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-[var(--chidi-accent)]/30 text-[var(--chidi-accent)] hover:bg-[var(--chidi-accent)]/5 active:scale-[0.97] font-chidi-voice"
-                          title="Manage variations"
-                        >
-                          <Layers className="w-2.5 h-2.5" />
-                          Variants
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+              {unpinnedProducts.map((product) => renderProduct(product, false))}
             </div>
           </div>
         )}

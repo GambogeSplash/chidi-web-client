@@ -23,9 +23,19 @@ import {
   ChevronDown,
   ChevronRight,
   MessageCircle,
+  Pin,
+  PinOff,
   Send,
   Sparkles,
 } from "lucide-react"
+import {
+  getPinned as getPinnedCustomers,
+  togglePin as toggleCustomerPin,
+  unpin as unpinCustomer,
+  subscribe as subscribePinnedCustomers,
+  MAX_PINNED_CUSTOMERS,
+} from "@/lib/chidi/customers-pinned"
+import { hapticSoft } from "@/lib/chidi/haptics"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,6 +120,41 @@ export function CustomersView() {
     () => sortCustomers(applySegment(customers, active), sortKey),
     [customers, active, sortKey],
   )
+
+  // Pinned customers — newest pin first. Subscribe to the store so the
+  // strip and per-row glyphs stay in sync after a pin/unpin from any row.
+  // Pinning is a focus tool, not a segment bypass: we intersect against
+  // the active segment so a pinned VIP doesn't crash into the "Churned"
+  // view when the merchant filters there.
+  const [pinnedPhones, setPinnedPhones] = useState<string[]>([])
+  useEffect(() => {
+    setPinnedPhones(getPinnedCustomers())
+    return subscribePinnedCustomers((phones) => setPinnedPhones(phones))
+  }, [])
+  const pinnedSet = useMemo(() => new Set(pinnedPhones), [pinnedPhones])
+  const pinnedCustomers = useMemo(() => {
+    if (pinnedPhones.length === 0) return [] as CustomerSummary[]
+    const byPhone = new Map(filtered.map((c) => [c.phone, c]))
+    const out: CustomerSummary[] = []
+    for (const phone of pinnedPhones) {
+      const c = byPhone.get(phone)
+      if (c) out.push(c)
+    }
+    return out
+  }, [filtered, pinnedPhones])
+  const unpinnedCustomers = useMemo(
+    () => (pinnedCustomers.length > 0 ? filtered.filter((c) => !pinnedSet.has(c.phone)) : filtered),
+    [filtered, pinnedCustomers.length, pinnedSet],
+  )
+
+  const handleTogglePinCustomer = (phone: string) => {
+    toggleCustomerPin(phone)
+    hapticSoft()
+  }
+  const handleUnpinCustomer = (phone: string) => {
+    unpinCustomer(phone)
+    hapticSoft()
+  }
 
   // Snapshot KPIs — these are derived from the unfiltered list so the
   // numbers don't change when the merchant narrows the segment.
@@ -222,11 +267,18 @@ export function CustomersView() {
               <span className="text-[var(--chidi-text-secondary)]">{activeSegment.hint}</span>
             </p>
 
-            {/* Customer table */}
+            {/* Customer table — Pinned customers render in their own
+                section above the main list (when any survive the active
+                segment), so the merchant always finds their tier-A people
+                first regardless of sort or filter. */}
             <CustomerTable
-              customers={filtered}
+              pinnedCustomers={pinnedCustomers}
+              customers={unpinnedCustomers}
+              totalCount={filtered.length}
               isLoading={isLoading}
               onOpenConversation={handleOpenConversation}
+              onTogglePin={handleTogglePinCustomer}
+              onUnpin={handleUnpinCustomer}
             />
 
             {/* Recent broadcasts */}
@@ -354,19 +406,27 @@ function SortDropdown({ value, onChange }: { value: SortKey; onChange: (v: SortK
 // =============================================================================
 
 function CustomerTable({
+  pinnedCustomers,
   customers,
+  totalCount,
   isLoading,
   onOpenConversation,
+  onTogglePin,
+  onUnpin,
 }: {
+  pinnedCustomers: CustomerSummary[]
   customers: CustomerSummary[]
+  totalCount: number
   isLoading: boolean
   onOpenConversation: (c: CustomerSummary) => void
+  onTogglePin: (phone: string) => void
+  onUnpin: (phone: string) => void
 }) {
-  if (isLoading && customers.length === 0) {
+  if (isLoading && totalCount === 0) {
     return <TableSkeleton />
   }
 
-  if (customers.length === 0) {
+  if (totalCount === 0) {
     return (
       <div className="mt-4 rounded-xl border border-dashed border-[var(--chidi-border-default)] py-12 text-center">
         <p className="text-[13px] text-[var(--chidi-text-secondary)] font-chidi-voice">
@@ -380,113 +440,242 @@ function CustomerTable({
   }
 
   return (
-    <div className="mt-3 rounded-xl border border-[var(--chidi-border-default)] bg-[var(--card)] overflow-hidden shadow-card">
-      {/* Header — desktop only. On mobile we collapse to a stacked row. */}
-      <div className="hidden lg:grid grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-2 border-b border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/50 text-[10px] uppercase tracking-[0.14em] font-semibold text-[var(--chidi-text-muted)]">
-        <span>Customer</span>
-        <span>Channels</span>
-        <span className="text-right">Total spend</span>
-        <span>Last order</span>
-        <span className="text-right">Action</span>
-      </div>
-      <ul role="list" className="divide-y divide-[var(--chidi-border-subtle)]">
-        {customers.map((c) => (
-          <li
-            key={c.phone}
-            onClick={() => onOpenConversation(c)}
-            className="grid grid-cols-[1fr_auto] lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--chidi-surface)]/50 transition-colors focus:outline-none focus-visible:bg-[var(--chidi-surface)]/50"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault()
-                onOpenConversation(c)
-              }
-            }}
-            role="button"
-            aria-label={`Open conversation with ${c.name || c.phone}`}
-          >
-            {/* Customer name + avatar — full width on mobile */}
-            <div className="flex items-center gap-3 min-w-0 col-span-2 lg:col-span-1">
-              <CustomerCharacter
-                name={c.name}
-                fallbackId={c.phone}
-                size="md"
+    <div className="mt-3 space-y-3">
+      {/* Pinned section — sits above the main table when any pinned
+          customers survive the active segment. Same chrome as the main
+          table so the merchant reads it as "first row of the same
+          surface", with a slight bg tint per row for distinction. */}
+      {pinnedCustomers.length > 0 && (
+        <section
+          className="rounded-xl border border-[var(--chidi-border-default)] bg-[var(--card)] overflow-hidden shadow-card"
+          aria-label={`Pinned customers (${pinnedCustomers.length})`}
+        >
+          <div className="px-4 py-2 border-b border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/50 flex items-baseline justify-between">
+            <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-[var(--chidi-text-muted)] inline-flex items-center gap-1.5">
+              <Pin className="w-3 h-3 fill-current text-[var(--chidi-text-secondary)]" strokeWidth={1.8} />
+              Pinned
+              <span className="tabular-nums opacity-70">
+                {pinnedCustomers.length}
+                {pinnedCustomers.length >= MAX_PINNED_CUSTOMERS && ` / ${MAX_PINNED_CUSTOMERS}`}
+              </span>
+            </p>
+          </div>
+          <ul role="list" className="divide-y divide-[var(--chidi-border-subtle)]">
+            {pinnedCustomers.map((c) => (
+              <CustomerRow
+                key={c.phone}
+                customer={c}
+                pinned
+                onOpenConversation={onOpenConversation}
+                onTogglePin={onTogglePin}
+                onUnpin={onUnpin}
               />
-              <div className="min-w-0">
-                <p className="text-[13.5px] font-medium text-[var(--chidi-text-primary)] truncate">
-                  {c.name || c.phone}
-                </p>
-                <p className="text-[11px] text-[var(--chidi-text-muted)] font-mono truncate">
-                  {c.phone}
-                </p>
-              </div>
-            </div>
+            ))}
+          </ul>
+        </section>
+      )}
 
-            {/* Channels */}
-            <div className="hidden lg:block">
-              <ChannelChips channels={c.channels} />
-            </div>
-
-            {/* Spend — desktop right-aligned, mobile inline below name */}
-            <div className="hidden lg:block text-right">
-              {c.total_spent > 0 ? (
-                <CurrencyAmount
-                  amount={c.total_spent}
-                  currency="NGN"
-                  className="text-[13px] tabular-nums text-[var(--chidi-text-primary)]"
-                  showDualHover={false}
-                />
-              ) : (
-                <span className="text-[12px] text-[var(--chidi-text-muted)]">—</span>
-              )}
-            </div>
-
-            {/* Last order */}
-            <div className="hidden lg:block">
-              <span className="text-[12px] text-[var(--chidi-text-secondary)] font-chidi-voice">
-                {c.last_order ? formatRelativeTime(c.last_order) : "Never"}
-              </span>
-            </div>
-
-            {/* Action */}
-            <div className="hidden lg:flex justify-end">
-              <button
-                type="button"
-                onClick={() => onOpenConversation(c)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] transition-colors"
-              >
-                <MessageCircle className="w-3.5 h-3.5" strokeWidth={1.8} />
-                Open conversation
-                <ChevronRight className="w-3 h-3 opacity-70" />
-              </button>
-            </div>
-
-            {/* Mobile: combined meta row + tap-to-open */}
-            <button
-              type="button"
-              onClick={() => onOpenConversation(c)}
-              aria-label={`Open conversation with ${c.name || c.phone}`}
-              className="lg:hidden col-span-2 -mx-4 -mb-3 px-4 pb-3 pt-2 flex items-center gap-3 text-left"
-            >
-              <ChannelChips channels={c.channels} compact />
-              {c.total_spent > 0 && (
-                <CurrencyAmount
-                  amount={c.total_spent}
-                  currency="NGN"
-                  compact
-                  className="text-[12px] tabular-nums text-[var(--chidi-text-primary)] ml-auto"
-                  showDualHover={false}
-                />
-              )}
-              <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice">
-                {c.last_order ? formatRelativeTime(c.last_order) : "Never"}
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0" />
-            </button>
-          </li>
-        ))}
-      </ul>
+      {/* Main table — only shows the unpinned slice when pins are present
+          (otherwise it shows the entire filtered set). Hidden when every
+          customer in the segment is pinned (rare, but keeps the surface
+          tidy). */}
+      {customers.length > 0 && (
+        <div className="rounded-xl border border-[var(--chidi-border-default)] bg-[var(--card)] overflow-hidden shadow-card">
+          {/* Header — desktop only. On mobile we collapse to a stacked row. */}
+          <div className="hidden lg:grid grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-2 border-b border-[var(--chidi-border-subtle)] bg-[var(--chidi-surface)]/50 text-[10px] uppercase tracking-[0.14em] font-semibold text-[var(--chidi-text-muted)]">
+            <span>Customer</span>
+            <span>Channels</span>
+            <span className="text-right">Total spend</span>
+            <span>Last order</span>
+            <span className="text-right">Action</span>
+          </div>
+          <ul role="list" className="divide-y divide-[var(--chidi-border-subtle)]">
+            {customers.map((c) => (
+              <CustomerRow
+                key={c.phone}
+                customer={c}
+                pinned={false}
+                onOpenConversation={onOpenConversation}
+                onTogglePin={onTogglePin}
+                onUnpin={onUnpin}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
+  )
+}
+
+/**
+ * Row primitive — used for both the Pinned section and the main table.
+ * The whole row navigates to the conversation on click; only the
+ * pin/unpin button stops propagation so the merchant can pin without
+ * being yanked into the chat surface.
+ */
+function CustomerRow({
+  customer,
+  pinned,
+  onOpenConversation,
+  onTogglePin,
+  onUnpin,
+}: {
+  customer: CustomerSummary
+  pinned: boolean
+  onOpenConversation: (c: CustomerSummary) => void
+  onTogglePin: (phone: string) => void
+  onUnpin: (phone: string) => void
+}) {
+  const c = customer
+  return (
+    <li
+      onClick={() => onOpenConversation(c)}
+      className={cn(
+        "grid grid-cols-[1fr_auto] lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[var(--chidi-surface)]/50 motion-safe:transition-colors focus:outline-none focus-visible:bg-[var(--chidi-surface)]/50 group",
+        pinned && "bg-[var(--chidi-surface)]/40",
+      )}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onOpenConversation(c)
+        }
+      }}
+      role="button"
+      aria-label={`Open conversation with ${c.name || c.phone}`}
+    >
+      {/* Customer name + avatar — full width on mobile */}
+      <div className="flex items-center gap-3 min-w-0 col-span-2 lg:col-span-1">
+        <CustomerCharacter
+          name={c.name}
+          fallbackId={c.phone}
+          size="md"
+        />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {pinned && (
+              <Pin
+                className="w-3 h-3 text-[var(--chidi-text-secondary)] flex-shrink-0 fill-current"
+                strokeWidth={1.8}
+                aria-label="Pinned"
+              />
+            )}
+            <p className="text-[13.5px] font-medium text-[var(--chidi-text-primary)] truncate">
+              {c.name || c.phone}
+            </p>
+          </div>
+          <p className="text-[11px] text-[var(--chidi-text-muted)] font-mono truncate">
+            {c.phone}
+          </p>
+        </div>
+      </div>
+
+      {/* Channels */}
+      <div className="hidden lg:block">
+        <ChannelChips channels={c.channels} />
+      </div>
+
+      {/* Spend — desktop right-aligned, mobile inline below name */}
+      <div className="hidden lg:block text-right">
+        {c.total_spent > 0 ? (
+          <CurrencyAmount
+            amount={c.total_spent}
+            currency="NGN"
+            className="text-[13px] tabular-nums text-[var(--chidi-text-primary)]"
+            showDualHover={false}
+          />
+        ) : (
+          <span className="text-[12px] text-[var(--chidi-text-muted)]">—</span>
+        )}
+      </div>
+
+      {/* Last order */}
+      <div className="hidden lg:block">
+        <span className="text-[12px] text-[var(--chidi-text-secondary)] font-chidi-voice">
+          {c.last_order ? formatRelativeTime(c.last_order) : "Never"}
+        </span>
+      </div>
+
+      {/* Action — desktop only. Pin/unpin button is hover-revealed and
+          sits before the conversation CTA. stopPropagation keeps the
+          row's navigate-on-click behavior from firing. */}
+      <div className="hidden lg:flex justify-end items-center gap-1">
+        {pinned ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onUnpin(c.phone) }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 motion-safe:transition-opacity inline-flex items-center justify-center w-7 h-7 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
+            aria-label={`Unpin ${c.name || c.phone}`}
+            title="Unpin"
+          >
+            <PinOff className="w-3.5 h-3.5" strokeWidth={1.8} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onTogglePin(c.phone) }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 motion-safe:transition-opacity inline-flex items-center justify-center w-7 h-7 rounded-md text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)]"
+            aria-label={`Pin ${c.name || c.phone}`}
+            title="Pin to top"
+          >
+            <Pin className="w-3.5 h-3.5" strokeWidth={1.8} />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenConversation(c) }}
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[12px] font-medium text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] motion-safe:transition-colors"
+        >
+          <MessageCircle className="w-3.5 h-3.5" strokeWidth={1.8} />
+          Open conversation
+          <ChevronRight className="w-3 h-3 opacity-70" />
+        </button>
+      </div>
+
+      {/* Mobile: combined meta row + tap-to-open. The whole strip below
+          opens the conversation; for pinned rows on mobile, the unpin
+          control sits as a sibling button next to it (NOT nested inside)
+          so the markup stays valid HTML and tap targets don't conflict. */}
+      <div className="lg:hidden col-span-2 -mx-4 -mb-3 px-4 pb-3 pt-2 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onOpenConversation(c) }}
+          aria-label={`Open conversation with ${c.name || c.phone}`}
+          className="flex-1 flex items-center gap-3 text-left min-w-0"
+        >
+          <ChannelChips channels={c.channels} compact />
+          {c.total_spent > 0 && (
+            <CurrencyAmount
+              amount={c.total_spent}
+              currency="NGN"
+              compact
+              className="text-[12px] tabular-nums text-[var(--chidi-text-primary)] ml-auto"
+              showDualHover={false}
+            />
+          )}
+          <span className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice">
+            {c.last_order ? formatRelativeTime(c.last_order) : "Never"}
+          </span>
+        </button>
+        {pinned ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onUnpin(c.phone) }}
+            className="inline-flex items-center justify-center w-9 h-9 rounded-md text-[var(--chidi-text-muted)] flex-shrink-0 hover:text-[var(--chidi-text-primary)] hover:bg-[var(--chidi-surface)] motion-safe:active:scale-[0.95]"
+            aria-label={`Unpin ${c.name || c.phone}`}
+            title="Unpin"
+          >
+            <PinOff className="w-3.5 h-3.5" strokeWidth={1.8} />
+          </button>
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-[var(--chidi-text-muted)] flex-shrink-0" />
+        )}
+      </div>
+    </li>
   )
 }
 
