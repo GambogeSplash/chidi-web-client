@@ -37,17 +37,16 @@ import { TelegramSettings } from "@/components/chidi/telegram-settings"
 import { CategorySettings } from "@/components/settings/category-settings"
 import { PolicySettings } from "@/components/settings/policy-settings"
 import { MemorySettings } from "@/components/settings/memory-settings"
-import { 
-  settingsAPI, 
-  type NotificationPreferences,
-} from "@/lib/api/settings"
+import { TeamSection } from "@/components/settings/team-section"
+import { BillingSection } from "@/components/settings/billing-section"
+import { NotificationPrefsSection } from "@/components/settings/notification-prefs-section"
+import { settingsAPI } from "@/lib/api/settings"
 import {
   useAccountSettings,
   usePreferences,
   useBusinessPreferences,
   usePaymentSettings,
   useUpdateAccount,
-  useUpdatePreferences,
   useUpdateBusinessPreferences,
   useUpdatePaymentSettings,
   useChangePassword,
@@ -109,12 +108,11 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
 
   // React Query hooks
   const { data: account, isLoading: isLoadingAccount } = useAccountSettings()
-  const { data: preferences, isLoading: isLoadingPreferences } = usePreferences()
+  const { isLoading: isLoadingPreferences } = usePreferences()
   const { data: bizPreferences } = useBusinessPreferences(businessId)
   const { data: paymentData } = usePaymentSettings(businessId)
 
   const updateAccountMutation = useUpdateAccount()
-  const updatePreferencesMutation = useUpdatePreferences()
   const updateBizPreferencesMutation = useUpdateBusinessPreferences()
   const updatePaymentMutation = useUpdatePaymentSettings()
   const changePasswordMutation = useChangePassword()
@@ -243,27 +241,6 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
         },
         onError: (err: any) => {
           setError(err.message || "Failed to update account")
-        },
-      }
-    )
-  }
-
-  const handleNotificationChange = (key: keyof NotificationPreferences, value: boolean) => {
-    const currentNotifications = preferences?.notifications || {
-      email_notifications: true,
-      push_notifications: true,
-      stock_alerts: true,
-      order_updates: true,
-      weekly_reports: false,
-      daily_summary: false,
-      marketing_emails: false
-    }
-    
-    updatePreferencesMutation.mutate(
-      { notifications: { ...currentNotifications, [key]: value } },
-      {
-        onError: (err: any) => {
-          setError(err.message || "Failed to save preference")
         },
       }
     )
@@ -422,15 +399,6 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
   }
 
   const isLoading = isLoadingAccount || isLoadingPreferences
-  const notificationForm = preferences?.notifications || {
-    email_notifications: true,
-    push_notifications: true,
-    stock_alerts: true,
-    order_updates: true,
-    weekly_reports: false,
-    daily_summary: false,
-    marketing_emails: false
-  }
 
   if (isLoading) {
     return (
@@ -901,73 +869,56 @@ export function UserSettings({ onClose, scrollToSection }: UserSettingsProps) {
           </SettingsSectionCard>
         </section>
 
-        {/* NOTIFICATIONS */}
+        {/* TEAM — multi-seat invites + role assignment. Lives between
+            Theme and Billing because "who can sign in" sits naturally
+            after brand identity and before money. */}
+        <section id="settings-team" className="scroll-mt-20">
+          <TeamSection />
+        </section>
+
+        {/* BILLING — current plan + usage + invoices. Replaces the older
+            "what plan am I on?" question with a working surface. */}
+        <section id="settings-billing" className="scroll-mt-20">
+          <BillingSection />
+        </section>
+
+        {/* NOTIFICATIONS — channel routing matrix replaces the old global
+            toggles. Quiet hours + per-type push/email/whatsapp picker. The
+            low-stock threshold below stays in business prefs because it's
+            a *level* setting, not a channel-routing setting. */}
         <section id="settings-notifications" ref={notificationsSectionRef} className="scroll-mt-20">
-          <SettingsSectionCard eyebrow="Notifications" title="What to alert you about">
-            <div className="space-y-1 -mx-1">
-              <div className="px-1 py-3 flex items-center justify-between">
-                <div className="min-w-0 pr-3">
-                  <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Stock alerts</p>
-                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">When items run low</p>
-                </div>
-                <Switch
-                  checked={notificationForm.stock_alerts}
-                  onCheckedChange={(checked) => handleNotificationChange('stock_alerts', checked)}
-                />
-              </div>
+          <NotificationPrefsSection
+            onVerifyBusiness={() => setShowVerifyModal(true)}
+          />
+        </section>
 
-              <div className="px-1 py-3 border-t border-[var(--chidi-border-subtle)]">
-                <div className="flex items-center justify-between mb-2.5">
-                  <div>
-                    <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Low-stock threshold</p>
-                    <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Alert level</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="number"
-                    min="1"
-                    max="1000"
-                    value={lowStockThreshold}
-                    onChange={(e) => setLowStockThreshold(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-24 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
-                  />
-                  <span className="text-sm text-[var(--chidi-text-muted)]">units</span>
-                  {lowStockThreshold !== (bizPreferences?.low_stock_threshold ?? 10) && (
-                    <Button
-                      onClick={handleSaveLowStockThreshold}
-                      disabled={updateBizPreferencesMutation.isPending}
-                      size="sm"
-                      className="ml-auto btn-cta min-h-[44px] sm:min-h-0"
-                    >
-                      {updateBizPreferencesMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                      Save
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              <div className="px-1 py-3 flex items-center justify-between border-t border-[var(--chidi-border-subtle)]">
-                <div className="min-w-0 pr-3">
-                  <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">New messages</p>
-                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Inquiries and orders</p>
-                </div>
-                <Switch
-                  checked={notificationForm.order_updates}
-                  onCheckedChange={(checked) => handleNotificationChange('order_updates', checked)}
-                />
-              </div>
-
-              <div className="px-1 py-3 flex items-center justify-between border-t border-[var(--chidi-border-subtle)]">
-                <div className="min-w-0 pr-3">
-                  <p className="font-medium text-[14px] text-[var(--chidi-text-primary)]">Morning brief</p>
-                  <p className="text-[12px] text-[var(--chidi-text-muted)] font-chidi-voice mt-0.5">Daily summary</p>
-                </div>
-                <Switch
-                  checked={notificationForm.daily_summary}
-                  onCheckedChange={(checked) => handleNotificationChange('daily_summary', checked)}
-                />
-              </div>
+        {/* LOW-STOCK THRESHOLD — kept as its own small card so the
+            channel-routing matrix stays clean. Drives when "low_stock"
+            notifications fire; routing decides where they land. */}
+        <section id="settings-low-stock" className="scroll-mt-20">
+          <SettingsSectionCard eyebrow="Inventory alerts" title="Low-stock threshold">
+            <div className="flex items-center gap-3 flex-wrap">
+              <Input
+                type="number"
+                min="1"
+                max="1000"
+                value={lowStockThreshold}
+                onChange={(e) => setLowStockThreshold(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-24 bg-[var(--chidi-surface)] border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)]"
+                aria-label="Low-stock threshold in units"
+              />
+              <span className="text-sm text-[var(--chidi-text-muted)]">units — alert when any product drops below this</span>
+              {lowStockThreshold !== (bizPreferences?.low_stock_threshold ?? 10) && (
+                <Button
+                  onClick={handleSaveLowStockThreshold}
+                  disabled={updateBizPreferencesMutation.isPending}
+                  size="sm"
+                  className="ml-auto btn-cta min-h-[44px] sm:min-h-0"
+                >
+                  {updateBizPreferencesMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save
+                </Button>
+              )}
             </div>
           </SettingsSectionCard>
         </section>

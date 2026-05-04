@@ -1,3 +1,6 @@
 export { UserSettings } from './user-settings'
 export { PolicySettings } from './policy-settings'
 export { MemorySettings } from './memory-settings'
+export { TeamSection } from './team-section'
+export { BillingSection } from './billing-section'
+export { NotificationPrefsSection } from './notification-prefs-section'
