@@ -9,7 +9,7 @@ interface Testimonial {
   name: string
   company: string
   image: string
-  stat: string
+  stat?: string
 }
 
 /**
@@ -34,7 +34,6 @@ const TESTIMONIALS: Testimonial[] = [
     name: 'Kwame B.',
     company: 'KB Sneakers · Accra',
     image: '/testimonial-kwame.png',
-    stat: 'Avg reply time, 12 seconds',
   },
   {
     quote:
@@ -136,12 +135,14 @@ export default function TestimonialsSection() {
                 <div className="self-stretch text-[var(--chidi-text-secondary)] text-sm font-normal leading-[1.4] font-sans">
                   {t.company}
                 </div>
-                <div className="mt-2 inline-flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-win)]" />
-                  <span className="text-[11px] text-[var(--chidi-text-secondary)] font-medium uppercase tracking-[0.12em] tabular-nums font-sans">
-                    {t.stat}
-                  </span>
-                </div>
+                {t.stat && (
+                  <div className="mt-2 inline-flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--chidi-win)]" />
+                    <span className="text-[11px] text-[var(--chidi-text-secondary)] font-medium uppercase tracking-[0.12em] tabular-nums font-sans">
+                      {t.stat}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
