@@ -13,10 +13,10 @@ import {
   CreditCard,
   ShoppingBag,
   AtSign,
-  Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ChidiMark } from "./chidi-mark"
+import { ArcFace } from "./arc-face"
 import { WhatsAppIcon, TelegramIcon } from "@/components/ui/channel-icons"
 import {
   type StoredChidiNotification,
@@ -179,7 +179,7 @@ export function NotificationDropdown(_legacyProps: NotificationDropdownProps = {
         <div className="max-h-[420px] overflow-y-auto">
           {total === 0 ? (
             <div className="py-10 px-4 text-center">
-              <Sparkles className="w-5 h-5 text-[var(--chidi-text-muted)] mx-auto mb-2" />
+              <ArcFace size={20} className="text-[var(--chidi-text-muted)] mx-auto mb-2" />
               <p className="text-xs text-[var(--chidi-text-muted)] font-chidi-voice">
                 You'll see new orders, payments, and Chidi's moves here.
               </p>

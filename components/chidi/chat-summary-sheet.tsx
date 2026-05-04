@@ -18,7 +18,7 @@
  */
 
 import { useMemo, useState, useEffect } from "react"
-import { Sparkles, RotateCw, Check, ChevronRight } from "lucide-react"
+import { RotateCw, Check, ChevronRight } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -170,7 +170,7 @@ export function ChatSummarySheet({
         {/* Footer — generated stamp + regenerate */}
         <div className="px-5 py-3 border-t border-[var(--chidi-border-subtle)] flex items-center justify-between gap-3 flex-shrink-0">
           <p className="text-[11px] text-[var(--chidi-text-muted)] font-chidi-voice flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3" strokeWidth={2} />
+            <ArcFace size={14} className="text-[var(--chidi-text-secondary)]" />
             <GeneratedJustNow at={generatedAt} />
           </p>
           <button

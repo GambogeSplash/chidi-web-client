@@ -37,8 +37,8 @@ import {
   Pin,
   PinOff,
   Send,
-  Sparkles,
 } from "lucide-react"
+import { ArcFace } from "./arc-face"
 import {
   getPinned as getPinnedCustomers,
   togglePin as toggleCustomerPin,
@@ -789,7 +789,7 @@ function RecentBroadcasts({ broadcasts }: { broadcasts: BroadcastRecord[] }) {
         <p className="text-[10px] uppercase tracking-[0.16em] text-[var(--chidi-text-muted)] font-semibold">
           Recent broadcasts
         </p>
-        <Sparkles className="w-3 h-3 text-[var(--chidi-text-muted)]" strokeWidth={1.8} />
+        <ArcFace size={14} className="text-[var(--chidi-text-muted)]" />
       </div>
       <div className="space-y-2">
         {broadcasts.map((b) => (
