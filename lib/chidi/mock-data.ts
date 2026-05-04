@@ -4,6 +4,13 @@
  * realistic Lagos-merchant data so the dashboard actually shows what the
  * product looks like in use.
  *
+ * SINGLE-BRAND ANDREA IYAMAH SEED. The merchant is a single-brand stockist
+ * carrying Andrea Iyamah's catalogue across swim, resort, ready-to-wear,
+ * bridal, and a small accessories capsule. ~45 SKUs, NGN-priced. Customer
+ * roster, channel mix, and analytics shape are unchanged from the prior seed
+ * — only the catalogue and references to it (orders, memories, notifications,
+ * top/stale products) have been swapped over.
+ *
  * Returns null for endpoints we don't mock; the API client then falls
  * through to the real fetch (which will fail gracefully and show empty
  * states — also fine).
@@ -22,74 +29,71 @@ const ONE_DAY = 24 * ONE_HOUR
 const isoMinusHours = (h: number) => new Date(NOW - h * ONE_HOUR).toISOString()
 const isoMinusDays = (d: number) => new Date(NOW - d * ONE_DAY).toISOString()
 
-// ---- Products (multi-brand Lagos boutique) ----------------------------------
+// ---- Products (single-brand Andrea Iyamah catalogue) ------------------------
 
-// The shop carries seven Lagos/Nigerian designers across swim, resort,
-// occasion, bridal, couture, bags, shoes, and beauty. SKUs are price-laddered
-// from ₦8K (lipstick) up to ₦450K (couture bridal) so segment chips populate
-// naturally across tiers. Empty `image` falls through to the tinted-letter
-// placeholder rendered by the existing product-thumb component.
+// The shop is a single-brand Andrea Iyamah stockist. ~45 SKUs across swim,
+// resort, ready-to-wear (Occasion), bridal, and a small accessories capsule.
+// Prices in NGN, ladder from ~₦42K (silk scarf) up to ~₦640K (bridal set).
+// Empty `image` falls through to the tinted-letter placeholder rendered by
+// the product-thumb component. The local blue-ankara dress image is reused
+// for one resort silhouette where it fits visually.
 const LOCAL_DRESS = "/blue-ankara-dress.png"
-const LOCAL_SNEAKER = "/casual-sneakers.png"
-const LOCAL_HANDBAG = "/leather-handbag.png"
 
 const PRODUCTS = [
-  // ---- Andrea Iyamah (swim + resort) — 9 SKUs ------------------------------
-  { id: "p-1", name: "Reni One-Piece Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 68000, stock: 6, reorder: 3, image: "", sku: "AI-SWM-0001" },
-  { id: "p-2", name: "Adunni Cut-Out Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 30000, sell: 64000, stock: 4, reorder: 3, image: "", sku: "AI-SWM-0002" },
-  { id: "p-3", name: "Ada Ankle-Tie Cover-Up", brand: "Andrea Iyamah", category: "Resort", cost: 28000, sell: 58000, stock: 7, reorder: 3, image: "", sku: "AI-RST-0003" },
-  { id: "p-4", name: "Ifeoma Resort Kaftan", brand: "Andrea Iyamah", category: "Resort", cost: 42000, sell: 95000, stock: 3, reorder: 2, image: "", sku: "AI-RST-0004" },
-  { id: "p-5", name: "Tani Bandeau Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 56000, stock: 9, reorder: 4, image: "", sku: "AI-SWM-0005" },
-  { id: "p-6", name: "Lola High-Waist Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 28000, sell: 60000, stock: 5, reorder: 3, image: "", sku: "AI-SWM-0006" },
-  { id: "p-7", name: "Sade Resort Maxi Dress", brand: "Andrea Iyamah", category: "Resort", cost: 38000, sell: 82000, stock: 4, reorder: 3, image: LOCAL_DRESS, sku: "AI-RST-0007" },
-  { id: "p-8", name: "Yemi Pareo Wrap Skirt", brand: "Andrea Iyamah", category: "Resort", cost: 22000, sell: 48000, stock: 8, reorder: 4, image: "", sku: "AI-RST-0008" },
-  { id: "p-9", name: "Bisi Plunge Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 30000, sell: 64000, stock: 0, reorder: 3, image: "", sku: "AI-SWM-0009" },
+  // ---- Swim — 13 SKUs ------------------------------------------------------
+  { id: "p-1", name: "Reni One-Piece Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 72000, stock: 6, reorder: 3, image: "", sku: "AI-SWM-0001" },
+  { id: "p-2", name: "Mara Bikini Set", brand: "Andrea Iyamah", category: "Swim", cost: 28000, sell: 64000, stock: 7, reorder: 3, image: "", sku: "AI-SWM-0002" },
+  { id: "p-3", name: "Yenna Asymmetric Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 36000, sell: 82000, stock: 4, reorder: 3, image: "", sku: "AI-SWM-0003" },
+  { id: "p-4", name: "Ife Bandeau Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 60000, stock: 9, reorder: 4, image: "", sku: "AI-SWM-0004" },
+  { id: "p-5", name: "Adunni Cut-Out Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 34000, sell: 78000, stock: 5, reorder: 3, image: "", sku: "AI-SWM-0005" },
+  { id: "p-6", name: "Lola High-Waist Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 30000, sell: 68000, stock: 6, reorder: 3, image: "", sku: "AI-SWM-0006" },
+  { id: "p-7", name: "Bisi Plunge One-Piece", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 74000, stock: 0, reorder: 3, image: "", sku: "AI-SWM-0007" },
+  { id: "p-8", name: "Tani Triangle Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 24000, sell: 58000, stock: 11, reorder: 4, image: "", sku: "AI-SWM-0008" },
+  { id: "p-9", name: "Sefa Halterneck Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 36000, sell: 86000, stock: 3, reorder: 2, image: "", sku: "AI-SWM-0009" },
+  { id: "p-10", name: "Eki Ruched Monokini", brand: "Andrea Iyamah", category: "Swim", cost: 38000, sell: 92000, stock: 4, reorder: 2, image: "", sku: "AI-SWM-0010" },
+  { id: "p-11", name: "Tomi Tie-Front Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 62000, stock: 8, reorder: 4, image: "", sku: "AI-SWM-0011" },
+  { id: "p-12", name: "Zara Sculpt Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 42000, sell: 98000, stock: 3, reorder: 2, image: "", sku: "AI-SWM-0012" },
+  { id: "p-13", name: "Ada Cover-Up Kaftan", brand: "Andrea Iyamah", category: "Swim", cost: 48000, sell: 110000, stock: 5, reorder: 3, image: "", sku: "AI-SWM-0013" },
 
-  // ---- Style Temple (occasion dresses) — 7 SKUs ----------------------------
-  { id: "p-10", name: "Adamma Statement Gown", brand: "Style Temple", category: "Occasion", cost: 65000, sell: 145000, stock: 3, reorder: 2, image: "", sku: "ST-OCC-0010" },
-  { id: "p-11", name: "Yetunde Pleated Dress", brand: "Style Temple", category: "Occasion", cost: 48000, sell: 98000, stock: 5, reorder: 3, image: LOCAL_DRESS, sku: "ST-OCC-0011" },
-  { id: "p-12", name: "Funmi Off-Shoulder Midi", brand: "Style Temple", category: "Occasion", cost: 42000, sell: 88000, stock: 6, reorder: 3, image: "", sku: "ST-OCC-0012" },
-  { id: "p-13", name: "Ngozi Cape-Sleeve Gown", brand: "Style Temple", category: "Occasion", cost: 78000, sell: 165000, stock: 2, reorder: 2, image: "", sku: "ST-OCC-0013" },
-  { id: "p-14", name: "Iretiola Drape Mini", brand: "Style Temple", category: "Occasion", cost: 36000, sell: 78000, stock: 7, reorder: 3, image: "", sku: "ST-OCC-0014" },
-  { id: "p-15", name: "Olamide Asymmetric Dress", brand: "Style Temple", category: "Occasion", cost: 55000, sell: 118000, stock: 4, reorder: 3, image: "", sku: "ST-OCC-0015" },
-  { id: "p-16", name: "Damilola Sequin Gown", brand: "Style Temple", category: "Occasion", cost: 85000, sell: 178000, stock: 0, reorder: 2, image: "", sku: "ST-OCC-0016" },
+  // ---- Resort — 13 SKUs ----------------------------------------------------
+  { id: "p-14", name: "Tola Resort Kaftan", brand: "Andrea Iyamah", category: "Resort", cost: 52000, sell: 118000, stock: 5, reorder: 3, image: "", sku: "AI-RST-0014" },
+  { id: "p-15", name: "Ngozi Maxi Dress", brand: "Andrea Iyamah", category: "Resort", cost: 64000, sell: 148000, stock: 4, reorder: 2, image: LOCAL_DRESS, sku: "AI-RST-0015" },
+  { id: "p-16", name: "Adaeze Linen Set", brand: "Andrea Iyamah", category: "Resort", cost: 58000, sell: 132000, stock: 6, reorder: 3, image: "", sku: "AI-RST-0016" },
+  { id: "p-17", name: "Bola Wrap Dress", brand: "Andrea Iyamah", category: "Resort", cost: 48000, sell: 112000, stock: 7, reorder: 3, image: "", sku: "AI-RST-0017" },
+  { id: "p-18", name: "Funmi Beach Jumpsuit", brand: "Andrea Iyamah", category: "Resort", cost: 56000, sell: 128000, stock: 4, reorder: 2, image: "", sku: "AI-RST-0018" },
+  { id: "p-19", name: "Sade Pareo Skirt", brand: "Andrea Iyamah", category: "Resort", cost: 38000, sell: 88000, stock: 8, reorder: 4, image: "", sku: "AI-RST-0019" },
+  { id: "p-20", name: "Yemi Off-Shoulder Maxi", brand: "Andrea Iyamah", category: "Resort", cost: 72000, sell: 168000, stock: 3, reorder: 2, image: "", sku: "AI-RST-0020" },
+  { id: "p-21", name: "Ifeoma Cut-Out Dress", brand: "Andrea Iyamah", category: "Resort", cost: 60000, sell: 138000, stock: 5, reorder: 3, image: "", sku: "AI-RST-0021" },
+  { id: "p-22", name: "Onyeka Halter Jumpsuit", brand: "Andrea Iyamah", category: "Resort", cost: 78000, sell: 184000, stock: 3, reorder: 2, image: "", sku: "AI-RST-0022" },
+  { id: "p-23", name: "Chioma Slip Dress", brand: "Andrea Iyamah", category: "Resort", cost: 44000, sell: 102000, stock: 7, reorder: 3, image: "", sku: "AI-RST-0023" },
+  { id: "p-24", name: "Zora Tiered Maxi", brand: "Andrea Iyamah", category: "Resort", cost: 68000, sell: 158000, stock: 4, reorder: 2, image: "", sku: "AI-RST-0024" },
+  { id: "p-25", name: "Lade Linen Co-Ord", brand: "Andrea Iyamah", category: "Resort", cost: 86000, sell: 198000, stock: 2, reorder: 2, image: "", sku: "AI-RST-0025" },
+  { id: "p-26", name: "Niké Sun Dress", brand: "Andrea Iyamah", category: "Resort", cost: 50000, sell: 118000, stock: 0, reorder: 3, image: "", sku: "AI-RST-0026" },
 
-  // ---- Veekee James (modern bridal/occasion) — 5 SKUs ----------------------
-  { id: "p-17", name: "Lara Bridal Set", brand: "Veekee James", category: "Bridal", cost: 145000, sell: 320000, stock: 2, reorder: 1, image: "", sku: "VJ-BRD-0017" },
-  { id: "p-18", name: "Chioma Engagement Dress", brand: "Veekee James", category: "Bridal", cost: 95000, sell: 215000, stock: 3, reorder: 2, image: "", sku: "VJ-BRD-0018" },
-  { id: "p-19", name: "Tomi Civil Wedding Dress", brand: "Veekee James", category: "Bridal", cost: 78000, sell: 175000, stock: 4, reorder: 2, image: "", sku: "VJ-BRD-0019" },
-  { id: "p-20", name: "Zara Reception Gown", brand: "Veekee James", category: "Occasion", cost: 88000, sell: 195000, stock: 3, reorder: 2, image: "", sku: "VJ-OCC-0020" },
-  { id: "p-21", name: "Kemi Bridesmaid Dress", brand: "Veekee James", category: "Occasion", cost: 52000, sell: 115000, stock: 6, reorder: 3, image: "", sku: "VJ-OCC-0021" },
+  // ---- Ready-to-Wear (Occasion) — 11 SKUs ---------------------------------
+  { id: "p-27", name: "Chinwe Statement Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 92000, sell: 215000, stock: 3, reorder: 2, image: "", sku: "AI-OCC-0027" },
+  { id: "p-28", name: "Yetunde Pleated Top", brand: "Andrea Iyamah", category: "Occasion", cost: 48000, sell: 112000, stock: 6, reorder: 3, image: "", sku: "AI-OCC-0028" },
+  { id: "p-29", name: "Lara Cocktail Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 88000, sell: 198000, stock: 4, reorder: 2, image: "", sku: "AI-OCC-0029" },
+  { id: "p-30", name: "Ireti Asymmetric Skirt", brand: "Andrea Iyamah", category: "Occasion", cost: 56000, sell: 128000, stock: 5, reorder: 3, image: "", sku: "AI-OCC-0030" },
+  { id: "p-31", name: "Eniola Tailored Pant", brand: "Andrea Iyamah", category: "Occasion", cost: 60000, sell: 138000, stock: 6, reorder: 3, image: "", sku: "AI-OCC-0031" },
+  { id: "p-32", name: "Adamma Sculpted Gown", brand: "Andrea Iyamah", category: "Occasion", cost: 118000, sell: 268000, stock: 2, reorder: 2, image: "", sku: "AI-OCC-0032" },
+  { id: "p-33", name: "Damilola Drape Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 78000, sell: 178000, stock: 4, reorder: 3, image: "", sku: "AI-OCC-0033" },
+  { id: "p-34", name: "Olamide One-Shoulder", brand: "Andrea Iyamah", category: "Occasion", cost: 96000, sell: 218000, stock: 3, reorder: 2, image: "", sku: "AI-OCC-0034" },
+  { id: "p-35", name: "Ronke Corset Top", brand: "Andrea Iyamah", category: "Occasion", cost: 52000, sell: 122000, stock: 5, reorder: 3, image: "", sku: "AI-OCC-0035" },
+  { id: "p-36", name: "Folake Mini Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 70000, sell: 158000, stock: 4, reorder: 3, image: "", sku: "AI-OCC-0036" },
+  { id: "p-37", name: "Tobi Cape Gown", brand: "Andrea Iyamah", category: "Occasion", cost: 124000, sell: 282000, stock: 0, reorder: 2, image: "", sku: "AI-OCC-0037" },
 
-  // ---- Lisa Folawiyo (couture statement) — 5 SKUs --------------------------
-  { id: "p-22", name: "Aso-Ebi Beaded Top", brand: "Lisa Folawiyo", category: "Couture", cost: 95000, sell: 215000, stock: 4, reorder: 2, image: "", sku: "LF-COU-0022" },
-  { id: "p-23", name: "Jewel Print Coat", brand: "Lisa Folawiyo", category: "Couture", cost: 145000, sell: 325000, stock: 2, reorder: 1, image: "", sku: "LF-COU-0023" },
-  { id: "p-24", name: "Embellished Ankara Gown", brand: "Lisa Folawiyo", category: "Couture", cost: 185000, sell: 420000, stock: 1, reorder: 1, image: "", sku: "LF-COU-0024" },
-  { id: "p-25", name: "Crystal Trim Wrap Dress", brand: "Lisa Folawiyo", category: "Couture", cost: 125000, sell: 285000, stock: 3, reorder: 2, image: "", sku: "LF-COU-0025" },
-  { id: "p-26", name: "Sequin Statement Skirt", brand: "Lisa Folawiyo", category: "Couture", cost: 78000, sell: 175000, stock: 4, reorder: 2, image: "", sku: "LF-COU-0026" },
+  // ---- Bridal Capsule — 6 SKUs --------------------------------------------
+  { id: "p-38", name: "Ona Bridal Set", brand: "Andrea Iyamah", category: "Bridal", cost: 285000, sell: 640000, stock: 2, reorder: 1, image: "", sku: "AI-BRD-0038" },
+  { id: "p-39", name: "Sade Reception Dress", brand: "Andrea Iyamah", category: "Bridal", cost: 215000, sell: 485000, stock: 2, reorder: 1, image: "", sku: "AI-BRD-0039" },
+  { id: "p-40", name: "Iyore Engagement Look", brand: "Andrea Iyamah", category: "Bridal", cost: 175000, sell: 395000, stock: 3, reorder: 2, image: "", sku: "AI-BRD-0040" },
+  { id: "p-41", name: "Ireti Civil Gown", brand: "Andrea Iyamah", category: "Bridal", cost: 145000, sell: 325000, stock: 3, reorder: 2, image: "", sku: "AI-BRD-0041" },
+  { id: "p-42", name: "Asha Second-Look Slip", brand: "Andrea Iyamah", category: "Bridal", cost: 138000, sell: 310000, stock: 4, reorder: 2, image: "", sku: "AI-BRD-0042" },
+  { id: "p-43", name: "Nneka White-Tier Gown", brand: "Andrea Iyamah", category: "Bridal", cost: 168000, sell: 380000, stock: 1, reorder: 1, image: "", sku: "AI-BRD-0043" },
 
-  // ---- Zashadu (bags) — 6 SKUs ---------------------------------------------
-  { id: "p-27", name: "Yenagoa Mini Bag", brand: "Zashadu", category: "Bags", cost: 38000, sell: 88000, stock: 5, reorder: 3, image: LOCAL_HANDBAG, sku: "ZH-BAG-0027" },
-  { id: "p-28", name: "Lagos Tote", brand: "Zashadu", category: "Bags", cost: 52000, sell: 118000, stock: 4, reorder: 2, image: LOCAL_HANDBAG, sku: "ZH-BAG-0028" },
-  { id: "p-29", name: "Cross-Body Clutch", brand: "Zashadu", category: "Bags", cost: 32000, sell: 72000, stock: 8, reorder: 4, image: "", sku: "ZH-BAG-0029" },
-  { id: "p-30", name: "Ife Sculpted Top-Handle", brand: "Zashadu", category: "Bags", cost: 65000, sell: 148000, stock: 3, reorder: 2, image: "", sku: "ZH-BAG-0030" },
-  { id: "p-31", name: "Sahara Bucket Bag", brand: "Zashadu", category: "Bags", cost: 42000, sell: 95000, stock: 6, reorder: 3, image: "", sku: "ZH-BAG-0031" },
-  { id: "p-32", name: "Eko Evening Pouch", brand: "Zashadu", category: "Bags", cost: 28000, sell: 64000, stock: 9, reorder: 4, image: "", sku: "ZH-BAG-0032" },
-
-  // ---- Shekudo (shoes) — 6 SKUs --------------------------------------------
-  { id: "p-33", name: "Akwete Mule", brand: "Shekudo", category: "Shoes", cost: 28000, sell: 62000, stock: 7, reorder: 3, image: LOCAL_SNEAKER, sku: "SK-SHO-0033" },
-  { id: "p-34", name: "Adire Sandal", brand: "Shekudo", category: "Shoes", cost: 22000, sell: 52000, stock: 9, reorder: 4, image: "", sku: "SK-SHO-0034" },
-  { id: "p-35", name: "Wax Print Heel", brand: "Shekudo", category: "Shoes", cost: 32000, sell: 72000, stock: 4, reorder: 3, image: "", sku: "SK-SHO-0035" },
-  { id: "p-36", name: "Raffia Slide", brand: "Shekudo", category: "Shoes", cost: 18000, sell: 42000, stock: 11, reorder: 5, image: "", sku: "SK-SHO-0036" },
-  { id: "p-37", name: "Block-Heel Mary Jane", brand: "Shekudo", category: "Shoes", cost: 26000, sell: 58000, stock: 0, reorder: 3, image: "", sku: "SK-SHO-0037" },
-  { id: "p-38", name: "Statement Platform", brand: "Shekudo", category: "Shoes", cost: 35000, sell: 78000, stock: 5, reorder: 3, image: "", sku: "SK-SHO-0038" },
-
-  // ---- House of Tara (beauty) — 5 SKUs -------------------------------------
-  { id: "p-39", name: "Liquid Matte Lipstick", brand: "House of Tara", category: "Beauty", cost: 3500, sell: 8500, stock: 28, reorder: 12, image: "", sku: "HT-BTY-0039" },
-  { id: "p-40", name: "Foundation Stick", brand: "House of Tara", category: "Beauty", cost: 6800, sell: 15500, stock: 18, reorder: 8, image: "", sku: "HT-BTY-0040" },
-  { id: "p-41", name: "Brow Pomade", brand: "House of Tara", category: "Beauty", cost: 4200, sell: 9800, stock: 22, reorder: 10, image: "", sku: "HT-BTY-0041" },
-  { id: "p-42", name: "Setting Powder", brand: "House of Tara", category: "Beauty", cost: 5500, sell: 12500, stock: 15, reorder: 8, image: "", sku: "HT-BTY-0042" },
-  { id: "p-43", name: "Lip Gloss Trio", brand: "House of Tara", category: "Beauty", cost: 4800, sell: 11000, stock: 20, reorder: 8, image: "", sku: "HT-BTY-0043" },
+  // ---- Accessories — 2 SKUs ------------------------------------------------
+  { id: "p-44", name: "Atlantic Silk Scarf", brand: "Andrea Iyamah", category: "Accessories", cost: 18000, sell: 42000, stock: 12, reorder: 5, image: "", sku: "AI-ACC-0044" },
+  { id: "p-45", name: "Reni Beach Kimono", brand: "Andrea Iyamah", category: "Accessories", cost: 38000, sell: 88000, stock: 6, reorder: 3, image: "", sku: "AI-ACC-0045" },
 ]
 
 const toBackendProduct = (p: typeof PRODUCTS[number]) => ({
@@ -166,32 +170,32 @@ const CONV_PREVIEWS = [
   "Yes, I'll send the transfer this evening",
   "Do you still have the Reni one-piece in M?",
   "Stylist asking — bridal trial Friday possible?",
-  "The Style Temple gown, can I exchange size?",
-  "Thanks, the Lara set was perfect for the party",
-  "Is the Lisa Folawiyo coat true to size?",
+  "The Ngozi maxi, can I exchange size?",
+  "Thanks, the Ona bridal set was perfect",
+  "Is the Tola kaftan true to size?",
   "Delivery to Nairobi possible?",
   "Send me your account details please",
-  "How much for 3 Liquid Matte Lipsticks?",
-  "Can I see the Yenagoa Mini in another colour?",
+  "How much for the Atlantic silk scarf?",
+  "Can I see the Mara bikini in another colour?",
   "Are you open on Sundays?",
   "Just placed the order, sending now",
-  "Loved the Akwete mules, thank you",
+  "Loved the Funmi jumpsuit, thank you",
   "Do you ship to Abuja?",
   "Need it before Saturday for my engagement",
-  "What sizes for the Ifeoma kaftan?",
-  "Cross-Body Clutch — do you have black?",
-  "Foundation Stick shade match for me?",
-  "Picture of the Jewel Print Coat please?",
+  "What sizes for the Tola kaftan?",
+  "Reni Beach Kimono — do you have black?",
+  "Do you take measurements for the cocktail dress?",
+  "Picture of the Iyore engagement look please?",
   "I'll come pick up tomorrow at the studio",
-  "How much is the Adire Sandal?",
-  "Setting Powder came perfect, thank you",
+  "How much is the Sade pareo skirt?",
+  "Linen co-ord came perfect, thank you",
   "Do you carry larger sizes for the Adamma gown?",
-  "Can you reserve the Lagos Tote till Friday?",
-  "Refund for the cancelled couture order?",
+  "Can you reserve the Lade co-ord till Friday?",
+  "Refund for the cancelled bridal order?",
   "Discount for buying 3 swim pieces?",
-  "Three Liquid Matte Lipsticks, all in red please",
+  "Three Atlantic scarves please, all different prints",
   "Sending payment now for the bridal set",
-  "Issue with delivery — where is my Yenagoa Mini?",
+  "Issue with delivery — where is my Reni one-piece?",
   "Just browsing the new Andrea Iyamah drop",
 ]
 
@@ -227,64 +231,67 @@ const NEEDS_HUMAN_COUNT = CONVERSATIONS.filter((c) => c.status === "NEEDS_HUMAN"
 
 // ---- Orders ------------------------------------------------------------------
 
+// Orders reference only single-brand Andrea Iyamah SKUs (p-1 .. p-45). Mix
+// across swim, resort, RTW, bridal, and accessories so all five inventory
+// filter chips populate naturally and the Morning Brief KPIs feel real.
 const ORDERS = [
   // ========= PENDING PAYMENTS (8) — drives Morning Brief "X waiting on payment"
-  // Mix of impulse-beauty buys, swim resort prep, and high-ticket bridal so
+  // Mix of accessory impulse buys, swim/resort prep, and high-ticket bridal so
   // the "Need you" tab shows the full range of what's parked at the door.
-  { customerIdx: 0, status: "PENDING_PAYMENT", items: [["p-1", 1, 68000]], hoursAgo: 0.5 },
-  { customerIdx: 3, status: "PENDING_PAYMENT", items: [["p-39", 2, 8500]], hoursAgo: 4 },
-  { customerIdx: 6, status: "PENDING_PAYMENT", items: [["p-3", 1, 58000]], hoursAgo: 22 },
-  { customerIdx: 8, status: "PENDING_PAYMENT", items: [["p-11", 1, 98000]], hoursAgo: 1.5 },
-  { customerIdx: 11, status: "PENDING_PAYMENT", items: [["p-17", 1, 320000]], hoursAgo: 8 },
-  { customerIdx: 17, status: "PENDING_PAYMENT", items: [["p-22", 1, 215000], ["p-29", 1, 72000]], hoursAgo: 15 },
-  { customerIdx: 22, status: "PENDING_PAYMENT", items: [["p-40", 1, 15500], ["p-41", 1, 9800]], hoursAgo: 36 },
-  { customerIdx: 28, status: "PENDING_PAYMENT", items: [["p-33", 1, 62000]], hoursAgo: 48 },
+  { customerIdx: 0, status: "PENDING_PAYMENT", items: [["p-1", 1, 72000]], hoursAgo: 0.5 },
+  { customerIdx: 3, status: "PENDING_PAYMENT", items: [["p-44", 2, 42000]], hoursAgo: 4 },
+  { customerIdx: 6, status: "PENDING_PAYMENT", items: [["p-13", 1, 110000]], hoursAgo: 22 },
+  { customerIdx: 8, status: "PENDING_PAYMENT", items: [["p-14", 1, 118000]], hoursAgo: 1.5 },
+  { customerIdx: 11, status: "PENDING_PAYMENT", items: [["p-38", 1, 640000]], hoursAgo: 8 },
+  { customerIdx: 17, status: "PENDING_PAYMENT", items: [["p-29", 1, 198000], ["p-44", 1, 42000]], hoursAgo: 15 },
+  { customerIdx: 22, status: "PENDING_PAYMENT", items: [["p-19", 1, 88000], ["p-23", 1, 102000]], hoursAgo: 36 },
+  { customerIdx: 28, status: "PENDING_PAYMENT", items: [["p-2", 1, 64000]], hoursAgo: 48 },
 
   // ========= CONFIRMED (waiting fulfillment) (12)
-  { customerIdx: 2, status: "CONFIRMED", items: [["p-7", 1, 82000], ["p-8", 1, 48000]], hoursAgo: 6 },
-  { customerIdx: 4, status: "CONFIRMED", items: [["p-43", 1, 11000]], hoursAgo: 11 },
-  { customerIdx: 7, status: "CONFIRMED", items: [["p-32", 1, 64000]], hoursAgo: 14 },
-  { customerIdx: 5, status: "CONFIRMED", items: [["p-15", 1, 118000]], hoursAgo: 30 },
-  { customerIdx: 9, status: "CONFIRMED", items: [["p-39", 3, 8500]], hoursAgo: 18 },
-  { customerIdx: 12, status: "CONFIRMED", items: [["p-18", 1, 215000], ["p-21", 2, 115000]], hoursAgo: 24 },
-  { customerIdx: 14, status: "CONFIRMED", items: [["p-34", 1, 52000]], hoursAgo: 9 },
-  { customerIdx: 19, status: "CONFIRMED", items: [["p-31", 1, 95000]], hoursAgo: 33 },
-  { customerIdx: 21, status: "CONFIRMED", items: [["p-12", 1, 88000]], hoursAgo: 42 },
-  { customerIdx: 24, status: "CONFIRMED", items: [["p-29", 1, 72000], ["p-41", 1, 9800]], hoursAgo: 16 },
-  { customerIdx: 26, status: "CONFIRMED", items: [["p-36", 1, 42000]], hoursAgo: 50 },
-  { customerIdx: 29, status: "CONFIRMED", items: [["p-39", 2, 8500], ["p-43", 1, 11000]], hoursAgo: 7 },
+  { customerIdx: 2, status: "CONFIRMED", items: [["p-15", 1, 148000], ["p-19", 1, 88000]], hoursAgo: 6 },
+  { customerIdx: 4, status: "CONFIRMED", items: [["p-44", 1, 42000]], hoursAgo: 11 },
+  { customerIdx: 7, status: "CONFIRMED", items: [["p-4", 1, 60000]], hoursAgo: 14 },
+  { customerIdx: 5, status: "CONFIRMED", items: [["p-30", 1, 128000]], hoursAgo: 30 },
+  { customerIdx: 9, status: "CONFIRMED", items: [["p-44", 3, 42000]], hoursAgo: 18 },
+  { customerIdx: 12, status: "CONFIRMED", items: [["p-40", 1, 395000], ["p-42", 1, 310000]], hoursAgo: 24 },
+  { customerIdx: 14, status: "CONFIRMED", items: [["p-19", 1, 88000]], hoursAgo: 9 },
+  { customerIdx: 19, status: "CONFIRMED", items: [["p-17", 1, 112000]], hoursAgo: 33 },
+  { customerIdx: 21, status: "CONFIRMED", items: [["p-28", 1, 112000]], hoursAgo: 42 },
+  { customerIdx: 24, status: "CONFIRMED", items: [["p-45", 1, 88000], ["p-44", 1, 42000]], hoursAgo: 16 },
+  { customerIdx: 26, status: "CONFIRMED", items: [["p-23", 1, 102000]], hoursAgo: 50 },
+  { customerIdx: 29, status: "CONFIRMED", items: [["p-2", 2, 64000], ["p-44", 1, 42000]], hoursAgo: 7 },
 
   // ========= FULFILLED (24) — drives weekly + monthly revenue
-  { customerIdx: 0, status: "FULFILLED", items: [["p-39", 2, 8500], ["p-41", 1, 9800]], hoursAgo: 36 },
-  { customerIdx: 1, status: "FULFILLED", items: [["p-33", 1, 62000]], hoursAgo: 48 },
-  { customerIdx: 4, status: "FULFILLED", items: [["p-27", 1, 88000]], hoursAgo: 60 },
-  { customerIdx: 7, status: "FULFILLED", items: [["p-5", 1, 56000]], hoursAgo: 72 },
-  { customerIdx: 5, status: "FULFILLED", items: [["p-14", 1, 78000]], hoursAgo: 96 },
-  { customerIdx: 0, status: "FULFILLED", items: [["p-10", 1, 145000]], hoursAgo: 110 },
-  { customerIdx: 2, status: "FULFILLED", items: [["p-40", 1, 15500], ["p-42", 1, 12500]], hoursAgo: 130 },
-  { customerIdx: 6, status: "FULFILLED", items: [["p-3", 1, 58000], ["p-8", 1, 48000]], hoursAgo: 150 },
-  { customerIdx: 10, status: "FULFILLED", items: [["p-11", 1, 98000]], hoursAgo: 90 },
-  { customerIdx: 13, status: "FULFILLED", items: [["p-43", 1, 11000], ["p-39", 1, 8500]], hoursAgo: 75 },
-  { customerIdx: 15, status: "FULFILLED", items: [["p-35", 1, 72000]], hoursAgo: 120 },
+  { customerIdx: 0, status: "FULFILLED", items: [["p-44", 2, 42000], ["p-19", 1, 88000]], hoursAgo: 36 },
+  { customerIdx: 1, status: "FULFILLED", items: [["p-4", 1, 60000]], hoursAgo: 48 },
+  { customerIdx: 4, status: "FULFILLED", items: [["p-14", 1, 118000]], hoursAgo: 60 },
+  { customerIdx: 7, status: "FULFILLED", items: [["p-5", 1, 78000]], hoursAgo: 72 },
+  { customerIdx: 5, status: "FULFILLED", items: [["p-21", 1, 138000]], hoursAgo: 96 },
+  { customerIdx: 0, status: "FULFILLED", items: [["p-29", 1, 198000]], hoursAgo: 110 },
+  { customerIdx: 2, status: "FULFILLED", items: [["p-16", 1, 132000], ["p-44", 1, 42000]], hoursAgo: 130 },
+  { customerIdx: 6, status: "FULFILLED", items: [["p-13", 1, 110000], ["p-19", 1, 88000]], hoursAgo: 150 },
+  { customerIdx: 10, status: "FULFILLED", items: [["p-28", 1, 112000]], hoursAgo: 90 },
+  { customerIdx: 13, status: "FULFILLED", items: [["p-45", 1, 88000], ["p-44", 1, 42000]], hoursAgo: 75 },
+  { customerIdx: 15, status: "FULFILLED", items: [["p-31", 1, 138000]], hoursAgo: 120 },
   { customerIdx: 16, status: "FULFILLED", items: [["p-2", 1, 64000]], hoursAgo: 144 },
-  { customerIdx: 18, status: "FULFILLED", items: [["p-30", 1, 148000]], hoursAgo: 200 },
-  { customerIdx: 20, status: "FULFILLED", items: [["p-26", 1, 175000]], hoursAgo: 168 },
-  { customerIdx: 23, status: "FULFILLED", items: [["p-40", 1, 15500], ["p-42", 1, 12500]], hoursAgo: 220 },
-  { customerIdx: 25, status: "FULFILLED", items: [["p-19", 1, 175000], ["p-21", 1, 115000]], hoursAgo: 250 },
-  { customerIdx: 27, status: "FULFILLED", items: [["p-36", 2, 42000]], hoursAgo: 280 },
-  { customerIdx: 11, status: "FULFILLED", items: [["p-12", 1, 88000], ["p-39", 2, 8500]], hoursAgo: 310 },
-  { customerIdx: 8, status: "FULFILLED", items: [["p-28", 1, 118000]], hoursAgo: 340 },
-  { customerIdx: 14, status: "FULFILLED", items: [["p-34", 1, 52000]], hoursAgo: 380 },
-  { customerIdx: 0, status: "FULFILLED", items: [["p-7", 1, 82000], ["p-39", 2, 8500]], hoursAgo: 420 },
-  { customerIdx: 4, status: "FULFILLED", items: [["p-41", 2, 9800], ["p-42", 1, 12500]], hoursAgo: 460 },
-  { customerIdx: 21, status: "FULFILLED", items: [["p-31", 1, 95000]], hoursAgo: 500 },
-  { customerIdx: 17, status: "FULFILLED", items: [["p-29", 1, 72000], ["p-32", 1, 64000]], hoursAgo: 540 },
+  { customerIdx: 18, status: "FULFILLED", items: [["p-32", 1, 268000]], hoursAgo: 200 },
+  { customerIdx: 20, status: "FULFILLED", items: [["p-33", 1, 178000]], hoursAgo: 168 },
+  { customerIdx: 23, status: "FULFILLED", items: [["p-16", 1, 132000], ["p-44", 1, 42000]], hoursAgo: 220 },
+  { customerIdx: 25, status: "FULFILLED", items: [["p-41", 1, 325000], ["p-42", 1, 310000]], hoursAgo: 250 },
+  { customerIdx: 27, status: "FULFILLED", items: [["p-19", 2, 88000]], hoursAgo: 280 },
+  { customerIdx: 11, status: "FULFILLED", items: [["p-28", 1, 112000], ["p-44", 2, 42000]], hoursAgo: 310 },
+  { customerIdx: 8, status: "FULFILLED", items: [["p-24", 1, 158000]], hoursAgo: 340 },
+  { customerIdx: 14, status: "FULFILLED", items: [["p-4", 1, 60000]], hoursAgo: 380 },
+  { customerIdx: 0, status: "FULFILLED", items: [["p-15", 1, 148000], ["p-44", 2, 42000]], hoursAgo: 420 },
+  { customerIdx: 4, status: "FULFILLED", items: [["p-44", 2, 42000], ["p-2", 1, 64000]], hoursAgo: 460 },
+  { customerIdx: 21, status: "FULFILLED", items: [["p-17", 1, 112000]], hoursAgo: 500 },
+  { customerIdx: 17, status: "FULFILLED", items: [["p-45", 1, 88000], ["p-2", 1, 64000]], hoursAgo: 540 },
 
   // ========= CANCELLED (4)
-  { customerIdx: 3, status: "CANCELLED", items: [["p-9", 1, 64000]], hoursAgo: 80 },
-  { customerIdx: 1, status: "CANCELLED", items: [["p-37", 1, 58000]], hoursAgo: 192 },
-  { customerIdx: 19, status: "CANCELLED", items: [["p-16", 1, 178000]], hoursAgo: 110 },
-  { customerIdx: 25, status: "CANCELLED", items: [["p-25", 1, 285000]], hoursAgo: 230 },
+  { customerIdx: 3, status: "CANCELLED", items: [["p-7", 1, 74000]], hoursAgo: 80 },
+  { customerIdx: 1, status: "CANCELLED", items: [["p-37", 1, 282000]], hoursAgo: 192 },
+  { customerIdx: 19, status: "CANCELLED", items: [["p-26", 1, 118000]], hoursAgo: 110 },
+  { customerIdx: 25, status: "CANCELLED", items: [["p-43", 1, 380000]], hoursAgo: 230 },
 ]
 
 const buildOrders = () =>
@@ -397,19 +404,19 @@ const buildSalesTrend = (period: string) => {
 const buildTopProducts = (period: string, limit: number) => {
   const scale = periodDays(period) / 30
   const lookup = (id: string) => PRODUCTS.find((p) => p.id === id)
-  // Bestsellers seeded across the four "engine" categories — beauty
-  // velocity, swim/resort breadth, occasion volume, and bag heroes.
+  // Bestsellers seeded across the engine categories — accessory velocity
+  // (silk scarf), swim heroes, resort breadth, RTW volume, and bridal halo.
   const seed = [
-    { product_id: "p-39", units_sold: Math.round(28 * scale), revenue: Math.round(238_000 * scale) },
-    { product_id: "p-1", units_sold: Math.round(6 * scale), revenue: Math.round(408_000 * scale) },
-    { product_id: "p-11", units_sold: Math.round(4 * scale), revenue: Math.round(392_000 * scale) },
-    { product_id: "p-27", units_sold: Math.round(5 * scale), revenue: Math.round(440_000 * scale) },
-    { product_id: "p-3", units_sold: Math.round(7 * scale), revenue: Math.round(406_000 * scale) },
-    { product_id: "p-33", units_sold: Math.round(6 * scale), revenue: Math.round(372_000 * scale) },
-    { product_id: "p-22", units_sold: Math.round(2 * scale), revenue: Math.round(430_000 * scale) },
-    { product_id: "p-7", units_sold: Math.round(4 * scale), revenue: Math.round(328_000 * scale) },
-    { product_id: "p-12", units_sold: Math.round(3 * scale), revenue: Math.round(264_000 * scale) },
-    { product_id: "p-21", units_sold: Math.round(3 * scale), revenue: Math.round(345_000 * scale) },
+    { product_id: "p-44", units_sold: Math.round(18 * scale), revenue: Math.round(756_000 * scale) },
+    { product_id: "p-1", units_sold: Math.round(7 * scale), revenue: Math.round(504_000 * scale) },
+    { product_id: "p-15", units_sold: Math.round(4 * scale), revenue: Math.round(592_000 * scale) },
+    { product_id: "p-19", units_sold: Math.round(8 * scale), revenue: Math.round(704_000 * scale) },
+    { product_id: "p-14", units_sold: Math.round(5 * scale), revenue: Math.round(590_000 * scale) },
+    { product_id: "p-2", units_sold: Math.round(6 * scale), revenue: Math.round(384_000 * scale) },
+    { product_id: "p-29", units_sold: Math.round(2 * scale), revenue: Math.round(396_000 * scale) },
+    { product_id: "p-13", units_sold: Math.round(4 * scale), revenue: Math.round(440_000 * scale) },
+    { product_id: "p-28", units_sold: Math.round(3 * scale), revenue: Math.round(336_000 * scale) },
+    { product_id: "p-40", units_sold: Math.round(1 * scale), revenue: Math.round(395_000 * scale) },
   ]
   const all = seed.map((s) => {
     const p = lookup(s.product_id)
@@ -425,11 +432,11 @@ const buildTopProducts = (period: string, limit: number) => {
     period,
     top_products: all.slice(0, limit),
     stale_products: [
-      { id: "p-9", name: "Bisi Plunge Swimsuit", sku: "AI-SWM-0009", selling_price: 64000, stock_quantity: 0, last_restocked: isoMinusDays(45) },
-      { id: "p-16", name: "Damilola Sequin Gown", sku: "ST-OCC-0016", selling_price: 178000, stock_quantity: 0, last_restocked: isoMinusDays(52) },
-      { id: "p-37", name: "Block-Heel Mary Jane", sku: "SK-SHO-0037", selling_price: 58000, stock_quantity: 0, last_restocked: isoMinusDays(38) },
-      { id: "p-25", name: "Crystal Trim Wrap Dress", sku: "LF-COU-0025", selling_price: 285000, stock_quantity: 3, last_restocked: isoMinusDays(60) },
-      { id: "p-42", name: "Setting Powder", sku: "HT-BTY-0042", selling_price: 12500, stock_quantity: 15, last_restocked: isoMinusDays(70) },
+      { id: "p-7", name: "Bisi Plunge One-Piece", sku: "AI-SWM-0007", selling_price: 74000, stock_quantity: 0, last_restocked: isoMinusDays(45) },
+      { id: "p-26", name: "Niké Sun Dress", sku: "AI-RST-0026", selling_price: 118000, stock_quantity: 0, last_restocked: isoMinusDays(52) },
+      { id: "p-37", name: "Tobi Cape Gown", sku: "AI-OCC-0037", selling_price: 282000, stock_quantity: 0, last_restocked: isoMinusDays(38) },
+      { id: "p-25", name: "Lade Linen Co-Ord", sku: "AI-RST-0025", selling_price: 198000, stock_quantity: 2, last_restocked: isoMinusDays(60) },
+      { id: "p-43", name: "Nneka White-Tier Gown", sku: "AI-BRD-0043", selling_price: 380000, stock_quantity: 1, last_restocked: isoMinusDays(70) },
     ],
     generated_at: new Date().toISOString(),
   }
@@ -590,7 +597,7 @@ const MEMORIES = [
   {
     id: "mem-3",
     content: "Andrea Iyamah swim and resort pieces lead your revenue this period.",
-    summary: "Andrea Iyamah leads sales.",
+    summary: "Swim + resort lead sales.",
     memory_type: "semantic" as const,
     importance_score: 0.85,
     access_count: 7,
@@ -637,9 +644,9 @@ const buildMemoriesList = (params: { limit?: string; offset?: string; memory_typ
 // ---- Notifications -----------------------------------------------------------
 
 const NOTIFICATIONS = [
-  { id: "n-1", type: "stock", title: "Low stock alert", message: "Lara Bridal Set is down to 2 units", priority: "HIGH", read: false, created_at: isoMinusHours(0.2), reference_type: "product", reference_id: "p-17" },
-  { id: "n-2", type: "stock", title: "Out of stock", message: "Bisi Plunge Swimsuit is sold out", priority: "HIGH", read: false, created_at: isoMinusHours(2), reference_type: "product", reference_id: "p-9" },
-  { id: "n-3", type: "system", title: "Payment received", message: "Tunde Bakare paid ₦62,000 for the Akwete Mule", priority: "MEDIUM", read: false, created_at: isoMinusHours(4) },
+  { id: "n-1", type: "stock", title: "Low stock alert", message: "Ona Bridal Set is down to 2 units", priority: "HIGH", read: false, created_at: isoMinusHours(0.2), reference_type: "product", reference_id: "p-38" },
+  { id: "n-2", type: "stock", title: "Out of stock", message: "Bisi Plunge One-Piece is sold out", priority: "HIGH", read: false, created_at: isoMinusHours(2), reference_type: "product", reference_id: "p-7" },
+  { id: "n-3", type: "system", title: "Payment received", message: "Tunde Bakare paid ₦60,000 for the Ife Bandeau Bikini", priority: "MEDIUM", read: false, created_at: isoMinusHours(4) },
   { id: "n-4", type: "activity", title: "New customer", message: "Wanjiru Mwangi sent her first message", priority: "LOW", read: true, created_at: isoMinusHours(8) },
 ]
 
