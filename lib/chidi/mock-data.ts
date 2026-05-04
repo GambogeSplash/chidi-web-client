@@ -36,64 +36,69 @@ const isoMinusDays = (d: number) => new Date(NOW - d * ONE_DAY).toISOString()
 // Prices in NGN, ladder from ~₦42K (silk scarf) up to ~₦640K (bridal set).
 // Empty `image` falls through to the tinted-letter placeholder rendered by
 // the product-thumb component. The local blue-ankara dress image is reused
-// for one resort silhouette where it fits visually.
+// for one resort silhouette where it fits visually; everything else points
+// to a curated Pexels photo (Black/African models, matching silhouette and
+// category). next.config has images.unoptimized:true so external URLs work
+// with <Image> without a remote-pattern allowlist.
 const LOCAL_DRESS = "/blue-ankara-dress.png"
+const px = (id: number | string) =>
+  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=800`
 
 const PRODUCTS = [
   // ---- Swim — 13 SKUs ------------------------------------------------------
-  { id: "p-1", name: "Reni One-Piece Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 72000, stock: 6, reorder: 3, image: "", sku: "AI-SWM-0001" },
-  { id: "p-2", name: "Mara Bikini Set", brand: "Andrea Iyamah", category: "Swim", cost: 28000, sell: 64000, stock: 7, reorder: 3, image: "", sku: "AI-SWM-0002" },
-  { id: "p-3", name: "Yenna Asymmetric Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 36000, sell: 82000, stock: 4, reorder: 3, image: "", sku: "AI-SWM-0003" },
-  { id: "p-4", name: "Ife Bandeau Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 60000, stock: 9, reorder: 4, image: "", sku: "AI-SWM-0004" },
-  { id: "p-5", name: "Adunni Cut-Out Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 34000, sell: 78000, stock: 5, reorder: 3, image: "", sku: "AI-SWM-0005" },
-  { id: "p-6", name: "Lola High-Waist Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 30000, sell: 68000, stock: 6, reorder: 3, image: "", sku: "AI-SWM-0006" },
-  { id: "p-7", name: "Bisi Plunge One-Piece", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 74000, stock: 0, reorder: 3, image: "", sku: "AI-SWM-0007" },
-  { id: "p-8", name: "Tani Triangle Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 24000, sell: 58000, stock: 11, reorder: 4, image: "", sku: "AI-SWM-0008" },
-  { id: "p-9", name: "Sefa Halterneck Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 36000, sell: 86000, stock: 3, reorder: 2, image: "", sku: "AI-SWM-0009" },
-  { id: "p-10", name: "Eki Ruched Monokini", brand: "Andrea Iyamah", category: "Swim", cost: 38000, sell: 92000, stock: 4, reorder: 2, image: "", sku: "AI-SWM-0010" },
-  { id: "p-11", name: "Tomi Tie-Front Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 62000, stock: 8, reorder: 4, image: "", sku: "AI-SWM-0011" },
-  { id: "p-12", name: "Zara Sculpt Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 42000, sell: 98000, stock: 3, reorder: 2, image: "", sku: "AI-SWM-0012" },
-  { id: "p-13", name: "Ada Cover-Up Kaftan", brand: "Andrea Iyamah", category: "Swim", cost: 48000, sell: 110000, stock: 5, reorder: 3, image: "", sku: "AI-SWM-0013" },
+  { id: "p-1", name: "Reni One-Piece Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 72000, stock: 6, reorder: 3, image: px(7886227), sku: "AI-SWM-0001" },
+  { id: "p-2", name: "Mara Bikini Set", brand: "Andrea Iyamah", category: "Swim", cost: 28000, sell: 64000, stock: 7, reorder: 3, image: px(35863838), sku: "AI-SWM-0002" },
+  { id: "p-3", name: "Yenna Asymmetric Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 36000, sell: 82000, stock: 4, reorder: 3, image: px(12602674), sku: "AI-SWM-0003" },
+  { id: "p-4", name: "Ife Bandeau Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 60000, stock: 9, reorder: 4, image: px(1008191), sku: "AI-SWM-0004" },
+  { id: "p-5", name: "Adunni Cut-Out Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 34000, sell: 78000, stock: 5, reorder: 3, image: px(14784582), sku: "AI-SWM-0005" },
+  { id: "p-6", name: "Lola High-Waist Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 30000, sell: 68000, stock: 6, reorder: 3, image: px(28856237), sku: "AI-SWM-0006" },
+  { id: "p-7", name: "Bisi Plunge One-Piece", brand: "Andrea Iyamah", category: "Swim", cost: 32000, sell: 74000, stock: 0, reorder: 3, image: px(7886239), sku: "AI-SWM-0007" },
+  { id: "p-8", name: "Tani Triangle Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 24000, sell: 58000, stock: 11, reorder: 4, image: px(17515543), sku: "AI-SWM-0008" },
+  { id: "p-9", name: "Sefa Halterneck Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 36000, sell: 86000, stock: 3, reorder: 2, image: px(14784580), sku: "AI-SWM-0009" },
+  { id: "p-10", name: "Eki Ruched Monokini", brand: "Andrea Iyamah", category: "Swim", cost: 38000, sell: 92000, stock: 4, reorder: 2, image: px(19899451), sku: "AI-SWM-0010" },
+  { id: "p-11", name: "Tomi Tie-Front Bikini", brand: "Andrea Iyamah", category: "Swim", cost: 26000, sell: 62000, stock: 8, reorder: 4, image: px(27861559), sku: "AI-SWM-0011" },
+  { id: "p-12", name: "Zara Sculpt Swimsuit", brand: "Andrea Iyamah", category: "Swim", cost: 42000, sell: 98000, stock: 3, reorder: 2, image: px(19869717), sku: "AI-SWM-0012" },
+  { id: "p-13", name: "Ada Cover-Up Kaftan", brand: "Andrea Iyamah", category: "Swim", cost: 48000, sell: 110000, stock: 5, reorder: 3, image: px(11933741), sku: "AI-SWM-0013" },
 
   // ---- Resort — 13 SKUs ----------------------------------------------------
-  { id: "p-14", name: "Tola Resort Kaftan", brand: "Andrea Iyamah", category: "Resort", cost: 52000, sell: 118000, stock: 5, reorder: 3, image: "", sku: "AI-RST-0014" },
+  { id: "p-14", name: "Tola Resort Kaftan", brand: "Andrea Iyamah", category: "Resort", cost: 52000, sell: 118000, stock: 5, reorder: 3, image: px(33437960), sku: "AI-RST-0014" },
   { id: "p-15", name: "Ngozi Maxi Dress", brand: "Andrea Iyamah", category: "Resort", cost: 64000, sell: 148000, stock: 4, reorder: 2, image: LOCAL_DRESS, sku: "AI-RST-0015" },
-  { id: "p-16", name: "Adaeze Linen Set", brand: "Andrea Iyamah", category: "Resort", cost: 58000, sell: 132000, stock: 6, reorder: 3, image: "", sku: "AI-RST-0016" },
-  { id: "p-17", name: "Bola Wrap Dress", brand: "Andrea Iyamah", category: "Resort", cost: 48000, sell: 112000, stock: 7, reorder: 3, image: "", sku: "AI-RST-0017" },
-  { id: "p-18", name: "Funmi Beach Jumpsuit", brand: "Andrea Iyamah", category: "Resort", cost: 56000, sell: 128000, stock: 4, reorder: 2, image: "", sku: "AI-RST-0018" },
-  { id: "p-19", name: "Sade Pareo Skirt", brand: "Andrea Iyamah", category: "Resort", cost: 38000, sell: 88000, stock: 8, reorder: 4, image: "", sku: "AI-RST-0019" },
-  { id: "p-20", name: "Yemi Off-Shoulder Maxi", brand: "Andrea Iyamah", category: "Resort", cost: 72000, sell: 168000, stock: 3, reorder: 2, image: "", sku: "AI-RST-0020" },
-  { id: "p-21", name: "Ifeoma Cut-Out Dress", brand: "Andrea Iyamah", category: "Resort", cost: 60000, sell: 138000, stock: 5, reorder: 3, image: "", sku: "AI-RST-0021" },
-  { id: "p-22", name: "Onyeka Halter Jumpsuit", brand: "Andrea Iyamah", category: "Resort", cost: 78000, sell: 184000, stock: 3, reorder: 2, image: "", sku: "AI-RST-0022" },
-  { id: "p-23", name: "Chioma Slip Dress", brand: "Andrea Iyamah", category: "Resort", cost: 44000, sell: 102000, stock: 7, reorder: 3, image: "", sku: "AI-RST-0023" },
-  { id: "p-24", name: "Zora Tiered Maxi", brand: "Andrea Iyamah", category: "Resort", cost: 68000, sell: 158000, stock: 4, reorder: 2, image: "", sku: "AI-RST-0024" },
-  { id: "p-25", name: "Lade Linen Co-Ord", brand: "Andrea Iyamah", category: "Resort", cost: 86000, sell: 198000, stock: 2, reorder: 2, image: "", sku: "AI-RST-0025" },
-  { id: "p-26", name: "Niké Sun Dress", brand: "Andrea Iyamah", category: "Resort", cost: 50000, sell: 118000, stock: 0, reorder: 3, image: "", sku: "AI-RST-0026" },
+  { id: "p-16", name: "Adaeze Linen Set", brand: "Andrea Iyamah", category: "Resort", cost: 58000, sell: 132000, stock: 6, reorder: 3, image: px(36058500), sku: "AI-RST-0016" },
+  { id: "p-17", name: "Bola Wrap Dress", brand: "Andrea Iyamah", category: "Resort", cost: 48000, sell: 112000, stock: 7, reorder: 3, image: px(27081782), sku: "AI-RST-0017" },
+  { id: "p-18", name: "Funmi Beach Jumpsuit", brand: "Andrea Iyamah", category: "Resort", cost: 56000, sell: 128000, stock: 4, reorder: 2, image: px(4171763), sku: "AI-RST-0018" },
+  { id: "p-19", name: "Sade Pareo Skirt", brand: "Andrea Iyamah", category: "Resort", cost: 38000, sell: 88000, stock: 8, reorder: 4, image: px(5675268), sku: "AI-RST-0019" },
+  { id: "p-20", name: "Yemi Off-Shoulder Maxi", brand: "Andrea Iyamah", category: "Resort", cost: 72000, sell: 168000, stock: 3, reorder: 2, image: px(8060452), sku: "AI-RST-0020" },
+  { id: "p-21", name: "Ifeoma Cut-Out Dress", brand: "Andrea Iyamah", category: "Resort", cost: 60000, sell: 138000, stock: 5, reorder: 3, image: px(18958578), sku: "AI-RST-0021" },
+  { id: "p-22", name: "Onyeka Halter Jumpsuit", brand: "Andrea Iyamah", category: "Resort", cost: 78000, sell: 184000, stock: 3, reorder: 2, image: px(14452579), sku: "AI-RST-0022" },
+  { id: "p-23", name: "Chioma Slip Dress", brand: "Andrea Iyamah", category: "Resort", cost: 44000, sell: 102000, stock: 7, reorder: 3, image: px(19113330), sku: "AI-RST-0023" },
+  { id: "p-24", name: "Zora Tiered Maxi", brand: "Andrea Iyamah", category: "Resort", cost: 68000, sell: 158000, stock: 4, reorder: 2, image: px(25731827), sku: "AI-RST-0024" },
+  { id: "p-25", name: "Lade Linen Co-Ord", brand: "Andrea Iyamah", category: "Resort", cost: 86000, sell: 198000, stock: 2, reorder: 2, image: px(6191946), sku: "AI-RST-0025" },
+  { id: "p-26", name: "Niké Sun Dress", brand: "Andrea Iyamah", category: "Resort", cost: 50000, sell: 118000, stock: 0, reorder: 3, image: px(18807721), sku: "AI-RST-0026" },
 
   // ---- Ready-to-Wear (Occasion) — 11 SKUs ---------------------------------
-  { id: "p-27", name: "Chinwe Statement Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 92000, sell: 215000, stock: 3, reorder: 2, image: "", sku: "AI-OCC-0027" },
-  { id: "p-28", name: "Yetunde Pleated Top", brand: "Andrea Iyamah", category: "Occasion", cost: 48000, sell: 112000, stock: 6, reorder: 3, image: "", sku: "AI-OCC-0028" },
-  { id: "p-29", name: "Lara Cocktail Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 88000, sell: 198000, stock: 4, reorder: 2, image: "", sku: "AI-OCC-0029" },
-  { id: "p-30", name: "Ireti Asymmetric Skirt", brand: "Andrea Iyamah", category: "Occasion", cost: 56000, sell: 128000, stock: 5, reorder: 3, image: "", sku: "AI-OCC-0030" },
-  { id: "p-31", name: "Eniola Tailored Pant", brand: "Andrea Iyamah", category: "Occasion", cost: 60000, sell: 138000, stock: 6, reorder: 3, image: "", sku: "AI-OCC-0031" },
-  { id: "p-32", name: "Adamma Sculpted Gown", brand: "Andrea Iyamah", category: "Occasion", cost: 118000, sell: 268000, stock: 2, reorder: 2, image: "", sku: "AI-OCC-0032" },
-  { id: "p-33", name: "Damilola Drape Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 78000, sell: 178000, stock: 4, reorder: 3, image: "", sku: "AI-OCC-0033" },
-  { id: "p-34", name: "Olamide One-Shoulder", brand: "Andrea Iyamah", category: "Occasion", cost: 96000, sell: 218000, stock: 3, reorder: 2, image: "", sku: "AI-OCC-0034" },
-  { id: "p-35", name: "Ronke Corset Top", brand: "Andrea Iyamah", category: "Occasion", cost: 52000, sell: 122000, stock: 5, reorder: 3, image: "", sku: "AI-OCC-0035" },
-  { id: "p-36", name: "Folake Mini Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 70000, sell: 158000, stock: 4, reorder: 3, image: "", sku: "AI-OCC-0036" },
-  { id: "p-37", name: "Tobi Cape Gown", brand: "Andrea Iyamah", category: "Occasion", cost: 124000, sell: 282000, stock: 0, reorder: 2, image: "", sku: "AI-OCC-0037" },
+  { id: "p-27", name: "Chinwe Statement Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 92000, sell: 215000, stock: 3, reorder: 2, image: px(14919964), sku: "AI-OCC-0027" },
+  { id: "p-28", name: "Yetunde Pleated Top", brand: "Andrea Iyamah", category: "Occasion", cost: 48000, sell: 112000, stock: 6, reorder: 3, image: px(36414504), sku: "AI-OCC-0028" },
+  { id: "p-29", name: "Lara Cocktail Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 88000, sell: 198000, stock: 4, reorder: 2, image: px(1457977), sku: "AI-OCC-0029" },
+  { id: "p-30", name: "Ireti Asymmetric Skirt", brand: "Andrea Iyamah", category: "Occasion", cost: 56000, sell: 128000, stock: 5, reorder: 3, image: px(33971750), sku: "AI-OCC-0030" },
+  { id: "p-31", name: "Eniola Tailored Pant", brand: "Andrea Iyamah", category: "Occasion", cost: 60000, sell: 138000, stock: 6, reorder: 3, image: px(14108017), sku: "AI-OCC-0031" },
+  { id: "p-32", name: "Adamma Sculpted Gown", brand: "Andrea Iyamah", category: "Occasion", cost: 118000, sell: 268000, stock: 2, reorder: 2, image: px(13109645), sku: "AI-OCC-0032" },
+  { id: "p-33", name: "Damilola Drape Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 78000, sell: 178000, stock: 4, reorder: 3, image: px(31566612), sku: "AI-OCC-0033" },
+  { id: "p-34", name: "Olamide One-Shoulder", brand: "Andrea Iyamah", category: "Occasion", cost: 96000, sell: 218000, stock: 3, reorder: 2, image: px(8134678), sku: "AI-OCC-0034" },
+  { id: "p-35", name: "Ronke Corset Top", brand: "Andrea Iyamah", category: "Occasion", cost: 52000, sell: 122000, stock: 5, reorder: 3, image: px(33613303), sku: "AI-OCC-0035" },
+  { id: "p-36", name: "Folake Mini Dress", brand: "Andrea Iyamah", category: "Occasion", cost: 70000, sell: 158000, stock: 4, reorder: 3, image: px(16612607), sku: "AI-OCC-0036" },
+  { id: "p-37", name: "Tobi Cape Gown", brand: "Andrea Iyamah", category: "Occasion", cost: 124000, sell: 282000, stock: 0, reorder: 2, image: px(35581013), sku: "AI-OCC-0037" },
 
   // ---- Bridal Capsule — 6 SKUs --------------------------------------------
-  { id: "p-38", name: "Ona Bridal Set", brand: "Andrea Iyamah", category: "Bridal", cost: 285000, sell: 640000, stock: 2, reorder: 1, image: "", sku: "AI-BRD-0038" },
-  { id: "p-39", name: "Sade Reception Dress", brand: "Andrea Iyamah", category: "Bridal", cost: 215000, sell: 485000, stock: 2, reorder: 1, image: "", sku: "AI-BRD-0039" },
-  { id: "p-40", name: "Iyore Engagement Look", brand: "Andrea Iyamah", category: "Bridal", cost: 175000, sell: 395000, stock: 3, reorder: 2, image: "", sku: "AI-BRD-0040" },
-  { id: "p-41", name: "Ireti Civil Gown", brand: "Andrea Iyamah", category: "Bridal", cost: 145000, sell: 325000, stock: 3, reorder: 2, image: "", sku: "AI-BRD-0041" },
-  { id: "p-42", name: "Asha Second-Look Slip", brand: "Andrea Iyamah", category: "Bridal", cost: 138000, sell: 310000, stock: 4, reorder: 2, image: "", sku: "AI-BRD-0042" },
-  { id: "p-43", name: "Nneka White-Tier Gown", brand: "Andrea Iyamah", category: "Bridal", cost: 168000, sell: 380000, stock: 1, reorder: 1, image: "", sku: "AI-BRD-0043" },
+  { id: "p-38", name: "Ona Bridal Set", brand: "Andrea Iyamah", category: "Bridal", cost: 285000, sell: 640000, stock: 2, reorder: 1, image: px(13430156), sku: "AI-BRD-0038" },
+  { id: "p-39", name: "Sade Reception Dress", brand: "Andrea Iyamah", category: "Bridal", cost: 215000, sell: 485000, stock: 2, reorder: 1, image: px(29723869), sku: "AI-BRD-0039" },
+  { id: "p-40", name: "Iyore Engagement Look", brand: "Andrea Iyamah", category: "Bridal", cost: 175000, sell: 395000, stock: 3, reorder: 2, image: px(34100947), sku: "AI-BRD-0040" },
+  { id: "p-41", name: "Ireti Civil Gown", brand: "Andrea Iyamah", category: "Bridal", cost: 145000, sell: 325000, stock: 3, reorder: 2, image: px(3014937), sku: "AI-BRD-0041" },
+  { id: "p-42", name: "Asha Second-Look Slip", brand: "Andrea Iyamah", category: "Bridal", cost: 138000, sell: 310000, stock: 4, reorder: 2, image: px(17179008), sku: "AI-BRD-0042" },
+  { id: "p-43", name: "Nneka White-Tier Gown", brand: "Andrea Iyamah", category: "Bridal", cost: 168000, sell: 380000, stock: 1, reorder: 1, image: px(32551059), sku: "AI-BRD-0043" },
 
   // ---- Accessories — 2 SKUs ------------------------------------------------
-  { id: "p-44", name: "Atlantic Silk Scarf", brand: "Andrea Iyamah", category: "Accessories", cost: 18000, sell: 42000, stock: 12, reorder: 5, image: "", sku: "AI-ACC-0044" },
-  { id: "p-45", name: "Reni Beach Kimono", brand: "Andrea Iyamah", category: "Accessories", cost: 38000, sell: 88000, stock: 6, reorder: 3, image: "", sku: "AI-ACC-0045" },
+  { id: "p-44", name: "Atlantic Silk Scarf", brand: "Andrea Iyamah", category: "Accessories", cost: 18000, sell: 42000, stock: 12, reorder: 5, image: px(36455709), sku: "AI-ACC-0044" },
+  { id: "p-45", name: "Reni Beach Kimono", brand: "Andrea Iyamah", category: "Accessories", cost: 38000, sell: 88000, stock: 6, reorder: 3, image: px(6192466), sku: "AI-ACC-0045" },
 ]
 
 const toBackendProduct = (p: typeof PRODUCTS[number]) => ({
