@@ -11,6 +11,7 @@ import {
   BarChart3,
   BookOpen,
   LayoutDashboard,
+  Users,
   type LucideIcon,
 } from "lucide-react"
 import type { TabId } from "@/components/chidi/bottom-navigation"
@@ -45,9 +46,9 @@ export const PRIMARY_TABS: PrimaryTab[] = [
   { id: "inbox", label: "Inbox", icon: MessageSquare, shortcut: "I", countSource: "needsHuman" },
   { id: "orders", label: "Orders", icon: ShoppingBag, shortcut: "O", countSource: "pendingPayment" },
   { id: "inventory", label: "Inventory", icon: Package, shortcut: "V", countSource: "lowStock" },
-  // Customers is no longer a top-level destination. The full surface now lives
-  // inside Insights as the "Customers" drill-in lens; the standalone /customers
-  // route only exists as a redirect for legacy deep-links. Shortcut U is freed.
+  // Customers is no longer a top-level tab. It was tried as a tab on Orders
+  // and as a lens in Insights — both forced. It now lives in the Library
+  // section as a standalone /customers route (next to Playbook + Board).
   { id: "insights", label: "Insights", icon: BarChart3, shortcut: "S" },
   { id: "chidi", label: "Ask Chidi", shortLabel: "Chidi", icon: "chidi-mark", shortcut: "C" },
 ]
@@ -64,7 +65,17 @@ export const LIBRARY_ENTRIES: LibraryEntry[] = [
     href: (slug) => `/dashboard/${slug}/notebook`,
     shortcut: "N",
   },
-  // Easels — kanban view of orders by stage. Sits below Playbook in the
+  // Customers — "everyone you've sold to". Sits between Playbook and Board in
+  // the Library section. Used to be a top-level tab; both the Orders-tab and
+  // Insights-lens placements felt forced, so it lives here as its own surface.
+  {
+    id: "customers",
+    label: "Customers",
+    icon: Users,
+    href: (slug) => `/dashboard/${slug}/customers`,
+    shortcut: "U",
+  },
+  // Easels — kanban view of orders by stage. Sits below Customers in the
   // Library section. The route is its own page (mirrors Notebook chrome) so
   // the merchant can deep-link / pop it open without losing in-tab state.
   {

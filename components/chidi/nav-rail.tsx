@@ -73,6 +73,11 @@ export function NavRail({
 
   const isOnNotebook = pathname?.includes("/notebook")
   const isOnSettings = pathname?.includes("/settings")
+  // Customers + Board live as Library routes. While we're on either, the
+  // primary tabs (Inbox/Orders/etc) shouldn't show their active state — same
+  // gate the notebook + settings routes use.
+  const isOnCustomers = pathname?.includes("/customers")
+  const isOnBoard = pathname?.includes("/board")
 
   // Collapsed state, persisted across sessions
   const [collapsed, setCollapsed] = useState(false)
@@ -201,7 +206,11 @@ export function NavRail({
         <ul className="space-y-0.5">
           {PRIMARY_TABS.map((tab) => {
             const isActive =
-              activeTab === tab.id && !isOnNotebook && !isOnSettings
+              activeTab === tab.id &&
+              !isOnNotebook &&
+              !isOnSettings &&
+              !isOnCustomers &&
+              !isOnBoard
             const isChidi = tab.icon === "chidi-mark"
             const Icon = isChidi ? null : (tab.icon as LucideIcon)
             const count = tabCounts[tab.id] ?? 0
@@ -213,7 +222,10 @@ export function NavRail({
                 <button
                   onClick={() => {
                     if (disabled) return
-                    if ((isOnNotebook || isOnSettings) && slug) {
+                    if (
+                      (isOnNotebook || isOnSettings || isOnCustomers || isOnBoard) &&
+                      slug
+                    ) {
                       router.push(`/dashboard/${slug}?tab=${tab.id}`)
                       return
                     }
