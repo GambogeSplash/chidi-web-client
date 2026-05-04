@@ -32,6 +32,8 @@ import { ShortcutsOverlay } from '@/components/chidi/shortcuts-overlay'
 import { CallChidi } from '@/components/chidi/call-chidi'
 import { LittleChidiProvider } from '@/components/chidi/little-chidi-provider'
 import { ApprovalGuardrailProvider } from '@/components/chidi/approval-guardrail'
+import { OfflineBanner } from '@/components/chidi/offline-banner'
+import { OfflineQueueToast } from '@/components/chidi/offline-queue-toast'
 import { useDashboardAuth } from '@/lib/providers/dashboard-auth-context'
 
 interface DashboardContentProps {
@@ -323,6 +325,11 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
         railCollapsed ? "lg:pl-[64px]" : "lg:pl-[224px]",
       )}
     >
+      {/* Connectivity banner — must sit above all other chrome so the merchant
+          sees it before they tap a doomed Send. Renders nothing while online.
+          Pairs with OfflineQueueToast at the corner. */}
+      <OfflineBanner />
+
       {/* Desktop nav rail (≥lg) */}
       <NavRail
         activeTab={activeTab}
@@ -447,6 +454,11 @@ export default function DashboardContent({ businessSlug }: DashboardContentProps
           OK before they fire. Pattern lifted from Stripe Sessions 2026 Agent
           Toolkit Guardrails. Listens via the requestApproval() event bus. */}
       <ApprovalGuardrailProvider />
+
+      {/* Offline queue chip — bottom-right floating pill that surfaces
+          actions waiting to send. Hidden when the queue is empty. The
+          OfflineBanner's "Show queue" link expands this. */}
+      <OfflineQueueToast />
 
       {/* ChidiWelcome removed — the "FOR YOU, DEMO / Hi, Demo. I'm Chidi…"
           coachmark walkthrough was loud and patronizing on every cold load.

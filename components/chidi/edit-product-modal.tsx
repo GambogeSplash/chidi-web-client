@@ -11,6 +11,12 @@ import { X, Edit3, Loader2, ImageIcon, Trash2, Plus, Layers } from "lucide-react
 import { productsAPI } from "@/lib/api"
 import { categoriesAPI, type ProductCategory, type CreateCategoryRequest } from "@/lib/api/categories"
 import type { DisplayProduct } from "@/lib/types/product"
+import {
+  getThreshold as getReorderOverride,
+  setThreshold as setReorderOverride,
+  clear as clearReorderOverride,
+  hasOverride as hasReorderOverride,
+} from "@/lib/chidi/reorder-thresholds"
 
 interface EditProductModalProps {
   isOpen: boolean
@@ -66,12 +72,16 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError, on
         c => c.name.toLowerCase() === product.category?.toLowerCase()
       )
       
+      // Per-product reorder threshold override takes precedence over the
+      // backend's stored low_stock_threshold so the merchant sees the value
+      // they last set locally (instant feedback, no round-trip).
+      const overrideValue = getReorderOverride(product.id, product.reorderLevel)
       setFormData({
         name: product.name || "",
         sellingPrice: product.sellingPrice?.toString() || "",
         costPrice: product.costPrice?.toString() || "",
         stock: product.stock?.toString() || "",
-        lowStockThreshold: product.reorderLevel?.toString() || "",
+        lowStockThreshold: overrideValue?.toString() || "",
         category: product.category || "",
         categoryId: matchingCategory?.id || "",
         description: product.description || "",
@@ -210,7 +220,17 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError, on
       if (formData.brand) updateData.brand = formData.brand
       if (formData.lowStockThreshold) {
         const threshold = parseInt(formData.lowStockThreshold)
-        if (!isNaN(threshold) && threshold > 0) updateData.low_stock_threshold = threshold
+        if (!isNaN(threshold) && threshold >= 0) {
+          updateData.low_stock_threshold = threshold
+          // Mirror to the local per-product override so the inventory grid
+          // repaints low/out classification immediately, without waiting on
+          // the backend round-trip to refetch.
+          setReorderOverride(product.id, threshold)
+        }
+      } else {
+        // Cleared input → drop any local override and let the global default
+        // take effect again.
+        clearReorderOverride(product.id)
       }
       if (imagePreview) updateData.image_urls = [imagePreview]
 
@@ -342,19 +362,38 @@ export function EditProductModal({ isOpen, onClose, product, onSave, onError, on
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lowStockThreshold" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
-                  Low Stock Alert
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="lowStockThreshold" className="text-sm font-medium text-[var(--chidi-text-secondary)]">
+                    Reorder threshold
+                  </Label>
+                  {/* Reset link — only renders when this product has a local
+                      override on top of the global business preference. Click
+                      drops the override and reverts to the global default. */}
+                  {hasReorderOverride(product.id) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearReorderOverride(product.id)
+                        setFormData((prev) => ({ ...prev, lowStockThreshold: "" }))
+                      }}
+                      className="text-[11px] text-[var(--chidi-text-muted)] hover:text-[var(--chidi-text-primary)] underline underline-offset-2"
+                    >
+                      Reset to default
+                    </button>
+                  )}
+                </div>
                 <Input
                   id="lowStockThreshold"
                   type="number"
                   placeholder="Default: 10"
-                  min="1"
+                  min="0"
                   value={formData.lowStockThreshold}
                   onChange={(e) => handleInputChange("lowStockThreshold", e.target.value)}
                   className="bg-white border-[var(--chidi-border-subtle)] text-[var(--chidi-text-primary)] placeholder:text-[var(--chidi-text-muted)] focus:ring-2 focus:ring-[var(--chidi-accent)]/20 focus:border-[var(--chidi-accent)]"
                 />
-                <p className="text-xs text-[var(--chidi-text-muted)]">Alert when stock falls to this level</p>
+                <p className="text-xs text-[var(--chidi-text-muted)]">
+                  Alert when this product's stock falls to this level. Overrides the global default.
+                </p>
               </div>
             </div>
 

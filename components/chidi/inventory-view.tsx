@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, ChevronRight, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal, Check, Pin, PinOff } from "lucide-react"
+import { Search, Filter, Plus, MoreVertical, Package, AlertTriangle, CheckCircle, Layers, Upload, ChevronDown, ChevronRight, LayoutGrid, List, TrendingUp, Trash2, Tag, Archive, X, ArrowUpDown, ArrowUp, ArrowDown, GripVertical, SlidersHorizontal, Check, Pin, PinOff, History } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +30,15 @@ import {
   subscribe as subscribePinnedProducts,
   MAX_PINNED_PRODUCTS,
 } from "@/lib/chidi/inventory-pinned"
+import {
+  getThreshold as getReorderThreshold,
+  subscribe as subscribeReorderThresholds,
+} from "@/lib/chidi/reorder-thresholds"
+import {
+  recordMovement as recordStockMovement,
+  seedDemoMovementsIfNeeded,
+} from "@/lib/chidi/stock-movements"
+import { StockMovementsPanel } from "./stock-movements-panel"
 
 // Filter/sort labels — single source of truth so dropdown + sheet + active
 // chip all read from the same string.
@@ -139,6 +148,51 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     setPinnedIds(getPinnedProducts())
     return subscribePinnedProducts((ids) => setPinnedIds(ids))
   }, [])
+
+  // Per-product reorder threshold overrides. Subscribe so a change made via
+  // the edit modal repaints the low/out classification across the grid
+  // immediately. The version number is just a re-render trigger; the actual
+  // values are read on-demand via getReorderThreshold().
+  const [thresholdsVersion, setThresholdsVersion] = useState(0)
+  useEffect(() => {
+    return subscribeReorderThresholds(() => setThresholdsVersion((v) => v + 1))
+  }, [])
+  const effectiveReorderLevel = (p: DisplayProduct) =>
+    getReorderThreshold(p.id, p.reorderLevel)
+  // thresholdsVersion is read implicitly — the closure above re-evaluates on
+  // every render, and the subscriber above bumps the version when storage changes.
+  void thresholdsVersion
+
+  // Stock movements — seed demo entries on first ever load so the panel
+  // doesn't open empty in a fresh demo. Idempotent inside the helper.
+  useEffect(() => {
+    if (products.length === 0) return
+    seedDemoMovementsIfNeeded(products.map((p) => p.id))
+  }, [products])
+
+  // Stock movements panel state — single sheet shared across rows/cards.
+  const [movementsPanelProductId, setMovementsPanelProductId] = useState<string | null>(null)
+  const [movementsPanelOpen, setMovementsPanelOpen] = useState(false)
+  const openMovementsPanel = (productId: string) => {
+    setMovementsPanelProductId(productId)
+    setMovementsPanelOpen(true)
+  }
+  const movementsPanelProduct = movementsPanelProductId
+    ? products.find((p) => p.id === movementsPanelProductId) ?? null
+    : null
+
+  // Listen for the product detail modal's "View stock movements" button.
+  // It dispatches a CustomEvent rather than threading a new prop through
+  // DashboardContent, so this surface owns the panel state.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const onOpen = (e: Event) => {
+      const detail = (e as CustomEvent<{ productId?: string }>).detail
+      if (detail?.productId) openMovementsPanel(detail.productId)
+    }
+    window.addEventListener("chidi:open-stock-movements", onOpen as EventListener)
+    return () => window.removeEventListener("chidi:open-stock-movements", onOpen as EventListener)
+  }, [])
   const handleTogglePin = (id: string) => {
     toggleProductPin(id)
     hapticSoft()
@@ -227,7 +281,14 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
     if (!Number.isFinite(value)) return
     try {
       if (field === "stock_quantity") {
+        // Capture the delta BEFORE we mutate so the ledger entry reflects
+        // the merchant's actual change, not the post-update state.
+        const previous = products.find((p) => p.id === productId)?.stock ?? 0
+        const delta = value - previous
         await productsAPI.updateStock(productId, value, "set")
+        if (delta !== 0) {
+          recordStockMovement(productId, "adjustment", delta, "Edited from inventory list")
+        }
       } else {
         await productsAPI.updateProduct(productId, { selling_price: value })
       }
@@ -241,7 +302,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
 
   // Inventory totals — surfaced as header chips for the merchant's "what do I own?"
   const totalValue = products.reduce((sum, p) => sum + (p.costPrice || 0) * p.stock, 0)
-  const lowStockCount = products.filter((p) => p.stock > 0 && p.stock <= p.reorderLevel).length
+  const lowStockCount = products.filter((p) => p.stock > 0 && p.stock <= effectiveReorderLevel(p)).length
   const outOfStockCount = products.filter((p) => p.stock === 0).length
 
   // Variations sheet state
@@ -279,7 +340,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
       const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
       const matchesStock =
         stockFilter === "all" ||
-        (stockFilter === "low" && product.stock > 0 && product.stock <= product.reorderLevel) ||
+        (stockFilter === "low" && product.stock > 0 && product.stock <= effectiveReorderLevel(product)) ||
         (stockFilter === "out" && product.stock === 0)
       return matchesSearch && matchesCategory && matchesStock
     })
@@ -386,7 +447,10 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
   // The `pinned` flag swaps the corner glyph (filled vs outline) and turns
   // the more-actions menu's "Pin to top" into "Unpin".
   const renderProduct = (product: DisplayProduct, pinned: boolean) => {
-    const stockStatus = getStockStatus(product.stock, product.reorderLevel)
+    // Override-aware reorder threshold — read once per render so the four
+    // visual states below (pill, ring, dot, badge) all agree.
+    const reorderLevel = effectiveReorderLevel(product)
+    const stockStatus = getStockStatus(product.stock, reorderLevel)
     const isSelected = selectedIds.has(product.id)
 
     if (viewMode === "list") {
@@ -464,7 +528,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               )}
               <p className="text-sm font-medium text-[var(--chidi-text-primary)] truncate">{product.name}</p>
               {/* Stock-status pill — clickable; filters list to that status */}
-              {product.stock <= product.reorderLevel && (
+              {product.stock <= reorderLevel && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -582,6 +646,10 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                 <Layers className="w-4 h-4 mr-2" />
                 Manage variations
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openMovementsPanel(product.id) }}>
+                <History className="w-4 h-4 mr-2" />
+                View movements
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -601,7 +669,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
               ? "border-[var(--chidi-text-muted)]/40"
               : product.stock === 0
                 ? "border-[var(--chidi-warning)]/40 ring-1 ring-[var(--chidi-warning)]/20"
-                : product.stock <= product.reorderLevel
+                : product.stock <= reorderLevel
                   ? "border-[var(--chidi-warning)]/25"
                   : "border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)]",
         )}
@@ -629,7 +697,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           onClick={() => onViewProduct(product)}
         >
           {/* Stock status pill — clickable; filters to that status */}
-          {product.stock <= product.reorderLevel && (
+          {product.stock <= reorderLevel && (
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -732,6 +800,16 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                   <Layers className="w-4 h-4 mr-2" />
                   Manage variations
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openMovementsPanel(product.id)
+                  }}
+                  className="text-[var(--chidi-text-primary)]"
+                >
+                  <History className="w-4 h-4 mr-2" />
+                  View movements
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -780,7 +858,7 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
                   "w-1.5 h-1.5 rounded-full",
                   product.stock === 0
                     ? "bg-[var(--chidi-warning)]"
-                    : product.stock <= product.reorderLevel
+                    : product.stock <= reorderLevel
                       ? "bg-[var(--chidi-warning)]"
                       : "bg-[var(--chidi-success)]",
                 )}
@@ -1222,6 +1300,23 @@ export function InventoryView({ products, onAddProduct, onEditProduct, onViewPro
           onUpdate={handleVariationsUpdated}
         />
       )}
+
+      {/* Stock movements ledger — side sheet shared by every row/card. The
+          panel itself stays mounted (with `open` toggled) so transitions
+          play, and reads movements through its own subscription. */}
+      <StockMovementsPanel
+        productId={movementsPanelProductId}
+        productName={movementsPanelProduct?.name}
+        open={movementsPanelOpen}
+        onOpenChange={(o) => {
+          setMovementsPanelOpen(o)
+          if (!o) {
+            // Defer clearing the productId until after the close animation so
+            // the title doesn't flicker mid-transition.
+            window.setTimeout(() => setMovementsPanelProductId(null), 250)
+          }
+        }}
+      />
 
       {/* Mobile Filter Sheet — bottom sheet, full list of stock states */}
       <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>

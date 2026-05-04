@@ -1438,3 +1438,34 @@ select:focus-visible {
   from { opacity: 0; transform: translateY(-4px); max-height: 0; }
   to   { opacity: 1; transform: translateY(0);    max-height: 80px; }
 }
+
+/* === Offline / connectivity surfaces ======================================
+   Added 2026-05-03 with the offline queue feature.
+   - chidiOfflineBannerIn — top sticky banner slides down + fades in. Used
+     by both the warning ("offline") and success ("reconnected") states so
+     the swap reads as one continuous strip rather than a pop.
+   - chidiOfflineToastIn — bottom-right queue chip slides up + fades in.
+   Both honor prefers-reduced-motion (the component skips the class entirely
+   when the user prefers reduced motion, but the @media gate is here too as
+   a defense-in-depth in case someone hard-codes the class.)
+   ========================================================================= */
+@keyframes chidiOfflineBannerIn {
+  from { opacity: 0; transform: translateY(-100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chidi-offline-banner-in {
+  animation: chidiOfflineBannerIn 200ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes chidiOfflineToastIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.chidi-offline-toast-in {
+  animation: chidiOfflineToastIn 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chidi-offline-banner-in,
+  .chidi-offline-toast-in { animation: none; }
+}

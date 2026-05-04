@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import Script from "next/script"
 import { Inter, Instrument_Serif } from "next/font/google"
 import "./globals.css"
 import { QueryProvider } from "@/lib/providers/query-provider"
@@ -151,6 +152,14 @@ export default function RootLayout({
           }}
         />
         <Analytics />
+        {/* Service worker — caches the dashboard shell for poor-connectivity
+            Lagos 3G. Registered after interactive so the first paint isn't
+            blocked. Failure is silent: if the SW can't register (e.g. in dev
+            via http on a non-localhost origin) we still serve the app, just
+            without the offline cache. See public/sw.js for the strategy. */}
+        <Script id="register-sw" strategy="afterInteractive">
+          {`if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js').catch(()=>{}) }`}
+        </Script>
       </body>
     </html>
   )

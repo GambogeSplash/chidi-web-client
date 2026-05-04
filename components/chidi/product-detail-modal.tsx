@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Package, Edit3, AlertTriangle, X, Trash2, Loader2, Sparkles, TrendingUp, Calendar, Percent, ShoppingCart, MessageCircle, ArrowUpToLine, Plus } from "lucide-react"
+import { Package, Edit3, AlertTriangle, X, Trash2, Loader2, Sparkles, TrendingUp, Calendar, Percent, ShoppingCart, MessageCircle, ArrowUpToLine, Plus, History } from "lucide-react"
 import { productsAPI } from "@/lib/api"
 import type { DisplayProduct } from "@/lib/types/product"
 import { formatCurrency } from "@/lib/utils/currency"
@@ -212,6 +212,26 @@ export function ProductDetailModal({ isOpen, onClose, product, onEditProduct, on
                       Ask Chidi about this product
                     </button>
                   )}
+
+                  {/* View stock movements ledger. Dispatches a CustomEvent
+                      that the inventory surface listens for so we don't have
+                      to plumb a new prop through DashboardContent. */}
+                  <button
+                    onClick={() => {
+                      if (typeof window !== "undefined") {
+                        window.dispatchEvent(
+                          new CustomEvent("chidi:open-stock-movements", {
+                            detail: { productId: product.id },
+                          }),
+                        )
+                      }
+                      onClose()
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-[var(--chidi-border-subtle)] hover:border-[var(--chidi-border-default)] hover:bg-[var(--chidi-surface)]/60 text-[var(--chidi-text-secondary)] hover:text-[var(--chidi-text-primary)] text-[12px] font-chidi-voice transition-colors"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    View stock movements
+                  </button>
                 </div>
               )
             })()}
