@@ -134,11 +134,11 @@ export function ensureSeeded(currentBusiness: { name: string; slug: string }): S
   const seeded: Space[] = [
     primary,
     {
-      id: "space-tola",
-      name: "Tola Fashion",
-      slug: "tola-fashion",
+      id: "space-andrea-iyamah",
+      name: "Andrea Iyamah",
+      slug: "andrea-iyamah",
       color: SPACE_ACCENTS[3].value, // royal
-      avatarSeed: "Tola Fashion",
+      avatarSeed: "Andrea Iyamah",
       pinnedAt: new Date(1).toISOString(),
     },
     {

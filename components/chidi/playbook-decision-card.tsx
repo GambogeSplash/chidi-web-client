@@ -346,7 +346,7 @@ export function PlaybookDecisionCard({
                     <MetricCell key={i} metric={m} />
                   ))}
                 </div>
-                <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug border-l-2 border-[var(--chidi-win)] pl-3 italic">
+                <p className="text-[12px] text-[var(--chidi-text-secondary)] leading-snug pl-3 italic">
                   <Sparkles className="w-3 h-3 inline mr-1 opacity-70" />
                   {decision.recommendation}
                 </p>

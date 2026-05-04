@@ -271,7 +271,7 @@ function ToneSlider({ tone, onChange }: ToneSliderProps) {
       </div>
 
       {/* Live preview — updates as the slider moves */}
-      <div className="mt-5 bg-[var(--chidi-surface)] rounded-lg p-3.5 border-l-2 border-[var(--chidi-win)]">
+      <div className="mt-5 bg-[var(--chidi-surface)] rounded-lg p-3.5">
         <div className="flex items-center gap-1.5 mb-1.5">
           <ArcFace size={14} className="text-[var(--chidi-win)]" />
           <p className="text-[10px] text-[var(--chidi-text-muted)] font-chidi-voice uppercase tracking-wider">
