@@ -41,8 +41,14 @@ const isoMinusDays = (d: number) => new Date(NOW - d * ONE_DAY).toISOString()
 // category). next.config has images.unoptimized:true so external URLs work
 // with <Image> without a remote-pattern allowlist.
 const LOCAL_DRESS = "/blue-ankara-dress.png"
-const px = (id: number | string) =>
-  `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=800`
+// Pexels helper — earlier image-population agent wired ~45 SKUs to Pexels
+// IDs by guessing search results. At least one returned an unrelated photo
+// (a cat in payment-pending orders), and we couldn't verify each ID by hand.
+// Until each SKU is matched to a real Andrea Iyamah press photo, fall back to
+// the existing tinted-letter placeholder by returning undefined. The PRODUCTS
+// entries still pass `image: px(...)` for forward-compat; px just shorts the
+// URL out for now so no SKU surfaces a wrong photo.
+const px = (_id: number | string): string | undefined => undefined
 
 const PRODUCTS = [
   // ---- Swim — 13 SKUs ------------------------------------------------------
